@@ -1,4 +1,9 @@
-import { describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
+import orchestrator from '../../../../orchestrator.js';
+
+beforeAll(async () => {
+	await orchestrator.waitForAllServices();
+});
 
 describe.concurrent('Manga', () => {
 	describe('Leitordemanga', () => {
@@ -18,8 +23,7 @@ describe.concurrent('Manga', () => {
 			);
 			expect(response.status).toEqual(200);
 			const body = await response.json();
-			expect(body).toHaveLength(49);
-			console.log(body);
+			expect(body).toHaveLength(50);
 		});
 	});
 	describe('seitacelestial', () => {
@@ -30,7 +34,6 @@ describe.concurrent('Manga', () => {
 			expect(response.status).toEqual(200);
 			const body = await response.json();
 			expect(body).toHaveLength(81);
-			console.log(body);
 		});
 	});
 });

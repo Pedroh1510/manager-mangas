@@ -1,4 +1,9 @@
-import { describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
+import orchestrator from '../../../../orchestrator.js';
+
+beforeAll(async () => {
+	await orchestrator.waitForAllServices();
+});
 
 describe.concurrent('Pages', () => {
 	describe('Leitordemanga', () => {
