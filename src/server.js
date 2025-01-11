@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import MangasService from './model/mangas.js';
 import StatusService from './model/status.js';
 import MigrationsService from './model/migrations.js';
-import { error } from 'console';
+import jobs from './jobs.js';
 
 const server = express();
 server.use(express.json({}));
@@ -90,6 +90,8 @@ server.post('/migrations', async (_, res) => {
 	res.status(201).json(migrations);
 });
 
+server.use('/queues', jobs.router);
+
 server.use((error, _req, res, _next) => {
 	if (error.statusCode) {
 		return res.status(error.statusCode).send(error);
@@ -98,6 +100,7 @@ server.use((error, _req, res, _next) => {
 	return res.status(500).send('Something broke!');
 });
 
-server.listen(3001, () => {
+server.listen(3001, async () => {
 	console.log('Server running on port 3001');
+	await jobs.init();
 });

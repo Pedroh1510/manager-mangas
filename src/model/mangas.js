@@ -5,6 +5,7 @@ import { mkdir, rm } from 'node:fs/promises';
 import { downloadImage } from '../utils/download.js';
 import { BadRequestError, ValidationError } from '../infra/errors.js';
 import database from '../infra/database.js';
+import jobs from '../jobs.js';
 
 const plugins = {};
 async function initMangas() {
@@ -325,6 +326,7 @@ async function updateMangas() {
 		if (!chapters.length) continue;
 		counterMangasUpdated++;
 	}
+	await jobs.queues.downloadBatchQueue();
 	return {
 		totalUpdated: counterMangasUpdated
 	};
