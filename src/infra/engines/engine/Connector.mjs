@@ -1,5 +1,5 @@
 import Manga from './Manga.mjs';
-
+import { JSDOM } from 'jsdom';
 /**
  * Base class for connector plugins
  */
@@ -484,6 +484,65 @@ export default class Connector {
 			return Promise.resolve(
 				!selector ? dom : [...dom.querySelectorAll(selector)]
 			);
+		}
+		throw new Error(
+			`Failed to receive content from "${request.url}" (type: ${content}, status: ${response.status}) - ${response.statusText}`
+		);
+	}
+
+	async fetchDOM2(request, selector, retries, encoding) {
+		retries = retries || 0;
+		if (typeof request === 'string') {
+			request = new Request(request, this.requestOptions);
+		}
+		// TODO: check if this will affect (replace) the input parameter?
+		if (request instanceof URL) {
+			request = new Request(request.href, this.requestOptions);
+		}
+		const response = await fetch(request.clone());
+		if (response.status >= 500 && retries > 0) {
+			await this.wait(2500);
+			return this.fetchDOM2(request, selector, retries - 1);
+		}
+		const content = response.headers.get('content-type');
+		if (response.status === 200 || content.includes('text/html')) {
+			const data = await response.arrayBuffer();
+			const dom = this.createDOM(
+				new TextDecoder(encoding || 'utf8').decode(data)
+			);
+			const p = await JSDOM.fromURL(request.url, {
+				pretendToBeVisual: true,
+				// runScripts: 'outside-only',
+				runScripts: 'dangerously',
+				resources: 'usable'
+			});
+
+			await new Promise((resolve, reject) => {
+				p.window.document.addEventListener('DOMContentLoaded', () => {
+					resolve();
+				});
+			});
+			const aaaaa = await Promise.resolve([
+				...p.window.document.querySelectorAll('html')
+			]);
+
+			const qqq1 = await Promise.resolve([
+				...p.window.document.querySelectorAll(selector)
+			]);
+			// const d = new JSDOM(new TextDecoder(encoding || 'utf8').decode(data), {
+			// 	url: request.url
+			// });
+			// const qqq = await Promise.resolve([
+			// 	...d.window.document.querySelectorAll(selector)
+			// ]);
+			// const t = qqq.outerHTML;
+			// // await setTimeout(10000);
+			// const a = dom.outerHTML;
+			// const padroa = await Promise.resolve(
+			// 	!selector ? dom : [...dom.querySelectorAll(selector)]
+			// );
+			p.window.close();
+			return qqq1;
 		}
 		throw new Error(
 			`Failed to receive content from "${request.url}" (type: ${content}, status: ${response.status}) - ${response.statusText}`

@@ -24,7 +24,7 @@ describe.concurrent('Manga', () => {
 			expect(body).toHaveLength(13620);
 		});
 	});
-	// describe('sussyscan', () => {
+	// describe.only('sussyscan', () => {
 	// 	test('', async () => {
 	// 		const response = await fetch('http://localhost:3001/mangas/sussyscan/');
 	// 		expect(response.status).toEqual(200);
@@ -32,21 +32,21 @@ describe.concurrent('Manga', () => {
 	// 		expect(body).toHaveLength(13620);
 	// 	});
 	// });
-	// describe('seitacelestial', () => {
-	// 	test('', async () => {
-	// 		const response = await fetch(
-	// 			'http://localhost:3001/mangas/seitacelestial/'
-	// 		);
-	// 		expect(response.status).toEqual(200);
-	// 		const body = await response.json();
-	// 		expect(body).toHaveLength(108);
-	// 		console.log(
-	// 			body.find(
-	// 				(item) => item.title === 'Sobrevivendo no Jogo Como um Bárbaro'
-	// 			)
-	// 		);
-	// 	});
-	// });
+	describe('seitacelestial', () => {
+		test('', async () => {
+			const response = await fetch(
+				'http://localhost:3001/mangas/seitacelestial/'
+			);
+			expect(response.status).toEqual(200);
+			const body = await response.json();
+			expect(body).toHaveLength(108);
+			console.log(
+				body.find(
+					(item) => item.title === 'Sobrevivendo no Jogo Como um Bárbaro'
+				)
+			);
+		});
+	});
 	// describe.only('imperiodabritannia', () => {
 	// 	test('', async () => {
 	// 		const response = await fetch(

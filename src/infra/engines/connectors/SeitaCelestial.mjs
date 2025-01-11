@@ -58,14 +58,12 @@ export default class SeitaCelestial extends Connector {
 		);
 
 		return data.map((element) => {
+			const q = element
+				.querySelector('span')
+				?.textContent?.replace(/[\n|\t]/gm, '');
 			return {
 				id: this.getRootRelativeOrAbsoluteLink(element, this.url),
-				title:
-					'Chapter ' +
-					element.pathname
-						.split('/')
-						.filter((element) => element !== '')
-						.pop(),
+				title: 'Chapter ' + q,
 				language: 'pt'
 			};
 		});
@@ -76,7 +74,12 @@ export default class SeitaCelestial extends Connector {
 			new URL(chapter.id, this.url),
 			this.requestOptions
 		);
-		let data = await this.fetchDOM(request, '#readerarea > img');
+		let data = await this.fetchDOM2(request, '#readerarea > img');
+		// let data = await this.fetchDOM2(request, 'img');
+		if (!data.length) {
+			// data = await this.fetchDOM2(request, 'source');
+			data = await this.fetchDOM2(request, '#readerarea > source');
+		}
 		return data.map((element) => this.getAbsolutePath(element, request.url));
 	}
 

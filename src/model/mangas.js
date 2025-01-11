@@ -105,7 +105,9 @@ async function downloadMangas({ manga, chapter, pages }) {
 		}
 		counter++;
 	}
-	await Promise.allSettled(promises);
+	await Promise.allSettled(promises).catch((error) => {
+		throw error;
+	});
 }
 
 async function listMangas({ pluginId }) {
@@ -243,8 +245,11 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 	return chapters
 		.map((chapter) => {
 			const a = chapter.title;
-			const q = a.match('([0-9]*[.])?[0-9]+');
+			const q = a.match(/([0-9]*[.])?[0-9]+/);
 			chapter.volume = q.length ? parseInt(q[0]) : null;
+			if (chapter.volume === null || isNaN(chapter.volume)) {
+				console.log(1);
+			}
 			return chapter;
 		})
 		.filter(
@@ -329,7 +334,8 @@ async function downloadMangasBatch() {
 	const chaptersMissingDownload = await database
 		.query(
 			`SELECT "idChapter","pluginId","idChapterPlugin", "volume","mangas"."title" FROM "chapters"
-JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" = false;`
+JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" = false
+	ORDER BY "volume"`
 		)
 		.then(({ rows }) => rows);
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };

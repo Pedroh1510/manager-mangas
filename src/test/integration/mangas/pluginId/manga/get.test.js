@@ -16,7 +16,7 @@ describe.concurrent('Manga', () => {
 			expect(body).toHaveLength(378);
 		});
 	});
-	describe.only('HiperCool', () => {
+	describe('HiperCool', () => {
 		test('', async () => {
 			const response = await fetch(
 				'http://localhost:3001/mangas/HiperCool/manga?mangaId=/manga/regressed-warriors-female-dominance-diary/'
