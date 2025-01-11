@@ -27,7 +27,7 @@ const worker = new Worker(
 	async (job) => {
 		console.log('worker1');
 
-		await fetch('http://localhost:3001/mangas/adm/update-mangas');
+		await fetch(`${CONFIG_ENV.URL}/mangas/adm/update-mangas`);
 		console.log('worker1 fim');
 	},
 	{
@@ -40,13 +40,11 @@ const worker2 = new Worker(
 	async (job) => {
 		console.log('worker2');
 
-		const response = await fetch(
-			'http://localhost:3001/mangas/adm/download-batch'
-		);
+		const response = await fetch(`${CONFIG_ENV.URL}/mangas/adm/download-batch`);
 		const body = await response.json();
 		if (body.totalDownloaded) {
 			console.log('worker2 enviando');
-			await downloadBatchQueue.add('download', {});
+			await downloadBatchQueue.add('download', {}, { attempts: 100 });
 		}
 		console.log('worker2 fim');
 		return;
@@ -85,7 +83,7 @@ const jobs = {
 			await updateMangasQueue.add('teste', {});
 		},
 		downloadBatchQueue: async () => {
-			await downloadBatchQueue.add('teste', {});
+			await downloadBatchQueue.add('teste', {}, { attempts: 100 });
 		}
 	},
 	init,

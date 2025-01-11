@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import orchestrator from '../../../orchestrator.js';
+import CONFIG_ENV from '../../../../infra/env.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
@@ -8,9 +9,7 @@ beforeAll(async () => {
 describe.concurrent('Manga', () => {
 	describe('Leitordemanga', () => {
 		test('', async () => {
-			const response = await fetch(
-				'http://localhost:3001/mangas/Leitordemanga/'
-			);
+			const response = await fetch(`${CONFIG_ENV.URL}/mangas/Leitordemanga/`);
 			expect(response.status).toEqual(200);
 			const body = await response.json();
 			expect(body).toHaveLength(27);
@@ -18,48 +17,18 @@ describe.concurrent('Manga', () => {
 	});
 	describe('HiperCool', () => {
 		test('', async () => {
-			const response = await fetch('http://localhost:3001/mangas/HiperCool/');
+			const response = await fetch(`${CONFIG_ENV.URL}/mangas/HiperCool/`);
 			expect(response.status).toEqual(200);
 			const body = await response.json();
 			expect(body).toHaveLength(13620);
 		});
 	});
-	// describe.only('sussyscan', () => {
-	// 	test('', async () => {
-	// 		const response = await fetch('http://localhost:3001/mangas/sussyscan/');
-	// 		expect(response.status).toEqual(200);
-	// 		const body = await response.json();
-	// 		expect(body).toHaveLength(13620);
-	// 	});
-	// });
 	describe('seitacelestial', () => {
 		test('', async () => {
-			const response = await fetch(
-				'http://localhost:3001/mangas/seitacelestial/'
-			);
+			const response = await fetch(`${CONFIG_ENV.URL}/mangas/seitacelestial/`);
 			expect(response.status).toEqual(200);
 			const body = await response.json();
 			expect(body).toHaveLength(108);
-			console.log(
-				body.find(
-					(item) => item.title === 'Sobrevivendo no Jogo Como um Bárbaro'
-				)
-			);
 		});
 	});
-	// describe.only('imperiodabritannia', () => {
-	// 	test('', async () => {
-	// 		const response = await fetch(
-	// 			'http://localhost:3001/mangas/imperiodabritannia/'
-	// 		);
-	// 		expect(response.status).toEqual(200);
-	// 		const body = await response.json();
-	// 		expect(body).toHaveLength(108);
-	// 		console.log(
-	// 			body.find(
-	// 				(item) => item.title === 'Sobrevivendo no Jogo Como um Bárbaro'
-	// 			)
-	// 		);
-	// 	});
-	// });
 });

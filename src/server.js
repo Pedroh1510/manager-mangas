@@ -6,6 +6,7 @@ import MangasService from './model/mangas.js';
 import StatusService from './model/status.js';
 import MigrationsService from './model/migrations.js';
 import jobs from './jobs.js';
+import CONFIG_ENV from './infra/env.js';
 
 const server = express();
 server.use(express.json({}));
@@ -100,7 +101,7 @@ server.use((error, _req, res, _next) => {
 	return res.status(500).send('Something broke!');
 });
 
-server.listen(3001, async () => {
-	console.log('Server running on port 3001');
+server.listen(CONFIG_ENV.PORT, async () => {
+	console.log(`Server running on port ${CONFIG_ENV.PORT}`);
 	await jobs.init();
 });

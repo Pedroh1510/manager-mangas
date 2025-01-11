@@ -1,7 +1,8 @@
 import retry from 'async-retry';
 import database from '../infra/database.js';
+import CONFIG_ENV from '../infra/env.js';
 
-const webServiceAddress = 'http://localhost:3001';
+const webServiceAddress = CONFIG_ENV.URL;
 async function waitForAllServices() {
 	await waitForWebServer();
 	async function waitForWebServer() {
