@@ -341,7 +341,8 @@ JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" 
 		)
 		.then(({ rows }) => rows);
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };
-	const chaptersBatch = chaptersMissingDownload.slice(0, 10);
+	const batch = 2;
+	const chaptersBatch = chaptersMissingDownload.slice(0, batch);
 	let counterDownload = 0;
 	for (const chapter of chaptersBatch) {
 		const pages = await listPages({

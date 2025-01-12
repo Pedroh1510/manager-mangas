@@ -1,0 +1,36 @@
+networks:
+  proxy:
+    external: true
+  database:
+    external: true
+  cache:
+    external: true
+
+services:
+  mangas:
+    build: .
+    image: mangas
+    container_name: mangas
+    volumes:
+      - ${DATA}/mangasDownloads:/app/downloads
+      - ${SSD}/mangas/appdata:/app/appdata
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - PORT=${PORT}
+      - TZ=${TZ}
+    ports:
+      - ${PORT}:${PORT}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mangas-rss.rule=Host(`mangas.${DOMAIN}`)
+      - traefik.http.routers.mangas-rss.entrypoints=websecure
+      - traefik.http.routers.mangas-rss.tls=true
+      - traefik.http.services.mangas-rss.loadbalancer.server.port=${PORT}
+      - traefik.docker.network=proxy

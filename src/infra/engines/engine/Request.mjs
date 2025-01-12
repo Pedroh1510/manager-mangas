@@ -1,19 +1,26 @@
 import HeaderGenerator from './HeaderGenerator.mjs';
 import puppeteer from 'puppeteer';
+// import puppeteer from 'puppeteer-extra';
 
 export default class Request {
 	constructor() {}
 
 	async setup() {
 		this.browser = await puppeteer.launch({
-			headless: 'new',
+			// executablePath: '/usr/bin/chromium',
+			// headless: 'new',
+			headless: true,
+			// browser: 'chromium',
 			args: [
 				'--no-sandbox',
 				'--disable-setuid-sandbox',
 				'--disable-web-security',
 				'--disable-features=IsolateOrigins,site-per-process'
+				// '--disable-dev-shm-usage'
 			]
+			// timeout: 30000
 		});
+
 		this.userAgent = HeaderGenerator.randomUA();
 	}
 

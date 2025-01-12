@@ -24,10 +24,7 @@ export default class LeitorDeManga extends Connector {
 					new URL('/page/' + page, this.url),
 					this.requestOptions
 				);
-				data = await this.fetchDOM(
-					request,
-					'body > div.wrap > div > div.site-content > div.c-page-content.style-1 > div > div > div > div > div.main-col-inner > div > div.c-page__content > div.tab-content-wrap > div > div > div > div > div > div > div.item-summary > div.post-title.font-title > h3'
-				);
+				data = await this.fetchDOM(request, 'div.post-title.font-title > h3');
 				page++;
 
 				for (let manga of data) {

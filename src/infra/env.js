@@ -1,5 +1,5 @@
-import { config } from 'dotenv';
-config();
+// import { config } from 'dotenv';
+// config();
 
 const CONFIG_ENV = {};
 export default CONFIG_ENV;
