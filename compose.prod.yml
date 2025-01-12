@@ -8,8 +8,8 @@ networks:
 
 services:
   mangas:
-    build: .
-    image: mangas
+    # build: .
+    image: pedroh1510/mangas
     container_name: mangas
     volumes:
       - ${DATA}/mangasDownloads:/app/downloads
