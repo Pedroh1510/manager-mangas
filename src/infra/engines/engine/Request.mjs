@@ -10,7 +10,7 @@ export default class Request {
 			// executablePath: '/usr/bin/chromium',
 			// headless: 'new',
 			headless: true,
-			// browser: 'chromium',
+			browser: 'firefox',
 			args: [
 				'--no-sandbox',
 				'--disable-setuid-sandbox',
