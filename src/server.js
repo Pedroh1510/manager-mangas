@@ -51,8 +51,8 @@ server.post('/mangas/adm/:title/chapters', async (req, res) => {
 });
 
 server.get('/mangas/download', async (req, res) => {
-	const { manga, chapter, pages } = req.query;
-	await MangasService.downloadMangas({ chapter, manga, pages });
+	const { manga, chapter, pages, idChapter } = req.query;
+	await MangasService.downloadMangas({ chapter, manga, pages, idChapter });
 
 	res.status(200).send();
 });

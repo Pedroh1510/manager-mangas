@@ -22,6 +22,10 @@ const downloadBatchQueue = new Queue('download-batch', {
 	connection,
 	defaultJobOptions
 });
+const downloadQueue = new Queue('download', {
+	connection,
+	defaultJobOptions
+});
 const worker = new Worker(
 	updateMangasQueue.name,
 	async (job) => {
@@ -40,13 +44,32 @@ const worker2 = new Worker(
 	async (job) => {
 		console.log('worker2');
 
-		const response = await fetch(`${CONFIG_ENV.URL}/mangas/adm/download-batch`);
-		const body = await response.json();
-		if (body.totalDownloaded) {
-			console.log('worker2 enviando');
-			await downloadBatchQueue.add('download', {}, { attempts: 100 });
-		}
+		await fetch(`${CONFIG_ENV.URL}/mangas/adm/download-batch`);
 		console.log('worker2 fim');
+		return;
+	},
+	{
+		connection,
+		concurrency: 1
+	}
+);
+const worker3 = new Worker(
+	downloadQueue.name,
+	async (job) => {
+		console.log('worker3');
+
+		const { manga, chapter, pages, idChapter } = job.data;
+		await axios
+			.get(`${CONFIG_ENV.URL}/mangas/download`, {
+				params: {
+					manga,
+					chapter,
+					pages,
+					idChapter
+				}
+			})
+			.then((res) => res.data);
+		console.log('worker3 fim');
 		return;
 	},
 	{
@@ -58,6 +81,7 @@ const worker2 = new Worker(
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
 import { ExpressAdapter } from '@bull-board/express';
+import axios from 'axios';
 
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/queues');
@@ -65,7 +89,8 @@ serverAdapter.setBasePath('/queues');
 createBullBoard({
 	queues: [
 		new BullMQAdapter(updateMangasQueue),
-		new BullMQAdapter(downloadBatchQueue)
+		new BullMQAdapter(downloadBatchQueue),
+		new BullMQAdapter(downloadQueue)
 	],
 	serverAdapter
 });
@@ -77,13 +102,17 @@ async function init() {
 	});
 }
 const jobs = {
-	workers: [worker, worker2],
+	workers: [worker, worker2, worker3],
+	// workers: [],
 	queues: {
 		updateMangasQueue: async () => {
 			await updateMangasQueue.add('teste', {});
 		},
 		downloadBatchQueue: async () => {
 			await downloadBatchQueue.add('teste', {}, { attempts: 100 });
+		},
+		downloadQueue: async (data) => {
+			await downloadQueue.add('teste', data, { attempts: 100 });
 		}
 	},
 	init,

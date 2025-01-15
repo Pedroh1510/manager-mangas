@@ -88,27 +88,44 @@ async function initMangas() {
 		1;
 	});
 }
-
-async function downloadMangas({ manga, chapter, pages }) {
+import AdmZip from 'adm-zip';
+async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let counter = 1;
-	const pathFolder = path.resolve('downloads', manga, `${chapter}`);
-	await rm(pathFolder, {
+	if (idChapter) {
+		const response = await database
+			.query({
+				text: `SELECT 1 FROM chapters where "idChapter" = $1 and "wasDownloaded" = false`,
+				values: [idChapter]
+			})
+			.then(({ rows }) => rows);
+		if (!response.length) return;
+	}
+	const pathFolder = path.resolve('downloads', manga);
+	await mkdir(pathFolder, { recursive: true });
+	const pathFile = path.join(pathFolder, `${chapter}.cbz`);
+	await rm(pathFile, {
 		recursive: true
 	}).catch(() => {});
-	await mkdir(pathFolder, { recursive: true });
-	const promises = [];
+	console.log({ manga, chapter, status: 'inicio' });
+	const zip = new AdmZip();
 	for (const page of pages) {
-		const pathFile = path.join(pathFolder, `${counter}.png`);
-		promises.push(downloadImage({ path: pathFile, url: page }));
-		if (promises.length >= 5) {
-			await Promise.allSettled(promises);
-			promises.length = 0;
-		}
+		const image = await downloadImage({ url: page });
+		zip.addFile(`${counter}.png`, image);
 		counter++;
 	}
-	await Promise.allSettled(promises).catch((error) => {
-		throw error;
-	});
+
+	await zip.writeZipPromise(pathFile);
+
+	if (idChapter) {
+		await database.query({
+			text: `UPDATE "chapters" SET
+			"wasDownloaded" = true
+			WHERE
+			"idChapter" = $1`,
+			values: [idChapter]
+		});
+	}
+	console.log({ manga, chapter, status: 'fim' });
 }
 
 async function listMangas({ pluginId }) {
@@ -235,6 +252,7 @@ async function getMangaFromPlugin({ idPlugin, title }) {
  * @prop {String} id
  * @prop {String} title
  * @prop {String} volume
+ * @prop {String} language
  *
  * @returns {Promise<Chapter[]>}
  */
@@ -258,7 +276,8 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 				chapter.volume !== undefined ||
 				chapter.volume !== null ||
 				chapter.volume === ''
-		);
+		)
+		.filter((chapter) => ['pt', 'pt-br'].includes(chapter.language));
 }
 
 async function listChaptersMissing({ title, mangaByPlugin }) {
@@ -288,6 +307,8 @@ async function listChaptersMissing({ title, mangaByPlugin }) {
 
 async function updateMangaChapters({ title }) {
 	const mangaByPlugin = await listMangasRegistered({ title });
+	const pathFolder = path.resolve('downloads', title);
+	await mkdir(pathFolder, { recursive: true }).catch(() => {});
 	if (!mangaByPlugin.length) return;
 	const chaptersMissing = await listChaptersMissing({ title, mangaByPlugin });
 	for (const chapter of chaptersMissing) {
@@ -342,7 +363,7 @@ JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" 
 		.then(({ rows }) => rows);
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };
 	const batch = 2;
-	const chaptersBatch = chaptersMissingDownload.slice(0, batch);
+	const chaptersBatch = chaptersMissingDownload;
 	let counterDownload = 0;
 	for (const chapter of chaptersBatch) {
 		const pages = await listPages({
@@ -350,17 +371,11 @@ JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" 
 			pluginId: chapter.pluginId
 		});
 		if (!pages.length) continue;
-		await downloadMangas({
+		await jobs.queues.downloadQueue({
 			manga: chapter.title,
 			chapter: chapter.volume,
-			pages
-		});
-		await database.query({
-			text: `UPDATE "chapters" SET
-			"wasDownloaded" = true
-		WHERE
-			"idChapter" = $1`,
-			values: [chapter.idChapter]
+			pages,
+			idChapter: chapter.idChapter
 		});
 		counterDownload++;
 	}
