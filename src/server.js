@@ -7,6 +7,7 @@ import StatusService from './model/status.js';
 import MigrationsService from './model/migrations.js';
 import jobs from './jobs.js';
 import CONFIG_ENV from './infra/env.js';
+import logger from './infra/logger.js';
 
 const server = express();
 server.use(express.json({}));
@@ -14,7 +15,7 @@ server.use(express.urlencoded({ extended: true }));
 server.use(
 	morgan('tiny', {
 		stream: {
-			write: (message) => console.log(message.trim())
+			write: (message) => logger.http(message.trim())
 		}
 	})
 );
@@ -24,6 +25,12 @@ await MangasService.initMangas();
 server.post('/mangas/adm', async (req, res) => {
 	const { title, idPlugin } = req.body;
 	const response = await MangasService.registerManga({ title, idPlugin });
+
+	res.status(201).send(response);
+});
+server.post('/mangas/adm/cookie', async (req, res) => {
+	const { cookie, idPlugin } = req.body;
+	const response = await MangasService.registerCookie({ cookie, idPlugin });
 
 	res.status(201).send(response);
 });
@@ -97,11 +104,12 @@ server.use((error, _req, res, _next) => {
 	if (error.statusCode) {
 		return res.status(error.statusCode).send(error);
 	}
-	console.error(error);
+	// console.error(error);
+	logger.error(error);
 	return res.status(500).send('Something broke!');
 });
 
 server.listen(CONFIG_ENV.PORT, async () => {
-	console.log(`Server running on port ${CONFIG_ENV.PORT}`);
+	logger.info(`Server running on port ${CONFIG_ENV.PORT}`);
 	await jobs.init();
 });

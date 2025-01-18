@@ -10,11 +10,12 @@ export default class Request {
 			// executablePath: '/usr/bin/chromium',
 			// headless: 'new',
 			headless: true,
-			browser: 'firefox',
+			// browser: 'firefox',
+			// browser: 'firefox',
 			args: [
 				'--no-sandbox',
 				'--disable-setuid-sandbox',
-				'--disable-web-security',
+				// '--disable-web-security',
 				'--disable-features=IsolateOrigins,site-per-process'
 				// '--disable-dev-shm-usage'
 			]

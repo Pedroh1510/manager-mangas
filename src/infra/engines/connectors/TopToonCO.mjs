@@ -11,8 +11,6 @@ export default class TopToonCO extends Connector {
 		this.links = {
 			login: 'https://toptoon.com/login'
 		};
-		this.cookie =
-			'cf_clearance=0syv6fzOVoJQWT3zULjjAthgt6KSBuT.5M_tUo27lQ8-1736820860-1.2.1.1-GDc.qWZqSLtF_gPYBJw_jSUSqfET8DpqYEphCy6v0lR6CwHp1f6BnS5XFUVXsWuNq9BH.VMBvN02c_JX_WS.AZumbDzkT5NBAwWkZgAjC3BD4_AjfLVwKohg_hw1MoOkUTnqTfaMx7wIL0RyPgSo4q7OaHc2JrVBAgQOIEaXQZr3E_l921MaFxjURRjekUVX.OKbZaa7N4AbIxysEsnyEK8mkfY39M2D0Znmhi3CyxwbTesC6muhy0snHKzn__FGBR0FDXwDCrqOZJ7W.Ktfil6CVxWywrrAzGdhrgq912g; XSRF-TOKEN=eyJpdiI6IloxRHpxTFB1MmdHZTIrbVF2d2svSVE9PSIsInZhbHVlIjoiNEgyeWp4dVhvWkQvbTIwblgrWkJGc0ZQTzBYL0ZYRHFWcW9oeHlvSjBrRkpaOWxJMTRTaHFuaUhoeEZZYkxKc2pibjlZKzVqMXF2M2xDeDgwYTZ6b1JXVmlUUUw2aEx3YzhGTitLdnc2Qmx6Nk41NGRNOWJFcWRjWm1obTVUeHAiLCJtYWMiOiIwNDAyM2I4YjhjMjg2N2IyMDk3YjA5N2IwMzE0NzYxNWI5MGRmMWUxODRjYmYwNDczMWEzMGIzMzY0MjUwOGI5IiwidGFnIjoiIn0%3D; blackoutcomics_session=eyJpdiI6InhpSE9tY2hBWUlrMFlUbUZ6MzBGbWc9PSIsInZhbHVlIjoicjQ4WnhiZm41MnZvTzVGdVBmU2lDd1MzMkhMemY1MGtBc2szMmlpeHVOMWNxOEtjWVhvU3JOUmJJbFQ0R0p5MTNaT2NQU0NIODVBdjlGSWExeG4xdlMwTWpMNGExOHFqU1o5aWVmZ3BtRzBjSmhuR0tCZGtPdks1bkFsZndlbmwiLCJtYWMiOiJlMzRkNDQ4ODU1MTVjOGU0ZGZjMGVmYzliNDYxYTZlMGVhYjk4OGI4OWNkYmY3ZDNlM2U2NjJiOGNmYWE3ZTYzIiwidGFnIjoiIn0%3D';
 	}
 	async _getMangaFromURI(uri) {
 		const request = new Request(uri, this.requestOptions);
@@ -38,6 +36,7 @@ export default class TopToonCO extends Connector {
 
 			for (let manga of data) {
 				const text = manga.querySelector('span');
+
 				const a = {
 					id: manga?.pathname,
 					title: text?.textContent
@@ -45,6 +44,14 @@ export default class TopToonCO extends Connector {
 						?.replace(/\s+\d{2}(?: Final)?$/, '')
 						?.trim()
 				};
+				if (a.title?.includes('...')) {
+					request = new Request(new URL(a.id, this.url), this.requestOptions);
+					const newTitle = await this.fetchDOM(
+						request,
+						'#main-wrapper > section.video.bg-mobile > div > div > div.col-lg-9.col-12 > div > div.col-lg-8.col-md-5.col-12 > div > h2:nth-child(2)'
+					);
+					a.title = newTitle[0]?.textContent ?? a.title;
+				}
 				mangas.push(a);
 			}
 		} catch (error) {}

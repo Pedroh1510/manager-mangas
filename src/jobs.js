@@ -29,10 +29,10 @@ const downloadQueue = new Queue('download', {
 const worker = new Worker(
 	updateMangasQueue.name,
 	async (job) => {
-		console.log('worker1');
+		logger.info('worker1');
 
 		await fetch(`${CONFIG_ENV.URL}/mangas/adm/update-mangas`);
-		console.log('worker1 fim');
+		logger.info('worker1 fim');
 	},
 	{
 		connection,
@@ -42,10 +42,10 @@ const worker = new Worker(
 const worker2 = new Worker(
 	downloadBatchQueue.name,
 	async (job) => {
-		console.log('worker2');
+		logger.info('worker2');
 
 		await fetch(`${CONFIG_ENV.URL}/mangas/adm/download-batch`);
-		console.log('worker2 fim');
+		logger.info('worker2 fim');
 		return;
 	},
 	{
@@ -56,9 +56,8 @@ const worker2 = new Worker(
 const worker3 = new Worker(
 	downloadQueue.name,
 	async (job) => {
-		console.log('worker3');
-
 		const { manga, chapter, pages, idChapter } = job.data;
+		logger.info(`worker3 ${manga} -- ${chapter} --> inicio`);
 		await axios
 			.get(`${CONFIG_ENV.URL}/mangas/download`, {
 				params: {
@@ -69,12 +68,12 @@ const worker3 = new Worker(
 				}
 			})
 			.then((res) => res.data);
-		console.log('worker3 fim');
+		logger.info(`worker3 ${manga} -- ${chapter} --> fim`);
 		return;
 	},
 	{
 		connection,
-		concurrency: 1
+		concurrency: 3
 	}
 );
 
@@ -82,6 +81,7 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
 import { ExpressAdapter } from '@bull-board/express';
 import axios from 'axios';
+import logger from './infra/logger.js';
 
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/queues');
@@ -96,7 +96,7 @@ createBullBoard({
 });
 
 async function init() {
-	console.log('iniciado workers');
+	logger.info('iniciado workers');
 	await updateMangasQueue.upsertJobScheduler('every-hour', {
 		every: 1000 * 60 * 60
 	});

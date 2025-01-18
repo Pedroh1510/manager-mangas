@@ -89,6 +89,7 @@ async function initMangas() {
 	});
 }
 import AdmZip from 'adm-zip';
+import logger from '../infra/logger.js';
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let counter = 1;
 	if (idChapter) {
@@ -106,11 +107,22 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	await rm(pathFile, {
 		recursive: true
 	}).catch(() => {});
-	console.log({ manga, chapter, status: 'inicio' });
+	logger.info({ manga, chapter, status: 'inicio' });
 	const zip = new AdmZip();
+	const imagesType = ['png', 'jpeg', 'jpg', 'avif'];
 	for (const page of pages) {
 		const image = await downloadImage({ url: page });
-		zip.addFile(`${counter}.png`, image);
+		if (page.endsWith('.zip')) {
+			const imageZip = new AdmZip(image);
+			const zipEntries = imageZip.getEntries();
+			zipEntries.forEach((entry) => {
+				if (imagesType.some((item) => entry.name.endsWith(item))) {
+					zip.addFile(entry.name, entry.getData());
+				}
+			});
+		} else {
+			zip.addFile(`${counter}.png`, image);
+		}
 		counter++;
 	}
 
@@ -125,10 +137,10 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			values: [idChapter]
 		});
 	}
-	console.log({ manga, chapter, status: 'fim' });
+	logger.info({ manga, chapter, status: 'fim' });
 }
 
-async function listMangas({ pluginId }) {
+async function getInstancePlugin(pluginId) {
 	const id = Object.keys(plugins).find(
 		(item) => item.toLowerCase() === pluginId.toLowerCase()
 	);
@@ -137,6 +149,21 @@ async function listMangas({ pluginId }) {
 	}
 	const { module } = plugins[id];
 	const instance = new module();
+	const response = await database
+		.query({
+			text: `SELECT
+		cookie
+	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
+			values: [id]
+		})
+		.then(({ rows }) => rows);
+	if (response.length) {
+		instance.cookie = response[0].cookie;
+	}
+	return instance;
+}
+async function listMangas({ pluginId }) {
+	const instance = await getInstancePlugin(pluginId);
 	let mangas = await instance.getMangas();
 	if (mangas.length === 0) {
 		mangas = await instance.updateMangas();
@@ -153,26 +180,12 @@ async function listMangas({ pluginId }) {
  * @returns {Promise<{id:String, title:String}[]>}
  */
 async function listChapters({ pluginId, mangaId }) {
-	const id = Object.keys(plugins).find(
-		(item) => item.toLowerCase() === pluginId.toLowerCase()
-	);
-	if (id === undefined) {
-		throw new Error(`Plugin with id ${pluginId} not found`);
-	}
-	const { module } = plugins[id];
-	const instance = new module();
+	const instance = await getInstancePlugin(pluginId);
 	return instance._getChapters({ id: mangaId });
 }
 
 async function listPages({ pluginId, chapterId }) {
-	const id = Object.keys(plugins).find(
-		(item) => item.toLowerCase() === pluginId.toLowerCase()
-	);
-	if (id === undefined) {
-		throw new Error(`Plugin with id ${pluginId} not found`);
-	}
-	const { module } = plugins[id];
-	const instance = new module();
+	const instance = await getInstancePlugin(pluginId);
 	return instance._getPages({ id: chapterId });
 }
 
@@ -267,7 +280,7 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 			const q = a.match(/([0-9]*[.])?[0-9]+/);
 			chapter.volume = q.length ? parseInt(q[0]) : null;
 			if (chapter.volume === null || isNaN(chapter.volume)) {
-				console.log(1);
+				logger.info(1);
 			}
 			return chapter;
 		})
@@ -382,6 +395,37 @@ JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" 
 	return { totalDownloaded: counterDownload };
 }
 
+async function registerCookie({ cookie, idPlugin }) {
+	const id = Object.keys(plugins).find(
+		(item) => item.toLowerCase() === idPlugin.toLowerCase()
+	);
+	if (id === undefined) {
+		throw new Error(`Plugin with id ${idPlugin} not found`);
+	}
+	const response = await database
+		.query({
+			text: `SELECT
+		cookie
+	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
+			values: [id]
+		})
+		.then(({ rows }) => rows);
+
+	if (response.length) {
+		await database.query({
+			text: `UPDATE "pluginConfig" SET cookie = $1 WHERE "idPlugin" = $2`,
+			values: [cookie, id]
+		});
+		return;
+	}
+	await database.query({
+		text: `INSERT INTO
+			"pluginConfig"(cookie, "idPlugin")
+		VALUES ($1, $2)`,
+		values: [cookie, id]
+	});
+}
+
 const MangasService = {
 	initMangas,
 	downloadMangas,
@@ -392,7 +436,8 @@ const MangasService = {
 	listMangasRegistered,
 	updateMangaChapters,
 	downloadMangasBatch,
-	updateMangas
+	updateMangas,
+	registerCookie
 };
 
 export default MangasService;

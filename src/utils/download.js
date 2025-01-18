@@ -1,10 +1,12 @@
 import axios from 'axios';
-import { createWriteStream } from 'node:fs';
 
 export async function downloadImage({ url }) {
 	return axios({
 		url,
 		method: 'GET',
-		responseType: 'arraybuffer'
+		responseType: 'arraybuffer',
+		headers: {
+			referer: new URL(url).origin
+		}
 	}).then(({ data }) => Buffer.from(data, 'base64'));
 }
