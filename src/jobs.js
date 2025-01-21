@@ -18,11 +18,16 @@ const updateMangasQueue = new Queue('update-mangas', {
 	connection,
 	defaultJobOptions
 });
-const updateMangaQueue = new Queue('update-manga', {
+const updateMangaQueue = new Queue('manga', {
 	connection,
 	defaultJobOptions
 });
 const downloadBatchQueue = new Queue('download-batch', {
+	connection,
+	defaultJobOptions
+});
+
+const listPagesQueue = new Queue('list-pages', {
 	connection,
 	defaultJobOptions
 });
@@ -95,6 +100,30 @@ const worker3 = new Worker(
 		concurrency: 3
 	}
 );
+const listPagesWorker = new Worker(
+	listPagesQueue.name,
+	async (job) => {
+		const { idChapterPlugin, pluginId, title, volume, idChapter } = job.data;
+		logger.info(`listPagesQueue ${title} -- ${volume} --> inicio`);
+		await axios
+			.get(`${CONFIG_ENV.URL}/mangas/adm/chapters/pages`, {
+				params: {
+					idChapterPlugin,
+					pluginId,
+					title,
+					volume,
+					idChapter
+				}
+			})
+			.then((res) => res.data);
+		logger.info(`worker3 ${title} -- ${volume} --> fim`);
+		return;
+	},
+	{
+		connection,
+		concurrency: 1
+	}
+);
 
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
@@ -109,7 +138,9 @@ createBullBoard({
 	queues: [
 		new BullMQAdapter(updateMangasQueue),
 		new BullMQAdapter(downloadBatchQueue),
-		new BullMQAdapter(downloadQueue)
+		new BullMQAdapter(downloadQueue),
+		new BullMQAdapter(updateMangaQueue),
+		new BullMQAdapter(listPagesQueue)
 	],
 	serverAdapter
 });
@@ -121,7 +152,7 @@ async function init() {
 	});
 }
 const jobs = {
-	// workers: [worker, worker2, worker3],
+	workers: [worker, worker2, worker3, workerUpdateManga],
 	// workers: [],
 	queues: {
 		updateMangasQueue: async () => {
@@ -135,6 +166,9 @@ const jobs = {
 		},
 		updateMangaQueue: async (data) => {
 			await updateMangaQueue.add('teste', data, { attempts: 100 });
+		},
+		listPagesQueue: async (data) => {
+			await listPagesQueue.add('teste', data, { attempts: 100 });
 		}
 	},
 	init,

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest ",
-    "dev": "nodemon --ignore 'appdata' --ignore 'downloads' --ignore **/*.test.js \"src/server.js\"",
+    "dev": "nodemon --inspect=0.0.0.0:9229 --ignore 'appdata' --ignore 'downloads' --ignore **/*.test.js \"src/server.js\"",
     "migrations": "node-pg-migrate -m src/infra/migrations --env-path .env",
     "migrations:create": "npm run migrations -- create",
     "migrations:up": "npm run migrations -- up",

@@ -90,7 +90,7 @@ async function initMangas() {
 }
 import AdmZip from 'adm-zip';
 import logger from '../infra/logger.js';
-const imageFormat = 'webp';
+
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let counter = 1;
 	if (idChapter) {
@@ -120,14 +120,13 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 				if (imagesType.some((item) => entry.name.endsWith(item))) {
 					const name = entry.name.split('.');
 					name.pop();
-					zip.addFile(
-						`${name.join('.')}.${imageFormat}`,
-						await processImage(entry.getData())
-					);
+					const { imageFormatted, type } = await processImage(entry.getData());
+					zip.addFile(`${name.join('.')}.${type}`, imageFormatted);
 				}
 			}
 		} else {
-			zip.addFile(`${counter}.${imageFormat}`, await processImage(image));
+			const { imageFormatted, type } = await processImage(image);
+			zip.addFile(`${counter}.${type}`, imageFormatted);
 		}
 		counter++;
 	}
@@ -147,12 +146,19 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 }
 import sharp from 'sharp';
 async function processImage(image) {
-	return sharp(image)
-		.toFormat(imageFormat)
-		.webp({
-			quality: 80
-		})
-		.toBuffer();
+	const options = ['webp', 'png'];
+	for (const imageFormat of options) {
+		try {
+			const result = await sharp(image)
+				.toFormat(imageFormat)
+				.webp({
+					quality: 80
+				})
+				.toBuffer();
+			return { imageFormatted: result, type: imageFormat };
+		} catch (error) {}
+	}
+	return { imageFormatted: image, type: 'png' };
 }
 
 async function getInstancePlugin(pluginId) {
@@ -173,14 +179,23 @@ async function getInstancePlugin(pluginId) {
 		})
 		.then(({ rows }) => rows);
 	if (response.length) {
+		const date = new Date();
+		date.setHours(date.getHours() - 1);
 		const responseValid = await database
 			.query({
 				text: `SELECT
-		cookie
-	FROM "pluginConfig" WHERE "idPlugin" = $1
-	AND "cookieUpdatedAt" > current_timestamp - interval '1 h';`,
-				values: [id]
+				cookie
+			FROM "pluginConfig" WHERE "idPlugin" = $1
+			AND "cookieUpdatedAt" > to_timestamp($2, 'M/DD/YYYY HH:MI:SS');`,
+				values: [id, date.toLocaleString()]
 			})
+			// 		.query({
+			// 			text: `SELECT
+			// 	cookie
+			// FROM "pluginConfig" WHERE "idPlugin" = $1
+			// AND "cookieUpdatedAt" > to_timestamp($2, 'DD/MM/YYYY, HH24:MI:SS');`,
+			// 			values: [id, date.toLocaleString()]
+			// 		})
 			.then(({ rows }) => rows);
 		if (!responseValid.length)
 			throw new Error(`Plugin with id ${pluginId} cookie expired`);
@@ -394,6 +409,27 @@ async function updateMangas() {
 	};
 }
 
+async function listPagesAndSend({
+	idChapterPlugin,
+	pluginId,
+	title,
+	volume,
+	idChapter
+}) {
+	if (!idChapterPlugin || !pluginId || !title || !volume || !idChapter) return;
+	const pages = await listPages({
+		chapterId: idChapterPlugin,
+		pluginId: pluginId
+	});
+	if (!pages.length) return;
+	await jobs.queues.downloadQueue({
+		manga: title,
+		chapter: volume,
+		pages,
+		idChapter: idChapter
+	});
+}
+
 async function downloadMangasBatch() {
 	const chaptersMissingDownload = await database
 		.query(
@@ -403,21 +439,10 @@ JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" 
 		)
 		.then(({ rows }) => rows);
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };
-	const batch = 2;
 	const chaptersBatch = chaptersMissingDownload;
 	let counterDownload = 0;
 	for (const chapter of chaptersBatch) {
-		const pages = await listPages({
-			chapterId: chapter.idChapterPlugin,
-			pluginId: chapter.pluginId
-		});
-		if (!pages.length) continue;
-		await jobs.queues.downloadQueue({
-			manga: chapter.title,
-			chapter: chapter.volume,
-			pages,
-			idChapter: chapter.idChapter
-		});
+		await jobs.queues.listPagesQueue(chapter);
 		counterDownload++;
 	}
 	return { totalDownloaded: counterDownload };
@@ -463,6 +488,7 @@ const MangasService = {
 	listMangas,
 	listChapters,
 	listPages,
+	listPagesAndSend,
 	registerManga,
 	listMangasRegistered,
 	updateMangaChapters,

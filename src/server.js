@@ -44,9 +44,23 @@ server.get('/mangas/adm/update-mangas', async (_req, res) => {
 
 	res.status(200).send(response);
 });
+server.get('/mangas/adm/chapters/pages', async (req, res) => {
+	const { idChapterPlugin, pluginId, title, volume, idChapter } = req.query;
+	const response = await MangasService.listPagesAndSend({
+		idChapterPlugin,
+		pluginId,
+		title,
+		volume,
+		idChapter
+	});
+
+	res.status(200).send(response);
+});
 server.get('/mangas/adm/chapters', async (req, res) => {
 	const { title } = req.query;
-	const response = await MangasService.updateMangaChapters({ title });
+	const response = await MangasService.updateMangaChapters({
+		title
+	});
 
 	res.status(200).send(response);
 });

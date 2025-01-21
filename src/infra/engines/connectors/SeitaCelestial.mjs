@@ -74,13 +74,14 @@ export default class SeitaCelestial extends Connector {
 			new URL(chapter.id, this.url),
 			this.requestOptions
 		);
-		let data = await this.fetchDOM2(request, '#readerarea > img');
-		// let data = await this.fetchDOM2(request, 'img');
-		if (!data.length) {
-			// data = await this.fetchDOM2(request, 'source');
-			data = await this.fetchDOM2(request, '#readerarea > source');
-		}
-		return data.map((element) => this.getAbsolutePath(element, request.url));
+
+		let script = `
+        new Promise( resolve => {
+            resolve( [...document.querySelectorAll('#readerarea > img')].map(img => img.src) );
+        } );
+        `;
+		const data = await Engine.Request.fetchUI(request, script);
+		return data;
 	}
 
 	async _getMangaFromURI(uri) {
