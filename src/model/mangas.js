@@ -90,6 +90,7 @@ async function initMangas() {
 }
 import AdmZip from 'adm-zip';
 import logger from '../infra/logger.js';
+const imageFormat = 'webp';
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let counter = 1;
 	if (idChapter) {
@@ -115,13 +116,18 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 		if (page.endsWith('.zip')) {
 			const imageZip = new AdmZip(image);
 			const zipEntries = imageZip.getEntries();
-			zipEntries.forEach((entry) => {
+			for (const entry of zipEntries) {
 				if (imagesType.some((item) => entry.name.endsWith(item))) {
-					zip.addFile(entry.name, entry.getData());
+					const name = entry.name.split('.');
+					name.pop();
+					zip.addFile(
+						`${name.join('.')}.${imageFormat}`,
+						await processImage(entry.getData())
+					);
 				}
-			});
+			}
 		} else {
-			zip.addFile(`${counter}.png`, image);
+			zip.addFile(`${counter}.${imageFormat}`, await processImage(image));
 		}
 		counter++;
 	}
@@ -138,6 +144,15 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 		});
 	}
 	logger.info({ manga, chapter, status: 'fim' });
+}
+import sharp from 'sharp';
+async function processImage(image) {
+	return sharp(image)
+		.toFormat(imageFormat)
+		.webp({
+			quality: 80
+		})
+		.toBuffer();
 }
 
 async function getInstancePlugin(pluginId) {
@@ -353,6 +368,9 @@ async function updateMangaChapters({ title }) {
 				}
 			});
 	}
+	if (chaptersMissing.length) {
+		await jobs.queues.downloadBatchQueue();
+	}
 	return chaptersMissing;
 }
 
@@ -367,11 +385,10 @@ async function updateMangas() {
 
 	let counterMangasUpdated = 0;
 	for (const { title } of mangas) {
-		const chapters = await updateMangaChapters({ title });
-		if (!chapters.length) continue;
+		await jobs.queues.updateMangaQueue({ title });
 		counterMangasUpdated++;
 	}
-	await jobs.queues.downloadBatchQueue();
+
 	return {
 		totalUpdated: counterMangasUpdated
 	};

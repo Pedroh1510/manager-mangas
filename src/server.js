@@ -44,15 +44,15 @@ server.get('/mangas/adm/update-mangas', async (_req, res) => {
 
 	res.status(200).send(response);
 });
-server.get('/mangas/adm/:title', async (req, res) => {
-	const { title } = req.params;
-	const response = await MangasService.listMangasRegistered({ title });
+server.get('/mangas/adm/chapters', async (req, res) => {
+	const { title } = req.query;
+	const response = await MangasService.updateMangaChapters({ title });
 
 	res.status(200).send(response);
 });
-server.post('/mangas/adm/:title/chapters', async (req, res) => {
+server.get('/mangas/adm/:title', async (req, res) => {
 	const { title } = req.params;
-	const response = await MangasService.updateMangaChapters({ title });
+	const response = await MangasService.listMangasRegistered({ title });
 
 	res.status(200).send(response);
 });
@@ -104,8 +104,7 @@ server.use((error, _req, res, _next) => {
 	if (error.statusCode) {
 		return res.status(error.statusCode).send(error);
 	}
-	// console.error(error);
-	logger.error(error);
+	logger.error(`Error: ${error}\nStack: ${error.stack}\n`);
 	return res.status(500).send('Something broke!');
 });
 

@@ -18,6 +18,10 @@ const updateMangasQueue = new Queue('update-mangas', {
 	connection,
 	defaultJobOptions
 });
+const updateMangaQueue = new Queue('update-manga', {
+	connection,
+	defaultJobOptions
+});
 const downloadBatchQueue = new Queue('download-batch', {
 	connection,
 	defaultJobOptions
@@ -33,6 +37,21 @@ const worker = new Worker(
 
 		await fetch(`${CONFIG_ENV.URL}/mangas/adm/update-mangas`);
 		logger.info('worker1 fim');
+	},
+	{
+		connection,
+		concurrency: 1
+	}
+);
+const workerUpdateManga = new Worker(
+	updateMangaQueue.name,
+	async (job) => {
+		logger.info('workerUpdateManga');
+
+		await fetch(
+			`${CONFIG_ENV.URL}/mangas/adm/chapters?title=${job.data.title}`
+		);
+		logger.info('workerUpdateManga fim');
 	},
 	{
 		connection,
@@ -102,7 +121,7 @@ async function init() {
 	});
 }
 const jobs = {
-	workers: [worker, worker2, worker3],
+	// workers: [worker, worker2, worker3],
 	// workers: [],
 	queues: {
 		updateMangasQueue: async () => {
@@ -113,6 +132,9 @@ const jobs = {
 		},
 		downloadQueue: async (data) => {
 			await downloadQueue.add('teste', data, { attempts: 100 });
+		},
+		updateMangaQueue: async (data) => {
+			await updateMangaQueue.add('teste', data, { attempts: 100 });
 		}
 	},
 	init,
