@@ -158,6 +158,17 @@ async function getInstancePlugin(pluginId) {
 		})
 		.then(({ rows }) => rows);
 	if (response.length) {
+		const responseValid = await database
+			.query({
+				text: `SELECT
+		cookie
+	FROM "pluginConfig" WHERE "idPlugin" = $1
+	AND "cookieUpdatedAt" > current_timestamp - interval '1 h';`,
+				values: [id]
+			})
+			.then(({ rows }) => rows);
+		if (!responseValid.length)
+			throw new Error(`Plugin with id ${pluginId} cookie expired`);
 		instance.cookie = response[0].cookie;
 	}
 	return instance;
@@ -413,16 +424,19 @@ async function registerCookie({ cookie, idPlugin }) {
 
 	if (response.length) {
 		await database.query({
-			text: `UPDATE "pluginConfig" SET cookie = $1 WHERE "idPlugin" = $2`,
-			values: [cookie, id]
+			text: `UPDATE "pluginConfig" SET
+			cookie = $1
+			, "cookieUpdatedAt" = $2
+			WHERE "idPlugin" = $3`,
+			values: [cookie, new Date(), id]
 		});
 		return;
 	}
 	await database.query({
 		text: `INSERT INTO
-			"pluginConfig"(cookie, "idPlugin")
-		VALUES ($1, $2)`,
-		values: [cookie, id]
+			"pluginConfig"(cookie, "cookieUpdatedAt","idPlugin")
+		VALUES ($1, $2, $3)`,
+		values: [cookie, new Date(), id]
 	});
 }
 
