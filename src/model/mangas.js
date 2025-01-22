@@ -180,7 +180,7 @@ async function getInstancePlugin(pluginId) {
 		.then(({ rows }) => rows);
 	if (response.length) {
 		const date = new Date();
-		date.setHours(date.getHours() - 1);
+		date.setHours(date.getHours() - 6);
 		const responseValid = await database
 			.query({
 				text: `SELECT
