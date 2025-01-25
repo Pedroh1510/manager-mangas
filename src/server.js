@@ -79,7 +79,9 @@ server.get('/mangas/download', async (req, res) => {
 });
 server.get('/mangas/:pluginId', async (req, res) => {
 	const { pluginId } = req.params;
-	const mangas = await MangasService.listMangas({ pluginId });
+	const { title } = req.query;
+
+	const mangas = await MangasService.listMangas({ pluginId, title });
 
 	res.status(200).send(mangas);
 });

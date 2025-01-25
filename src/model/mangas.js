@@ -203,14 +203,22 @@ async function getInstancePlugin(pluginId) {
 	}
 	return instance;
 }
-async function listMangas({ pluginId }) {
+async function listMangas({ pluginId, title }) {
 	const instance = await getInstancePlugin(pluginId);
 	let mangas = await instance.getMangas();
 	if (mangas.length === 0) {
 		mangas = await instance.updateMangas();
 	}
 
-	return mangas.map((manga) => ({ id: manga.id, title: manga.title }));
+	const data = mangas.map((manga) => ({ id: manga.id, title: manga.title }));
+	if (title) {
+		return data.filter(
+			(item) =>
+				item.title.toLowerCase() === title.toLowerCase() ||
+				item.title.toLowerCase().includes(title.toLowerCase())
+		);
+	}
+	return data;
 }
 
 /**

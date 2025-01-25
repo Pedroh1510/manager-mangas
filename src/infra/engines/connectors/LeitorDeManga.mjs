@@ -73,7 +73,6 @@ export default class LeitorDeManga extends Connector {
 			new URL(chapter.id, this.url),
 			this.requestOptions
 		);
-		console.log(request.url);
 		// let data = await this.fetchDOM(request);
 		let data = await this.fetchDOM(request, 'div > source');
 		return data.map((element) => this.getAbsolutePath(element, request.url));
