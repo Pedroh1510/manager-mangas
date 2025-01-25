@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from 'vitest';
-import orchestrator from '../../../../orchestrator.js';
 import api from '../../../../../infra/api.js';
+import orchestrator from '../../../../orchestrator.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
@@ -13,7 +13,7 @@ describe.concurrent('POST /mangas/adm/cookie', () => {
 	test('Set  cookie', async () => {
 		const response = await api.post('/mangas/adm/cookie', {
 			title: 'Black Clover',
-			idPlugin: 'leitordemanga'
+			idPlugin: 'leitordemanga',
 		});
 
 		expect(response.status).toEqual(201);
@@ -22,7 +22,7 @@ describe.concurrent('POST /mangas/adm/cookie', () => {
 		const response = await api
 			.post('/mangas/adm/cookie', {
 				title: 'Black Clover',
-				idPlugin: 'leitordemanga1'
+				idPlugin: 'leitordemanga1',
 			})
 			.catch((error) => ({ status: error.status, data: error.response?.data }));
 
@@ -31,7 +31,7 @@ describe.concurrent('POST /mangas/adm/cookie', () => {
 			name: 'ValidationError',
 			message: 'Plugin with id leitordemanga1 not found',
 			action: 'Entre em contato com o suporte',
-			statusCode: 400
+			statusCode: 400,
 		});
 	});
 });

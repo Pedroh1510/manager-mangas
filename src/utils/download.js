@@ -6,7 +6,7 @@ export async function downloadImage({ url }) {
 		method: 'GET',
 		responseType: 'arraybuffer',
 		headers: {
-			referer: new URL(url).origin
-		}
+			referer: new URL(url).origin,
+		},
 	}).then(({ data }) => Buffer.from(data, 'base64'));
 }

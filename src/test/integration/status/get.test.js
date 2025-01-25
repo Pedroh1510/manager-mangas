@@ -13,7 +13,7 @@ describe('GET /status', () => {
 		expect(body).toEqual({
 			version: '16.5',
 			maxConnections: 100,
-			openedConnections: 1
+			openedConnections: 1,
 		});
 	});
 });

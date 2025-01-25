@@ -1,8 +1,8 @@
 import { resolve } from 'node:path';
 import migrationRunner from 'node-pg-migrate';
 
-import CONFIG_ENV from '../infra/env.js';
 import database from '../infra/database.js';
+import CONFIG_ENV from '../infra/env.js';
 
 const pathToMigrations = resolve('src', 'infra', 'migrations');
 const defaultMigrationsOptions = {
@@ -11,7 +11,7 @@ const defaultMigrationsOptions = {
 	dir: pathToMigrations,
 	direction: 'up',
 	migrationsTable: 'pgmigrations',
-	verbose: false
+	verbose: false,
 };
 async function dryRun() {
 	let dbClient;
@@ -21,7 +21,7 @@ async function dryRun() {
 		const migrations = await migrationRunner({
 			...defaultMigrationsOptions,
 			dbClient,
-			dryRun: true
+			dryRun: true,
 		});
 		await dbClient.end();
 		return migrations;
@@ -37,7 +37,7 @@ async function run() {
 		const migrations = await migrationRunner({
 			...defaultMigrationsOptions,
 			dbClient,
-			dryRun: false
+			dryRun: false,
 		});
 		await dbClient.end();
 		return migrations;
@@ -49,6 +49,6 @@ async function run() {
 
 const MigrationsService = {
 	dryRun,
-	run
+	run,
 };
 export default MigrationsService;

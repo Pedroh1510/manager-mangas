@@ -15,13 +15,13 @@ exports.up = (pgm) => {
 		createdAt: {
 			type: 'timestamp',
 			notNull: true,
-			default: pgm.func('current_timestamp')
+			default: pgm.func('current_timestamp'),
 		},
 		updatedAt: {
 			type: 'timestamp',
 			notNull: true,
-			default: pgm.func('current_timestamp')
-		}
+			default: pgm.func('current_timestamp'),
+		},
 	});
 
 	pgm.createTable(
@@ -29,13 +29,13 @@ exports.up = (pgm) => {
 		{
 			idMangaPlugin: { type: 'id', primaryKey: true },
 			idManga: { type: 'integer', nullable: false, references: 'mangas' },
-			idPlugin: { type: 'varchar(255)', nullable: false }
+			idPlugin: { type: 'varchar(255)', nullable: false },
 		},
 		{
 			constraints: {
-				unique: ['idManga', 'idPlugin']
-			}
-		}
+				unique: ['idManga', 'idPlugin'],
+			},
+		},
 	);
 
 	pgm.createTable(
@@ -51,14 +51,14 @@ exports.up = (pgm) => {
 			createdAt: {
 				type: 'timestamp',
 				notNull: true,
-				default: pgm.func('current_timestamp')
-			}
+				default: pgm.func('current_timestamp'),
+			},
 		},
 		{
 			constraints: {
-				unique: ['idManga', 'volume']
-			}
-		}
+				unique: ['idManga', 'volume'],
+			},
+		},
 	);
 };
 

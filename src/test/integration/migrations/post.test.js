@@ -11,8 +11,8 @@ describe('POST /migrations', () => {
 		const response = await fetch(
 			`${orchestrator.webServiceAddress}/migrations`,
 			{
-				method: 'POST'
-			}
+				method: 'POST',
+			},
 		);
 		expect(response.status).toEqual(201);
 		const body = await response.json();

@@ -1,7 +1,7 @@
 import express from 'express';
 import mangasController from './controller/mangasController.js';
-import StatusService from './model/status.js';
 import MigrationsService from './model/migrations.js';
+import StatusService from './model/status.js';
 
 const router = express();
 export default router;

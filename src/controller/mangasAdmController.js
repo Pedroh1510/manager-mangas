@@ -40,7 +40,7 @@ mangasAdmController.get('/chapters/pages', async (req, res) => {
 		pluginId,
 		title,
 		volume,
-		idChapter
+		idChapter,
 	});
 
 	res.status(200).send(response);
@@ -48,7 +48,7 @@ mangasAdmController.get('/chapters/pages', async (req, res) => {
 mangasAdmController.get('/chapters', async (req, res) => {
 	const { title } = req.query;
 	const response = await MangasAdmService.updateMangaChapters({
-		title
+		title,
 	});
 
 	res.status(200).send(response);

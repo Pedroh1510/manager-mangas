@@ -12,7 +12,7 @@ exports.up = (pgm) => {
 	pgm.createTable('pluginConfig', {
 		idPluginConfig: 'id',
 		idPlugin: { type: 'varchar(255)', nullable: false },
-		cookie: { type: 'text', nullable: true }
+		cookie: { type: 'text', nullable: true },
 	});
 };
 

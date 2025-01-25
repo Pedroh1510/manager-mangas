@@ -2,10 +2,10 @@ import 'express-async-errors';
 import express from 'express';
 import morgan from 'morgan';
 
-import MangasService from './model/mangas.js';
-import jobs from './jobs.js';
 import CONFIG_ENV from './infra/env.js';
 import logger from './infra/logger.js';
+import jobs from './jobs.js';
+import MangasService from './model/mangas.js';
 import router from './routes.js';
 
 const server = express();
@@ -14,9 +14,9 @@ server.use(express.urlencoded({ extended: true }));
 server.use(
 	morgan('tiny', {
 		stream: {
-			write: (message) => logger.http(message.trim())
-		}
-	})
+			write: (message) => logger.http(message.trim()),
+		},
+	}),
 );
 
 await MangasService.initMangas();

@@ -1,11 +1,9 @@
-import path from 'node:path';
 import fs from 'node:fs';
-import { JSDOM } from 'jsdom';
 import { mkdir, rm } from 'node:fs/promises';
-import { downloadImage } from '../utils/download.js';
-import { BadRequestError, ValidationError } from '../infra/errors.js';
+import path from 'node:path';
+import { JSDOM } from 'jsdom';
 import database from '../infra/database.js';
-import jobs from '../jobs.js';
+import { downloadImage } from '../utils/download.js';
 
 const plugins = {};
 async function initMangas() {
@@ -25,24 +23,24 @@ async function initMangas() {
 		Request: er,
 		Blacklist: new Blacklist(),
 		Settings: new Settings(),
-		Storage: new Storage()
+		Storage: new Storage(),
 	};
 	function recFindByExt(base, ext, files, result) {
-		files = files || fs.readdirSync(base);
+		const filesNew = files || fs.readdirSync(base);
 		result = result || [];
 
-		files.forEach((file) => {
+		for (const file of filesNew) {
 			const newbase = path.join(base, file);
 			if (fs.statSync(newbase).isDirectory()) {
 				result = recFindByExt(newbase, ext, fs.readdirSync(newbase), result);
 			} else {
-				if (file.substr(-1 * (ext.length + 1)) === '.' + ext) {
+				if (file.substr(-1 * (ext.length + 1)) === `.${ext}`) {
 					if (result) {
 						result.push(newbase);
 					}
 				}
 			}
-		});
+		}
 		return result;
 	}
 	function searchPluginsInFolder(folder) {
@@ -53,37 +51,37 @@ async function initMangas() {
 		return import(pluginPath);
 	}
 	const loadedPlugins = [];
-	searchPluginsInFolder(PLUGIN_PATH).forEach((filePath) => {
+	for (const filePath of searchPluginsInFolder(PLUGIN_PATH)) {
 		loadedPlugins.push(
 			loadPlugin(filePath)
 				.then((module) => {
 					return {
 						module,
-						name: path.basename(filePath, path.extname(filePath))
+						name: path.basename(filePath, path.extname(filePath)),
 					};
 				})
 				.catch((e) => {
 					1;
-				})
+				}),
 		);
-	});
+	}
 
 	await Promise.allSettled(loadedPlugins).then((item) => {
 		if (item.length) {
-			item.forEach((aaa) => {
+			for (const aaa of item) {
 				try {
 					if (aaa.status === 'fulfilled') {
 						const { module, name } = aaa.value;
 						plugins[name] = {
 							module: module.default,
-							name
+							name,
 						};
 					}
 				} catch (err) {
 					2;
 					throw err;
 				}
-			});
+			}
 		}
 		1;
 	});
@@ -97,7 +95,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 		const response = await database
 			.query({
 				text: `SELECT 1 FROM chapters where "idChapter" = $1 and "wasDownloaded" = false`,
-				values: [idChapter]
+				values: [idChapter],
 			})
 			.then(({ rows }) => rows);
 		if (!response.length) return;
@@ -106,7 +104,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	await mkdir(pathFolder, { recursive: true });
 	const pathFile = path.join(pathFolder, `${chapter}.cbz`);
 	await rm(pathFile, {
-		recursive: true
+		recursive: true,
 	}).catch(() => {});
 	logger.info({ manga, chapter, status: 'inicio' });
 	const zip = new AdmZip();
@@ -139,7 +137,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			"wasDownloaded" = true
 			WHERE
 			"idChapter" = $1`,
-			values: [idChapter]
+			values: [idChapter],
 		});
 	}
 	logger.info({ manga, chapter, status: 'fim' });
@@ -152,7 +150,7 @@ async function processImage(image) {
 			const result = await sharp(image)
 				.toFormat(imageFormat)
 				.webp({
-					quality: 80
+					quality: 80,
 				})
 				.toBuffer();
 			return { imageFormatted: result, type: imageFormat };
@@ -163,7 +161,7 @@ async function processImage(image) {
 
 async function getInstancePlugin(pluginId) {
 	const id = Object.keys(plugins).find(
-		(item) => item.toLowerCase() === pluginId.toLowerCase()
+		(item) => item.toLowerCase() === pluginId.toLowerCase(),
 	);
 	if (id === undefined) {
 		throw new Error(`Plugin with id ${pluginId} not found`);
@@ -175,7 +173,7 @@ async function getInstancePlugin(pluginId) {
 			text: `SELECT
 		cookie
 	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
-			values: [id]
+			values: [id],
 		})
 		.then(({ rows }) => rows);
 	if (response.length) {
@@ -187,7 +185,7 @@ async function getInstancePlugin(pluginId) {
 				cookie
 			FROM "pluginConfig" WHERE "idPlugin" = $1
 			AND "cookieUpdatedAt" > to_timestamp($2, 'M/DD/YYYY HH:MI:SS');`,
-				values: [id, date.toLocaleString()]
+				values: [id, date.toLocaleString()],
 			})
 			// 		.query({
 			// 			text: `SELECT
@@ -215,7 +213,7 @@ async function listMangas({ pluginId, title }) {
 		return data.filter(
 			(item) =>
 				item.title.toLowerCase() === title.toLowerCase() ||
-				item.title.toLowerCase().includes(title.toLowerCase())
+				item.title.toLowerCase().includes(title.toLowerCase()),
 		);
 	}
 	return data;
@@ -262,14 +260,14 @@ async function getMangaFromPlugin({ idPlugin, title }) {
 async function listChaptersByManga({ idPlugin, mangaId }) {
 	const chapters = await listChapters({
 		mangaId,
-		pluginId: idPlugin
+		pluginId: idPlugin,
 	});
 	return chapters
 		.map((chapter) => {
 			const a = chapter.title;
 			const q = a.match(/([0-9]*[.])?[0-9]+/);
-			chapter.volume = q.length ? parseInt(q[0]) : null;
-			if (chapter.volume === null || isNaN(chapter.volume)) {
+			chapter.volume = q.length ? Number.parseInt(q[0]) : null;
+			if (chapter.volume === null || Number.isNaN(chapter.volume)) {
 				logger.info(1);
 			}
 			return chapter;
@@ -278,7 +276,7 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 			(chapter) =>
 				chapter.volume !== undefined ||
 				chapter.volume !== null ||
-				chapter.volume === ''
+				chapter.volume === '',
 		)
 		.filter((chapter) => ['pt', 'pt-br'].includes(chapter.language));
 }
@@ -291,7 +289,7 @@ const MangasService = {
 	listPages,
 	listChaptersByManga,
 	getMangaFromPlugin,
-	plugins
+	plugins,
 };
 
 export default MangasService;

@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from 'vitest';
-import orchestrator from '../../../../orchestrator.js';
 import api from '../../../../../infra/api.js';
+import orchestrator from '../../../../orchestrator.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
@@ -11,11 +11,11 @@ beforeAll(async () => {
 
 describe('GET /mangas/adm/update-mangas', () => {
 	test('OK', async () => {
-		const response = await api.get(`/mangas/adm/update-mangas`);
+		const response = await api.get('/mangas/adm/update-mangas');
 		expect(response.status).toBe(200);
 
 		expect(response.data).toStrictEqual({
-			totalUpdated: 2
+			totalUpdated: 2,
 		});
 	});
 });

@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from 'vitest';
-import orchestrator from '../../../../orchestrator.js';
 import api from '../../../../../infra/api.js';
+import orchestrator from '../../../../orchestrator.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
@@ -16,9 +16,9 @@ describe('GET /mangas/adm/chapters', () => {
 			`${orchestrator.webServiceAddress}/mangas/adm/chapters`,
 			{
 				params: {
-					title
-				}
-			}
+					title,
+				},
+			},
 		);
 		expect(response.status).toBe(200);
 		expect(response.data.length).toBeGreaterThanOrEqual(373);

@@ -12,8 +12,8 @@ exports.up = (pgm) => {
 	pgm.addColumn('pluginConfig', {
 		cookieUpdatedAt: {
 			type: 'timestamp',
-			default: null
-		}
+			default: null,
+		},
 	});
 };
 
