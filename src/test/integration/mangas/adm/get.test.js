@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import orchestrator from '../../../orchestrator.js';
+import api from '../../../../infra/api.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
@@ -8,18 +9,14 @@ beforeAll(async () => {
 	await orchestrator.seedDatabase();
 });
 
-describe('GET /mangas/adm/:title', () => {
+describe('GET /mangas/adm', () => {
 	test('OK', async () => {
 		const title = 'Black Clover';
-		const response = await fetch(
-			`${orchestrator.webServiceAddress}/mangas/adm/${title}`,
-			{
-				method: 'GET'
-			}
-		);
+		const response = await api.get(`/mangas/adm`, {
+			params: { title }
+		});
 		expect(response.status).toEqual(200);
-		const body = await response.json();
-		expect(body).toEqual([
+		expect(response.data).toEqual([
 			{
 				idManga: 1,
 				idPlugin: 'leitordemanga',

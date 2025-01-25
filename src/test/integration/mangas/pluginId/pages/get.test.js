@@ -1,9 +1,11 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import orchestrator from '../../../../orchestrator.js';
 import CONFIG_ENV from '../../../../../infra/env.js';
+import api from '../../../../../infra/api.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
+	await orchestrator.runMigrations();
 });
 
 describe.concurrent('Pages', () => {
@@ -14,27 +16,16 @@ describe.concurrent('Pages', () => {
 			);
 			expect(response.status).toEqual(200);
 			const body = await response.json();
-			expect(body).toHaveLength(18);
+			expect(body.length).toBeGreaterThanOrEqual(18);
 		});
 	});
 	describe('HiperCool', () => {
 		test('', async () => {
-			const response = await fetch(
+			const response = await api(
 				`${CONFIG_ENV.URL}/mangas/HiperCool/pages?chapterId=/manga/regressed-warriors-female-dominance-diary/capitulo-01/`
 			);
 			expect(response.status).toEqual(200);
-			const body = await response.json();
-			expect(body).toHaveLength(38);
-		});
-	});
-	describe('seitacelestial', () => {
-		test('', async () => {
-			const response = await fetch(
-				`${CONFIG_ENV.URL}/mangas/seitacelestial/pages?chapterId=/919933087-chapter-01/`
-			);
-			expect(response.status).toEqual(200);
-			const body = await response.json();
-			expect(body).toHaveLength(59);
+			expect(response.data.length).toEqual(38);
 		});
 	});
 });

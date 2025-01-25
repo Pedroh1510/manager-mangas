@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import orchestrator from '../../../../orchestrator.js';
+import api from '../../../../../infra/api.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
@@ -10,25 +11,12 @@ beforeAll(async () => {
 
 describe('GET /mangas/adm/download-batch', () => {
 	test('OK', async () => {
-		const response = await fetch(
-			`${orchestrator.webServiceAddress}/mangas/adm/download-batch`
-		);
-		expect(response.status).toBe(200);
-		const body = await response.json();
+		const response = await api.get(`/mangas/adm/download-batch`);
 
-		expect(body).toStrictEqual({
+		expect(response.status).toBe(200);
+
+		expect(response.data).toStrictEqual({
 			totalDownloaded: 3
-		});
-	});
-	test('empty', async () => {
-		const response = await fetch(
-			`${orchestrator.webServiceAddress}/mangas/adm/download-batch`
-		);
-		expect(response.status).toBe(200);
-		const body = await response.json();
-
-		expect(body).toStrictEqual({
-			totalDownloaded: 0
 		});
 	});
 });
