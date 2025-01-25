@@ -3,6 +3,7 @@ import express from 'express';
 import morgan from 'morgan';
 
 import CONFIG_ENV from './infra/env.js';
+import { ValidationError } from './infra/errors.js';
 import logger from './infra/logger.js';
 import jobs from './jobs.js';
 import MangasService from './model/mangas.js';
@@ -28,6 +29,13 @@ server.use('/queues', jobs.router);
 server.use((error, _req, res, _next) => {
 	if (error.statusCode) {
 		return res.status(error.statusCode).send(error);
+	}
+	if (error.name === 'ValidationError') {
+		const errorNew = new ValidationError({
+			message: error.message,
+			action: 'Verifique a request e tente novamente.',
+		});
+		return res.status(errorNew.statusCode).send(errorNew);
 	}
 	logger.error(`Error: ${error}\nStack: ${error.stack}\n`);
 	return res.status(500).send('Something broke!');
