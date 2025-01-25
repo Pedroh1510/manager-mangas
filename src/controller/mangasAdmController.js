@@ -48,7 +48,7 @@ mangasAdmController.get('/chapters/pages', async (req, res) => {
 mangasAdmController.get('/chapters', async (req, res) => {
 	const { title } = req.query;
 	const response = await MangasAdmService.updateMangaChapters({
-		title,
+		title:Array.isArray(title)?title[0]:title,
 	});
 
 	res.status(200).send(response);
