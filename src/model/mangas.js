@@ -91,14 +91,19 @@ import logger from '../infra/logger.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let counter = 1;
+	let cookie = null
 	if (idChapter) {
 		const response = await database
 			.query({
-				text: `SELECT 1 FROM chapters where "idChapter" = $1 and "wasDownloaded" = false`,
+				text: `SELECT m.cookie  FROM chapters c
+	JOIN "pluginConfig" m ON lower(m."idPlugin") = lower(c."pluginId")
+	where "idChapter" = $1 and "wasDownloaded" = false;`,
 				values: [idChapter],
 			})
 			.then(({ rows }) => rows);
-		if (!response.length) return;
+		if (response.length) {
+			cookie = response[0]?.cookie
+		}
 	}
 	const pathFolder = path.resolve('downloads', manga);
 	await mkdir(pathFolder, { recursive: true });
@@ -110,7 +115,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	const zip = new AdmZip();
 	const imagesType = ['png', 'jpeg', 'jpg', 'avif'];
 	for (const page of pages) {
-		const image = await downloadImage({ url: page });
+		const image = await downloadImage({ url: page,cookie });
 		if (page.endsWith('.zip')) {
 			const imageZip = new AdmZip(image);
 			const zipEntries = imageZip.getEntries();

@@ -58,8 +58,8 @@ async function registerManga({ title, idPlugin }) {
 async function listMangasRegistered({ title }) {
 	return database
 		.query({
-			text: 'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga") WHERE "title" ~~ $1',
-			values: [title],
+			text: 'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga") WHERE lower("title") ~~ $1',
+			values: [title.toLowerCase()],
 		})
 		.then(({ rows }) => rows);
 }

@@ -17,5 +17,5 @@ USER root
 
 
 COPY . .
-
+ENV TZ="America/Sao_Paulo"
 CMD [ "npm", "run","server" ]
