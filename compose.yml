@@ -3,12 +3,10 @@ services:
     build: .
     image: mangas
     container_name: mangas
-    # network_mode: host
     volumes:
       - .:/app
-      # - ./downloads:/app/downloads
-      # - ./appdata:/app/appdata
     env_file:
       - .env
     ports:
+      - 9229:9229
       - 3001:3001
