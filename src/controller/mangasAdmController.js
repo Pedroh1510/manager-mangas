@@ -4,7 +4,34 @@ import MangasAdmValidator from '../validators/mangasAdmValidator.js';
 
 const mangasAdmController = express();
 export default mangasAdmController;
+/**
+ * @swagger
+ * tags:
+ *   name: MangaAdm
+ *   description: MangaAdm
+ */
 
+/**
+ * @swagger
+ * /mangas/adm:
+ *   post:
+ *     tags: [MangaAdm]
+ *     description: register manga
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               idPlugin:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ */
 mangasAdmController.post(
 	'/',
 	MangasAdmValidator.registerManga,
@@ -13,9 +40,24 @@ mangasAdmController.post(
 		const response = await MangasAdmService.registerManga({ title, idPlugin });
 
 		res.status(201).send(response);
-	},
+	}
 );
 
+/**
+ * @swagger
+ * /mangas/adm:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: list mangas
+ *     parameters:
+ *       - name: title
+ *         in: query
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Returns a list mangas
+ */
 mangasAdmController.get(
 	'/',
 	MangasAdmValidator.listMangasRegistered,
@@ -24,8 +66,35 @@ mangasAdmController.get(
 		const response = await MangasAdmService.listMangasRegistered({ title });
 
 		res.status(200).send(response);
-	},
+	}
 );
+
+/**
+ * @swagger
+ * /mangas/adm/cookie:
+ *   post:
+ *     tags: [MangaAdm]
+ *     description: list mangas
+ *     consumes:
+ *       - application/json
+ *     parameters:
+ *       - name: body
+ *         in: body
+ *         required: true
+ *         schema:
+ *           type: object
+ *           required:
+ *             - cookie
+ *             - idPlugin
+ *           properties:
+ *             cookie:
+ *               type: string
+ *             idPlugin:
+ *               type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ */
 mangasAdmController.post(
 	'/cookie',
 	MangasAdmValidator.registerCookie,
@@ -33,22 +102,104 @@ mangasAdmController.post(
 		const { cookie, idPlugin } = req.body;
 		const response = await MangasAdmService.registerCookie({
 			cookie,
-			idPlugin,
+			idPlugin
 		});
 
 		res.status(201).send(response);
-	},
+	}
 );
+
+/**
+ * @swagger
+ * /mangas/adm/download-batch:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: Start downloads
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 mangasAdmController.get('/download-batch', async (_req, res) => {
 	const response = await MangasAdmService.downloadMangasBatch();
 
 	res.status(200).send(response);
 });
+
+/**
+ * @swagger
+ * /mangas/adm/update-mangas:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: Start update mandas
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 mangasAdmController.get('/update-mangas', async (_req, res) => {
 	const response = await MangasAdmService.updateMangas();
 
 	res.status(200).send(response);
 });
+
+/**
+ * @swagger
+ * /mangas/adm/chapters:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: list pages mandas and send to queue download
+ *     parameters:
+ *       - name: title
+ *         in: query
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Returns a list pages
+ */
+mangasAdmController.get(
+	'/chapters',
+	MangasAdmValidator.updateMangaChapters,
+	async (req, res) => {
+		const { title } = req.query;
+		const response = await MangasAdmService.updateMangaChapters({
+			title: Array.isArray(title) ? title[0] : title
+		});
+
+		res.status(200).send(response);
+	}
+);
+
+/**
+ * @swagger
+ * /mangas/adm/chapters/pages:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: list pages mandas and send to queue download
+ *     parameters:
+ *       - name: idChapterPlugin
+ *         in: query
+ *         required: true
+ *         type: string
+ *       - name: pluginId
+ *         in: query
+ *         required: true
+ *         type: string
+ *       - name: title
+ *         in: query
+ *         required: true
+ *         type: string
+ *       - name: volume
+ *         in: query
+ *         required: true
+ *         type: string
+ *       - name: idChapter
+ *         in: query
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Returns a list pages
+ */
 mangasAdmController.get(
 	'/chapters/pages',
 	MangasAdmValidator.listPagesAndSend,
@@ -59,21 +210,9 @@ mangasAdmController.get(
 			pluginId,
 			title,
 			volume,
-			idChapter,
+			idChapter
 		});
 
 		res.status(200).send(response);
-	},
-);
-mangasAdmController.get(
-	'/chapters',
-	MangasAdmValidator.updateMangaChapters,
-	async (req, res) => {
-		const { title } = req.query;
-		const response = await MangasAdmService.updateMangaChapters({
-			title: Array.isArray(title) ? title[0] : title,
-		});
-
-		res.status(200).send(response);
-	},
+	}
 );

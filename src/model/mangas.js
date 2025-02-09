@@ -23,7 +23,7 @@ async function initMangas() {
 		Request: er,
 		Blacklist: new Blacklist(),
 		Settings: new Settings(),
-		Storage: new Storage(),
+		Storage: new Storage()
 	};
 	function recFindByExt(base, ext, files, result) {
 		const filesNew = files || fs.readdirSync(base);
@@ -57,12 +57,12 @@ async function initMangas() {
 				.then((module) => {
 					return {
 						module,
-						name: path.basename(filePath, path.extname(filePath)),
+						name: path.basename(filePath, path.extname(filePath))
 					};
 				})
 				.catch((e) => {
 					1;
-				}),
+				})
 		);
 	}
 
@@ -74,7 +74,7 @@ async function initMangas() {
 						const { module, name } = aaa.value;
 						plugins[name] = {
 							module: module.default,
-							name,
+							name
 						};
 					}
 				} catch (err) {
@@ -91,31 +91,31 @@ import logger from '../infra/logger.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let counter = 1;
-	let cookie = null
+	let cookie = null;
 	if (idChapter) {
 		const response = await database
 			.query({
 				text: `SELECT m.cookie  FROM chapters c
 	JOIN "pluginConfig" m ON lower(m."idPlugin") = lower(c."pluginId")
 	where "idChapter" = $1 and "wasDownloaded" = false;`,
-				values: [idChapter],
+				values: [idChapter]
 			})
 			.then(({ rows }) => rows);
 		if (response.length) {
-			cookie = response[0]?.cookie
+			cookie = response[0]?.cookie;
 		}
 	}
 	const pathFolder = path.resolve('downloads', manga);
 	await mkdir(pathFolder, { recursive: true });
 	const pathFile = path.join(pathFolder, `${chapter}.cbz`);
 	await rm(pathFile, {
-		recursive: true,
+		recursive: true
 	}).catch(() => {});
 	logger.info({ manga, chapter, status: 'inicio' });
 	const zip = new AdmZip();
 	const imagesType = ['png', 'jpeg', 'jpg', 'avif'];
 	for (const page of pages) {
-		const image = await downloadImage({ url: page,cookie });
+		const image = await downloadImage({ url: page, cookie });
 		if (page.endsWith('.zip')) {
 			const imageZip = new AdmZip(image);
 			const zipEntries = imageZip.getEntries();
@@ -142,7 +142,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			"wasDownloaded" = true
 			WHERE
 			"idChapter" = $1`,
-			values: [idChapter],
+			values: [idChapter]
 		});
 	}
 	logger.info({ manga, chapter, status: 'fim' });
@@ -155,7 +155,7 @@ async function processImage(image) {
 			const result = await sharp(image)
 				.toFormat(imageFormat)
 				.webp({
-					quality: 80,
+					quality: 80
 				})
 				.toBuffer();
 			return { imageFormatted: result, type: imageFormat };
@@ -164,9 +164,30 @@ async function processImage(image) {
 	return { imageFormatted: image, type: 'png' };
 }
 
+async function listPlugins({ name }) {
+	const data = Object.keys(plugins).map((id) => {
+		const { module } = plugins[id];
+		try {
+			const instance = new module();
+			return {
+				url: instance.url,
+				id: instance.id
+			};
+		} catch {
+			return null;
+		}
+	});
+	if (name) {
+		return data
+			.filter((item) => item !== null)
+			.filter((item) => item.id?.toLowerCase().includes(name?.toLowerCase()));
+	}
+	return data;
+}
+
 async function getInstancePlugin(pluginId) {
 	const id = Object.keys(plugins).find(
-		(item) => item.toLowerCase() === pluginId.toLowerCase(),
+		(item) => item.toLowerCase() === pluginId.toLowerCase()
 	);
 	if (id === undefined) {
 		throw new Error(`Plugin with id ${pluginId} not found`);
@@ -178,7 +199,7 @@ async function getInstancePlugin(pluginId) {
 			text: `SELECT
 		cookie
 	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
-			values: [id],
+			values: [id]
 		})
 		.then(({ rows }) => rows);
 	if (response.length) {
@@ -190,7 +211,7 @@ async function getInstancePlugin(pluginId) {
 				cookie
 			FROM "pluginConfig" WHERE "idPlugin" = $1
 			AND "cookieUpdatedAt" > to_timestamp($2, 'M/DD/YYYY HH:MI:SS');`,
-				values: [id, date.toLocaleString()],
+				values: [id, date.toLocaleString()]
 			})
 			// 		.query({
 			// 			text: `SELECT
@@ -218,7 +239,7 @@ async function listMangas({ pluginId, title }) {
 		return data.filter(
 			(item) =>
 				item.title.toLowerCase() === title.toLowerCase() ||
-				item.title.toLowerCase().includes(title.toLowerCase()),
+				item.title.toLowerCase().includes(title.toLowerCase())
 		);
 	}
 	return data;
@@ -265,7 +286,7 @@ async function getMangaFromPlugin({ idPlugin, title }) {
 async function listChaptersByManga({ idPlugin, mangaId }) {
 	const chapters = await listChapters({
 		mangaId,
-		pluginId: idPlugin,
+		pluginId: idPlugin
 	});
 	return chapters
 		.map((chapter) => {
@@ -281,7 +302,7 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 			(chapter) =>
 				chapter.volume !== undefined ||
 				chapter.volume !== null ||
-				chapter.volume === '',
+				chapter.volume === ''
 		)
 		.filter((chapter) => ['pt', 'pt-br'].includes(chapter.language));
 }
@@ -294,7 +315,7 @@ const MangasService = {
 	listPages,
 	listChaptersByManga,
 	getMangaFromPlugin,
-	plugins,
+	listPlugins
 };
 
 export default MangasService;

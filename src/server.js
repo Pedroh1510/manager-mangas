@@ -15,9 +15,9 @@ server.use(express.urlencoded({ extended: true }));
 server.use(
 	morgan('tiny', {
 		stream: {
-			write: (message) => logger.http(message.trim()),
-		},
-	}),
+			write: (message) => logger.http(message.trim())
+		}
+	})
 );
 
 await MangasService.initMangas();
@@ -33,7 +33,7 @@ server.use((error, _req, res, _next) => {
 	if (error.name === 'ValidationError') {
 		const errorNew = new ValidationError({
 			message: error.message,
-			action: 'Verifique a request e tente novamente.',
+			action: 'Verifique a request e tente novamente.'
 		});
 		return res.status(errorNew.statusCode).send(errorNew);
 	}

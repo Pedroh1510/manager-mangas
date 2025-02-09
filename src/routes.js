@@ -2,10 +2,12 @@ import express from 'express';
 import mangasController from './controller/mangasController.js';
 import MigrationsService from './model/migrations.js';
 import StatusService from './model/status.js';
+import routerDoc from './infra/swagger.js';
 
 const router = express();
 export default router;
 
+router.use(routerDoc);
 router.use('/mangas', mangasController);
 
 router.get('/status', async (_, res) => {
