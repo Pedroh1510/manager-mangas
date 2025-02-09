@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export async function downloadImage({ url,cookie }) {
+export async function downloadImage({ url, cookie }) {
 	return axios({
 		url,
 		method: 'GET',
@@ -8,7 +8,8 @@ export async function downloadImage({ url,cookie }) {
 		headers: {
 			referer: new URL(url).origin,
 			cookie,
-			"User-Agent":'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
-		},
+			'User-Agent':
+				'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0'
+		}
 	}).then(({ data }) => Buffer.from(data, 'base64'));
 }

@@ -213,13 +213,13 @@ async function getInstancePlugin(pluginId) {
 			AND "cookieUpdatedAt" > to_timestamp($2, 'M/DD/YYYY HH:MI:SS');`,
 				values: [id, date.toLocaleString()]
 			})
-			// 		.query({
-			// 			text: `SELECT
+			// .query({
+			// 	text: `SELECT
 			// 	cookie
 			// FROM "pluginConfig" WHERE "idPlugin" = $1
 			// AND "cookieUpdatedAt" > to_timestamp($2, 'DD/MM/YYYY, HH24:MI:SS');`,
-			// 			values: [id, date.toLocaleString()]
-			// 		})
+			// 	values: [id, date.toLocaleString()]
+			// })
 			.then(({ rows }) => rows);
 		if (!responseValid.length)
 			throw new Error(`Plugin with id ${pluginId} cookie expired`);
@@ -239,7 +239,7 @@ async function listMangas({ pluginId, title }) {
 		return data.filter(
 			(item) =>
 				item.title.toLowerCase() === title.toLowerCase() ||
-				item.title.toLowerCase().includes(title.toLowerCase())
+				item.title.toLowerCase().includes(title.toLowerCase().trim())
 		);
 	}
 	return data;
@@ -292,17 +292,19 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 		.map((chapter) => {
 			const a = chapter.title;
 			const q = a.match(/([0-9]*[.])?[0-9]+/);
-			chapter.volume = q.length ? Number.parseInt(q[0]) : null;
+			chapter.volume = q?.length ? Number.parseInt(q[0]) : null;
 			if (chapter.volume === null || Number.isNaN(chapter.volume)) {
-				logger.info(1);
+				chapter.volume = null;
 			}
 			return chapter;
 		})
 		.filter(
 			(chapter) =>
-				chapter.volume !== undefined ||
-				chapter.volume !== null ||
-				chapter.volume === ''
+				!(
+					chapter.volume === undefined ||
+					chapter.volume === null ||
+					chapter.volume === ''
+				)
 		)
 		.filter((chapter) => ['pt', 'pt-br'].includes(chapter.language));
 }

@@ -1,23 +1,24 @@
 import Connector from '../engine/Connector.mjs';
 
 export default class Remangas extends Connector {
+	constructor() {
+		super();
+		super.id = 'remangas';
+		super.label = 'Remangas';
+		this.tags = ['manga', 'portuguese'];
+		this.url = 'https://remangas.net';
 
-    constructor() {
-        super();
-        super.id = 'remangas';
-        super.label = 'Remangas';
-        this.tags = [ 'manga', 'portuguese' ];
-        this.url = 'https://remangas.net';
+		this.language = 'pt';
+	}
 
-        this.language = 'pt';
-    }
-
-    init(){
-        this.requestOptions.headers.set('referer',this.url)
-        this.requestOptions.headers.set('cookie', this.cookie);
-        this.requestOptions.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36');
-    }
-   
+	init() {
+		this.requestOptions.headers.set('referer', this.url);
+		this.requestOptions.headers.set('cookie', this.cookie);
+		this.requestOptions.headers.set(
+			'User-Agent',
+			'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0'
+		);
+	}
 
 	async _getMangas() {
 		let page = 1;
@@ -26,7 +27,7 @@ export default class Remangas extends Connector {
 		let request, data;
 
 		let mangas = [];
-        this.init()
+		this.init();
 
 		while (morePages) {
 			try {
@@ -60,30 +61,30 @@ export default class Remangas extends Connector {
 		return mangas;
 	}
 
-    
-
 	async _getChapters(manga) {
-        this.init()
+		this.init();
 		let request = new Request(new URL(manga.id, this.url), this.requestOptions);
 		let data = await this.fetchDOM(
 			request,
 			'#tab-chapter-listing > div > div > ul > li > a'
 		);
 
-		return data.map((element) => {;
+		return data.map((element) => {
 			return {
 				id: this.getRootRelativeOrAbsoluteLink(element, this.url),
-				title: 'Chapter ' + element.textContent
-                ?.trim()
-                ?.replace(/[\n|\t]/, '')
-                ?.trim(),
+				title:
+					'Chapter ' +
+					element.textContent
+						?.trim()
+						?.replace(/[\n|\t]/, '')
+						?.trim(),
 				language: 'pt'
 			};
 		});
 	}
 
-    async _getPages(chapter) {
-		this.init()
+	async _getPages(chapter) {
+		this.init();
 		const request = new Request(
 			new URL(chapter.id, this.url),
 			this.requestOptions
@@ -93,10 +94,7 @@ export default class Remangas extends Connector {
 			'div.reading-content > div > source'
 		);
 		return data.map((element) => {
-			return this.getAbsolutePath(
-				element,
-				request.url
-			);
+			return this.getAbsolutePath(element, request.url);
 		});
-    }
+	}
 }
