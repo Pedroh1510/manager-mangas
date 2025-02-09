@@ -15,7 +15,8 @@
     "biome:format": "npx @biomejs/biome format ./src",
     "biome:format:fix": "npx @biomejs/biome format  --write ./src",
     "biome:check": "npx @biomejs/biome check --organize-imports-enabled=true ./src",
-    "biome:check:fix": "npx @biomejs/biome check --write ./src"
+    "biome:check:fix": "npx @biomejs/biome check --write ./src",
+    "docker:build:push": "docker buildx build --push -t pedroh1510/mangas:latest ."
   },
   "keywords": [],
   "author": "",
