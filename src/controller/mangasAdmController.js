@@ -52,7 +52,7 @@ mangasAdmController.post(
  *     parameters:
  *       - name: title
  *         in: query
- *         required: true
+ *         required: false
  *         type: string
  *     responses:
  *       200:
@@ -75,22 +75,17 @@ mangasAdmController.get(
  *   post:
  *     tags: [MangaAdm]
  *     description: list mangas
- *     consumes:
- *       - application/json
- *     parameters:
- *       - name: body
- *         in: body
- *         required: true
- *         schema:
- *           type: object
- *           required:
- *             - cookie
- *             - idPlugin
- *           properties:
- *             cookie:
- *               type: string
- *             idPlugin:
- *               type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cookie:
+ *                 type: string
+ *               idPlugin:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Created

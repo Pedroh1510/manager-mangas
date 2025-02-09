@@ -16,7 +16,7 @@ const swaggerOptions = {
 		},
 		servers: [
 			{
-				url: CONFIG_ENV.URL
+				url: CONFIG_ENV.URL_DOC
 			}
 		],
 		components: {

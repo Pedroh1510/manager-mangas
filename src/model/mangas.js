@@ -315,7 +315,8 @@ const MangasService = {
 	listPages,
 	listChaptersByManga,
 	getMangaFromPlugin,
-	listPlugins
+	listPlugins,
+	plugins
 };
 
 export default MangasService;

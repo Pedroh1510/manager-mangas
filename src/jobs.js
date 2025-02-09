@@ -3,37 +3,37 @@ import CONFIG_ENV from './infra/env.js';
 
 const connection = {
 	host: CONFIG_ENV.REDIS_HOST,
-	port: CONFIG_ENV.REDIS_PORT,
+	port: CONFIG_ENV.REDIS_PORT
 };
 const defaultJobOptions = {
 	removeOnComplete: {
-		age: 10,
+		age: 10
 	},
 	removeOnFail: {
-		age: 10,
-	},
+		age: 10
+	}
 };
 
 const updateMangasQueue = new Queue('update-mangas', {
 	connection,
-	defaultJobOptions,
+	defaultJobOptions
 });
 const updateMangaQueue = new Queue('manga', {
 	connection,
-	defaultJobOptions,
+	defaultJobOptions
 });
 const downloadBatchQueue = new Queue('download-batch', {
 	connection,
-	defaultJobOptions,
+	defaultJobOptions
 });
 
 const listPagesQueue = new Queue('list-pages', {
 	connection,
-	defaultJobOptions,
+	defaultJobOptions
 });
 const downloadQueue = new Queue('download', {
 	connection,
-	defaultJobOptions,
+	defaultJobOptions
 });
 async function initWorkers() {
 	const worker = new Worker(
@@ -46,8 +46,8 @@ async function initWorkers() {
 		},
 		{
 			connection,
-			concurrency: 1,
-		},
+			concurrency: 1
+		}
 	);
 	const workerUpdateManga = new Worker(
 		updateMangaQueue.name,
@@ -55,14 +55,14 @@ async function initWorkers() {
 			logger.info('workerUpdateManga');
 
 			await fetch(
-				`${CONFIG_ENV.URL}/mangas/adm/chapters?title=${job.data.title}`,
+				`${CONFIG_ENV.URL}/mangas/adm/chapters?title=${job.data.title}`
 			);
 			logger.info('workerUpdateManga fim');
 		},
 		{
 			connection,
-			concurrency: 1,
-		},
+			concurrency: 1
+		}
 	);
 	const worker2 = new Worker(
 		downloadBatchQueue.name,
@@ -75,8 +75,8 @@ async function initWorkers() {
 		},
 		{
 			connection,
-			concurrency: 1,
-		},
+			concurrency: 1
+		}
 	);
 	const worker3 = new Worker(
 		downloadQueue.name,
@@ -89,8 +89,8 @@ async function initWorkers() {
 						manga,
 						chapter,
 						pages,
-						idChapter,
-					},
+						idChapter
+					}
 				})
 				.then((res) => res.data);
 			logger.info(`worker3 ${manga} -- ${chapter} --> fim`);
@@ -98,8 +98,8 @@ async function initWorkers() {
 		},
 		{
 			connection,
-			concurrency: 3,
-		},
+			concurrency: 3
+		}
 	);
 	const listPagesWorker = new Worker(
 		listPagesQueue.name,
@@ -113,8 +113,8 @@ async function initWorkers() {
 						pluginId,
 						title,
 						volume,
-						idChapter,
-					},
+						idChapter
+					}
 				})
 				.then((res) => res.data);
 			logger.info(`worker3 ${title} -- ${volume} --> fim`);
@@ -122,8 +122,8 @@ async function initWorkers() {
 		},
 		{
 			connection,
-			concurrency: 1,
-		},
+			concurrency: 1
+		}
 	);
 }
 import { createBullBoard } from '@bull-board/api';
@@ -141,15 +141,15 @@ createBullBoard({
 		new BullMQAdapter(downloadBatchQueue),
 		new BullMQAdapter(downloadQueue),
 		new BullMQAdapter(updateMangaQueue),
-		new BullMQAdapter(listPagesQueue),
+		new BullMQAdapter(listPagesQueue)
 	],
-	serverAdapter,
+	serverAdapter
 });
 
 async function init() {
 	logger.info('iniciado workers');
 	await updateMangasQueue.upsertJobScheduler('every-hour', {
-		every: 1000 * 60 * 60,
+		every: 1000 * 60 * 60
 	});
 	await initWorkers();
 }
@@ -171,10 +171,10 @@ const jobs = {
 		},
 		listPagesQueue: async (data) => {
 			await listPagesQueue.add('teste', data, { attempts: 100 });
-		},
+		}
 	},
 	init,
-	router: serverAdapter.getRouter(),
+	router: serverAdapter.getRouter()
 };
 
 export default jobs;

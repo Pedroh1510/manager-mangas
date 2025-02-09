@@ -7,19 +7,19 @@ import MangasService from './mangas.js';
 
 async function registerManga({ title, idPlugin }) {
 	const id = Object.keys(MangasService.plugins).find(
-		(item) => item.toLowerCase() === idPlugin?.toLowerCase(),
+		(item) => item.toLowerCase() === idPlugin?.toLowerCase()
 	);
 	if (id === undefined) {
 		throw new ValidationError({
 			message: `Plugin with id ${idPlugin} not found`,
-			action: 'Change plugin id',
+			action: 'Change plugin id'
 		});
 	}
 
 	let idManga = await database
 		.query({
 			text: 'SELECT "idManga" FROM "mangas" WHERE "title" = $1',
-			values: [title],
+			values: [title]
 		})
 		.then(({ rows }) => {
 			return rows.length ? rows[0].idManga : null;
@@ -28,7 +28,7 @@ async function registerManga({ title, idPlugin }) {
 	if (!idManga) {
 		const response = await database.query({
 			text: 'INSERT INTO "mangas" ("title") VALUES ($1) RETURNING "idManga"',
-			values: [title],
+			values: [title]
 		});
 		idManga = response.rows[0].idManga;
 	}
@@ -36,14 +36,14 @@ async function registerManga({ title, idPlugin }) {
 	await database
 		.query({
 			text: 'INSERT INTO "mangasPlugins" ("idManga", "idPlugin") VALUES ($1, $2)',
-			values: [idManga, idPlugin],
+			values: [idManga, idPlugin]
 		})
 		.catch((error) => {
 			if (error.message.includes('duplicate key')) {
 				throw new BadRequestError({
 					cause: error,
 					message: 'This manga already exists in the database',
-					action: 'Try another title or idPlugin',
+					action: 'Try another title or idPlugin'
 				});
 			}
 			throw error;
@@ -51,23 +51,30 @@ async function registerManga({ title, idPlugin }) {
 
 	return {
 		idManga,
-		idPlugin,
+		idPlugin
 	};
 }
 
 async function listMangasRegistered({ title }) {
+	if (title) {
+		return database
+			.query({
+				text: 'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga") WHERE lower("title") ~~ $1',
+				values: [title.toLowerCase()]
+			})
+			.then(({ rows }) => rows);
+	}
 	return database
-		.query({
-			text: 'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga") WHERE lower("title") ~~ $1',
-			values: [title.toLowerCase()],
-		})
+		.query(
+			'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga")'
+		)
 		.then(({ rows }) => rows);
 }
 
 async function updateMangas() {
 	const mangas = await database
 		.query(
-			'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga")',
+			'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga")'
 		)
 		.then(({ rows }) => rows);
 
@@ -80,7 +87,7 @@ async function updateMangas() {
 	}
 
 	return {
-		totalUpdated: counterMangasUpdated,
+		totalUpdated: counterMangasUpdated
 	};
 }
 
@@ -89,29 +96,29 @@ async function listPagesAndSend({
 	pluginId,
 	title,
 	volume,
-	idChapter,
+	idChapter
 }) {
 	if (!idChapterPlugin || !pluginId || !title || !volume || !idChapter) return;
 	const pages = await MangasService.listPages({
 		chapterId: idChapterPlugin,
-		pluginId: pluginId,
+		pluginId: pluginId
 	});
 	if (!pages.length) return;
 	await jobs.queues.downloadQueue({
 		manga: title,
 		chapter: volume,
 		pages,
-		idChapter: idChapter,
+		idChapter: idChapter
 	});
 }
 
 async function registerCookie({ cookie, idPlugin }) {
 	const id = Object.keys(MangasService.plugins).find(
-		(item) => item.toLowerCase() === idPlugin.toLowerCase(),
+		(item) => item.toLowerCase() === idPlugin.toLowerCase()
 	);
 	if (id === undefined) {
 		throw new ValidationError({
-			message: `Plugin with id ${idPlugin} not found`,
+			message: `Plugin with id ${idPlugin} not found`
 		});
 	}
 	const response = await database
@@ -119,7 +126,7 @@ async function registerCookie({ cookie, idPlugin }) {
 			text: `SELECT
 		cookie
 	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
-			values: [id],
+			values: [id]
 		})
 		.then(({ rows }) => rows);
 
@@ -129,7 +136,7 @@ async function registerCookie({ cookie, idPlugin }) {
 			cookie = $1
 			, "cookieUpdatedAt" = $2
 			WHERE "idPlugin" = $3`,
-			values: [cookie, new Date(), id],
+			values: [cookie, new Date(), id]
 		});
 		return;
 	}
@@ -137,7 +144,7 @@ async function registerCookie({ cookie, idPlugin }) {
 		text: `INSERT INTO
 			"pluginConfig"(cookie, "cookieUpdatedAt","idPlugin")
 		VALUES ($1, $2, $3)`,
-		values: [cookie, new Date(), id],
+		values: [cookie, new Date(), id]
 	});
 }
 
@@ -146,7 +153,7 @@ async function downloadMangasBatch() {
 		.query(
 			`SELECT "idChapter","pluginId","idChapterPlugin", "volume","mangas"."title" FROM "chapters"
 JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" = false
-	ORDER BY "volume"`,
+	ORDER BY "volume"`
 		)
 		.then(({ rows }) => rows);
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };
@@ -163,7 +170,7 @@ async function listChaptersMissing({ title, mangaByPlugin }) {
 	const chaptersInDatabase = await database
 		.query({
 			text: 'SELECT "name","pluginId","idChapterPlugin", "volume" FROM "chapters" where "idManga" = $1;',
-			values: [mangaByPlugin[0].idManga],
+			values: [mangaByPlugin[0].idManga]
 		})
 		.then(({ rows }) => rows);
 	const chaptersInDatabaseFormatted = {};
@@ -176,7 +183,7 @@ async function listChaptersMissing({ title, mangaByPlugin }) {
 		if (!manga) continue;
 		const chapters = await MangasService.listChaptersByManga({
 			idPlugin,
-			mangaId: manga.id,
+			mangaId: manga.id
 		});
 		for (const chapter of chapters) {
 			if (chaptersInDatabaseFormatted[chapter.volume]) continue;
@@ -202,8 +209,8 @@ async function updateMangaChapters({ title }) {
 					chapter.title,
 					chapter.volume,
 					chapter.idPlugin,
-					mangaByPlugin[0].idManga,
-				],
+					mangaByPlugin[0].idManga
+				]
 			})
 			.catch((error) => {
 				if (!error.message.includes('duplicate key')) {
@@ -224,7 +231,7 @@ const MangasAdmService = {
 	listPagesAndSend,
 	registerCookie,
 	downloadMangasBatch,
-	updateMangaChapters,
+	updateMangaChapters
 };
 
 export default MangasAdmService;
