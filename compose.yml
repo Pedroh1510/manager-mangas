@@ -3,6 +3,7 @@ services:
     build: .
     image: mangas
     container_name: mangas
+    command: npm run dev
     volumes:
       - .:/app
     env_file:
