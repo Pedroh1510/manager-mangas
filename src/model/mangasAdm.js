@@ -148,6 +148,43 @@ async function registerCookie({ cookie, idPlugin }) {
 	});
 }
 
+async function registerCredentials({ idPlugin, login, password }) {
+	const id = Object.keys(MangasService.plugins).find(
+		(item) => item.toLowerCase() === idPlugin.toLowerCase()
+	);
+	if (id === undefined) {
+		throw new ValidationError({
+			message: `Plugin with id ${idPlugin} not found`
+		});
+	}
+
+	const response = await database
+		.query({
+			text: `SELECT
+		cookie
+	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
+			values: [id]
+		})
+		.then(({ rows }) => rows);
+
+	if (response.length) {
+		await database.query({
+			text: `UPDATE "pluginConfig" SET
+			login = $1
+			, "password" = $2
+			WHERE "idPlugin" = $3`,
+			values: [login, password, id]
+		});
+		return;
+	}
+	await database.query({
+		text: `INSERT INTO
+			"pluginConfig"(login, "password","idPlugin")
+		VALUES ($1, $2, $3)`,
+		values: [login, password, id]
+	});
+}
+
 async function downloadMangasBatch() {
 	const chaptersMissingDownload = await database
 		.query(
@@ -231,7 +268,8 @@ const MangasAdmService = {
 	listPagesAndSend,
 	registerCookie,
 	downloadMangasBatch,
-	updateMangaChapters
+	updateMangaChapters,
+	registerCredentials
 };
 
 export default MangasAdmService;

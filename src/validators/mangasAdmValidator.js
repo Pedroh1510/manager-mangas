@@ -25,6 +25,17 @@ async function registerCookie(req, _, next) {
 	await schema.validateAsync(req, { allowUnknown: true });
 	return next();
 }
+async function registerCredentials(req, _, next) {
+	const schema = Joi.object().keys({
+		body: Joi.object().keys({
+			login: Joi.string().required(),
+			password: Joi.string().required(),
+			idPlugin: Joi.string().required()
+		})
+	});
+	await schema.validateAsync(req, { allowUnknown: true });
+	return next();
+}
 async function listPagesAndSend({ query }, _, next) {
 	const schema = Joi.object().keys({
 		idChapterPlugin: Joi.string().required(),
@@ -50,6 +61,7 @@ const MangasAdmValidator = {
 	registerManga,
 	listMangasRegistered,
 	registerCookie,
+	registerCredentials,
 	listPagesAndSend,
 	updateMangaChapters
 };

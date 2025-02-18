@@ -197,14 +197,14 @@ async function getInstancePlugin(pluginId) {
 	const response = await database
 		.query({
 			text: `SELECT
-		cookie
+		cookie, login,password
 	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
 			values: [id]
 		})
 		.then(({ rows }) => rows);
-	if (response.length) {
+	if (response.length && response[0].cookie) {
 		const date = new Date();
-		date.setHours(date.getHours() - 6);
+		date.setHours(date.getHours() - 18);
 		const responseValid = await database
 			.query({
 				text: `SELECT
@@ -224,6 +224,10 @@ async function getInstancePlugin(pluginId) {
 		if (!responseValid.length)
 			throw new Error(`Plugin with id ${pluginId} cookie expired`);
 		instance.cookie = response[0].cookie;
+	}
+	if (response.length && response[0].login) {
+		instance.login = response[0].login;
+		instance.password = response[0].password;
 	}
 	return instance;
 }

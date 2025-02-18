@@ -106,6 +106,44 @@ mangasAdmController.post(
 
 /**
  * @swagger
+ * /mangas/adm/credentials:
+ *   post:
+ *     tags: [MangaAdm]
+ *     description: list mangas
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               login:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               idPlugin:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ */
+mangasAdmController.post(
+	'/credentials',
+	MangasAdmValidator.registerCredentials,
+	async (req, res) => {
+		const { login, password, idPlugin } = req.body;
+		const response = await MangasAdmService.registerCredentials({
+			login,
+			password,
+			idPlugin
+		});
+
+		res.status(201).send(response);
+	}
+);
+
+/**
+ * @swagger
  * /mangas/adm/download-batch:
  *   get:
  *     tags: [MangaAdm]
