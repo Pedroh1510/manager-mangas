@@ -112,7 +112,7 @@ async function listPagesAndSend({
 	});
 }
 
-async function registerCookie({ cookie, idPlugin }) {
+async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 	const id = Object.keys(MangasService.plugins).find(
 		(item) => item.toLowerCase() === idPlugin.toLowerCase()
 	);
@@ -135,16 +135,17 @@ async function registerCookie({ cookie, idPlugin }) {
 			text: `UPDATE "pluginConfig" SET
 			cookie = $1
 			, "cookieUpdatedAt" = $2
-			WHERE "idPlugin" = $3`,
-			values: [cookie, new Date(), id]
+			, "userAgent" = $3
+			WHERE "idPlugin" = $4`,
+			values: [cookie, new Date(), userAgent, id]
 		});
 		return;
 	}
 	await database.query({
 		text: `INSERT INTO
-			"pluginConfig"(cookie, "cookieUpdatedAt","idPlugin")
-		VALUES ($1, $2, $3)`,
-		values: [cookie, new Date(), id]
+			"pluginConfig"(cookie, "cookieUpdatedAt","idPlugin","userAgent")
+		VALUES ($1, $2, $3,$4)`,
+		values: [cookie, new Date(), id, userAgent]
 	});
 }
 

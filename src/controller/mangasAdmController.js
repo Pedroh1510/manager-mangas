@@ -84,6 +84,8 @@ mangasAdmController.get(
  *             properties:
  *               cookie:
  *                 type: string
+ *               userAgent:
+ *                 type: string
  *               idPlugin:
  *                 type: string
  *     responses:
@@ -94,10 +96,11 @@ mangasAdmController.post(
 	'/cookie',
 	MangasAdmValidator.registerCookie,
 	async (req, res) => {
-		const { cookie, idPlugin } = req.body;
+		const { cookie, idPlugin, userAgent } = req.body;
 		const response = await MangasAdmService.registerCookie({
 			cookie,
-			idPlugin
+			idPlugin,
+			userAgent
 		});
 
 		res.status(201).send(response);

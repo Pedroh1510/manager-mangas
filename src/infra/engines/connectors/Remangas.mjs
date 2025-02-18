@@ -10,14 +10,13 @@ export default class Remangas extends Connector {
 
 		this.language = 'pt';
 	}
+	userAgent =
+		'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0';
 
 	init() {
 		this.requestOptions.headers.set('referer', this.url);
 		this.requestOptions.headers.set('cookie', this.cookie);
-		this.requestOptions.headers.set(
-			'User-Agent',
-			'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0'
-		);
+		this.requestOptions.headers.set('User-Agent', this.userAgent);
 	}
 
 	async _getMangas() {

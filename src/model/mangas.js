@@ -92,10 +92,11 @@ import logger from '../infra/logger.js';
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let counter = 1;
 	let cookie = null;
+	let userAgent = null;
 	if (idChapter) {
 		const response = await database
 			.query({
-				text: `SELECT m.cookie  FROM chapters c
+				text: `SELECT m.cookie,"userAgent"  FROM chapters c
 	JOIN "pluginConfig" m ON lower(m."idPlugin") = lower(c."pluginId")
 	where "idChapter" = $1 and "wasDownloaded" = false;`,
 				values: [idChapter]
@@ -103,6 +104,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			.then(({ rows }) => rows);
 		if (response.length) {
 			cookie = response[0]?.cookie;
+			userAgent = response[0]?.userAgent;
 		}
 	}
 	const pathFolder = path.resolve('downloads', manga);
@@ -115,7 +117,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	const zip = new AdmZip();
 	const imagesType = ['png', 'jpeg', 'jpg', 'avif'];
 	for (const page of pages) {
-		const image = await downloadImage({ url: page, cookie });
+		const image = await downloadImage({ url: page, cookie, userAgent });
 		if (page.endsWith('.zip')) {
 			const imageZip = new AdmZip(image);
 			const zipEntries = imageZip.getEntries();
@@ -197,7 +199,7 @@ async function getInstancePlugin(pluginId) {
 	const response = await database
 		.query({
 			text: `SELECT
-		cookie, login,password
+		cookie, login,password, "userAgent"
 	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
 			values: [id]
 		})
@@ -228,6 +230,9 @@ async function getInstancePlugin(pluginId) {
 	if (response.length && response[0].login) {
 		instance.login = response[0].login;
 		instance.password = response[0].password;
+	}
+	if (response[0].userAgent) {
+		instance.userAgent = response[0].userAgent;
 	}
 	return instance;
 }
