@@ -29,7 +29,7 @@ const swaggerOptions = {
 			//  },
 		}
 	},
-	apis: ['./src/controller/*.js'] // Path to your API docs
+	apis: ['./src/controller/*.js', './src/routes.js'] // Path to your API docs
 };
 
 const swaggerDocs = swaggerJSDoc(swaggerOptions);
