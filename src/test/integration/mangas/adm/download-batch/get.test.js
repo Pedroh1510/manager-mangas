@@ -16,7 +16,7 @@ describe('GET /mangas/adm/download-batch', () => {
 		expect(response.status).toBe(200);
 
 		expect(response.data).toStrictEqual({
-			totalDownloaded: 3,
+			totalDownloaded: 3
 		});
 	});
 });

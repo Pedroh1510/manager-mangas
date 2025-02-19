@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
+import sql from 'sql-bricks';
 import { JSDOM } from 'jsdom';
 import database from '../infra/database.js';
 import { downloadImage } from '../utils/download.js';
@@ -27,21 +28,26 @@ async function initMangas() {
 	};
 	function recFindByExt(base, ext, files, result) {
 		const filesNew = files || fs.readdirSync(base);
-		result = result || [];
+		let resultArray = result || [];
 
 		for (const file of filesNew) {
 			const newbase = path.join(base, file);
 			if (fs.statSync(newbase).isDirectory()) {
-				result = recFindByExt(newbase, ext, fs.readdirSync(newbase), result);
+				resultArray = recFindByExt(
+					newbase,
+					ext,
+					fs.readdirSync(newbase),
+					resultArray
+				);
 			} else {
 				if (file.substr(-1 * (ext.length + 1)) === `.${ext}`) {
-					if (result) {
-						result.push(newbase);
+					if (resultArray) {
+						resultArray.push(newbase);
 					}
 				}
 			}
 		}
-		return result;
+		return resultArray;
 	}
 	function searchPluginsInFolder(folder) {
 		return recFindByExt(folder, 'mjs');
@@ -95,12 +101,17 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let userAgent = null;
 	if (idChapter) {
 		const response = await database
-			.query({
-				text: `SELECT m.cookie,"userAgent"  FROM chapters c
-	JOIN "pluginConfig" m ON lower(m."idPlugin") = lower(c."pluginId")
-	where "idChapter" = $1 and "wasDownloaded" = false;`,
-				values: [idChapter]
-			})
+			.query(
+				sql
+					.select('cookie', 'userAgent')
+					.from('chapters')
+					.join('pluginConfig')
+					.on({
+						'lower("pluginConfig"."idPlugin")': 'lower(chapters."pluginId")'
+					})
+					.where({ idChapter, wasDownloaded: false })
+					.toParams()
+			)
 			.then(({ rows }) => rows);
 		if (response.length) {
 			cookie = response[0]?.cookie;
@@ -139,13 +150,12 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	await zip.writeZipPromise(pathFile);
 
 	if (idChapter) {
-		await database.query({
-			text: `UPDATE "chapters" SET
-			"wasDownloaded" = true
-			WHERE
-			"idChapter" = $1`,
-			values: [idChapter]
-		});
+		await database.query(
+			sql
+				.update('chapters', { wasDownloaded: true })
+				.where({ idChapter })
+				.toParams()
+		);
 	}
 	logger.info({ manga, chapter, status: 'fim' });
 }
@@ -196,13 +206,15 @@ async function getInstancePlugin(pluginId) {
 	}
 	const { module } = plugins[id];
 	const instance = new module();
+
 	const response = await database
-		.query({
-			text: `SELECT
-		cookie, login,password, "userAgent"
-	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
-			values: [id]
-		})
+		.query(
+			sql
+				.select('cookie', 'login', 'password', 'userAgent')
+				.from('pluginConfig')
+				.where({ idPlugin: id })
+				.toParams()
+		)
 		.then(({ rows }) => rows);
 	if (response.length && response[0].cookie) {
 		const date = new Date();
@@ -227,12 +239,14 @@ async function getInstancePlugin(pluginId) {
 			throw new Error(`Plugin with id ${pluginId} cookie expired`);
 		instance.cookie = response[0].cookie;
 	}
-	if (response.length && response[0].login) {
-		instance.login = response[0].login;
-		instance.password = response[0].password;
-	}
-	if (response[0].userAgent) {
-		instance.userAgent = response[0].userAgent;
+	if (response.length) {
+		if (response[0].login) {
+			instance.login = response[0].login;
+			instance.password = response[0].password;
+		}
+		if (response[0].userAgent) {
+			instance.userAgent = response[0].userAgent;
+		}
 	}
 	return instance;
 }

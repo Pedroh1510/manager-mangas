@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import sql from 'sql-bricks';
 import database from '../infra/database.js';
 import { BadRequestError, ValidationError } from '../infra/errors.js';
 import jobs from '../jobs.js';
@@ -17,10 +18,15 @@ async function registerManga({ title, idPlugin }) {
 	}
 
 	let idManga = await database
-		.query({
-			text: 'SELECT "idManga" FROM "mangas" WHERE "title" = $1',
-			values: [title]
-		})
+		.query(
+			sql
+				.select('idManga')
+				.from('mangas')
+				.where({
+					title
+				})
+				.toParams()
+		)
 		.then(({ rows }) => {
 			return rows.length ? rows[0].idManga : null;
 		});
@@ -34,10 +40,7 @@ async function registerManga({ title, idPlugin }) {
 	}
 
 	await database
-		.query({
-			text: 'INSERT INTO "mangasPlugins" ("idManga", "idPlugin") VALUES ($1, $2)',
-			values: [idManga, idPlugin]
-		})
+		.query(sql.insertInto('mangasPlugins', { idManga, idPlugin }).toParams())
 		.catch((error) => {
 			if (error.message.includes('duplicate key')) {
 				throw new BadRequestError({
@@ -56,17 +59,20 @@ async function registerManga({ title, idPlugin }) {
 }
 
 async function listMangasRegistered({ title }) {
+	let where = {};
 	if (title) {
-		return database
-			.query({
-				text: 'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga") WHERE lower("title") ~~ $1',
-				values: [title.toLowerCase()]
-			})
-			.then(({ rows }) => rows);
+		sql.like();
+		where = sql.like(['lower(title)'], `%${title?.toLowerCase()}%`);
 	}
 	return database
 		.query(
-			'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga")'
+			sql
+				.select('idPlugin', 'title', '"mangas"."idManga"')
+				.from('mangasPlugins')
+				.join('mangas')
+				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
+				.where(where)
+				.toParams()
 		)
 		.then(({ rows }) => rows);
 }
@@ -74,7 +80,12 @@ async function listMangasRegistered({ title }) {
 async function updateMangas() {
 	const mangas = await database
 		.query(
-			'SELECT "idPlugin", "title","mangas"."idManga" FROM "mangasPlugins" INNER JOIN "mangas" ON ("mangas"."idManga" = "mangasPlugins"."idManga")'
+			sql
+				.select('idPlugin', 'title', '"mangas"."idManga"')
+				.from('mangasPlugins')
+				.join('mangas')
+				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
+				.toParams()
 		)
 		.then(({ rows }) => rows);
 
@@ -122,31 +133,30 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 		});
 	}
 	const response = await database
-		.query({
-			text: `SELECT
-		cookie
-	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
-			values: [id]
-		})
+		.query(
+			sql
+				.select('cookie')
+				.from('pluginConfig')
+				.where({ idPlugin: id })
+				.toParams()
+		)
 		.then(({ rows }) => rows);
+	const data = {
+		cookie,
+		cookieUpdatedAt: new Date()
+	};
 
+	if (userAgent) {
+		data.userAgent = userAgent;
+	}
 	if (response.length) {
-		await database.query({
-			text: `UPDATE "pluginConfig" SET
-			cookie = $1
-			, "cookieUpdatedAt" = $2
-			, "userAgent" = $3
-			WHERE "idPlugin" = $4`,
-			values: [cookie, new Date(), userAgent, id]
-		});
+		await database.query(
+			sql.update('pluginConfig', data).where({ idPlugin }).toParams()
+		);
 		return;
 	}
-	await database.query({
-		text: `INSERT INTO
-			"pluginConfig"(cookie, "cookieUpdatedAt","idPlugin","userAgent")
-		VALUES ($1, $2, $3,$4)`,
-		values: [cookie, new Date(), id, userAgent]
-	});
+	data.idPlugin = idPlugin;
+	await database.query(sql.insertInto('pluginConfig', data).toParams());
 }
 
 async function registerCredentials({ idPlugin, login, password }) {
@@ -160,30 +170,27 @@ async function registerCredentials({ idPlugin, login, password }) {
 	}
 
 	const response = await database
-		.query({
-			text: `SELECT
-		cookie
-	FROM "pluginConfig" WHERE "idPlugin" = $1;`,
-			values: [id]
-		})
+		.query(
+			sql
+				.select('cookie')
+				.from('pluginConfig')
+				.where({ idPlugin: id })
+				.toParams()
+		)
 		.then(({ rows }) => rows);
 
+	const data = {
+		login,
+		password
+	};
 	if (response.length) {
-		await database.query({
-			text: `UPDATE "pluginConfig" SET
-			login = $1
-			, "password" = $2
-			WHERE "idPlugin" = $3`,
-			values: [login, password, id]
-		});
+		await database.query(
+			sql.update('pluginConfig', data).where({ idPlugin }).toParams()
+		);
 		return;
 	}
-	await database.query({
-		text: `INSERT INTO
-			"pluginConfig"(login, "password","idPlugin")
-		VALUES ($1, $2, $3)`,
-		values: [login, password, id]
-	});
+	data.idPlugin = idPlugin;
+	await database.query(sql.insertInto('pluginConfig', data).toParams());
 }
 
 async function downloadMangasBatch() {

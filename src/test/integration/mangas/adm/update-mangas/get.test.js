@@ -15,7 +15,7 @@ describe('GET /mangas/adm/update-mangas', () => {
 		expect(response.status).toBe(200);
 
 		expect(response.data).toStrictEqual({
-			totalUpdated: 2,
+			totalUpdated: 2
 		});
 	});
 });

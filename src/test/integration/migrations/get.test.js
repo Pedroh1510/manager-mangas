@@ -9,7 +9,7 @@ beforeAll(async () => {
 describe('GET /migrations', () => {
 	test('', async () => {
 		const response = await fetch(
-			`${orchestrator.webServiceAddress}/migrations`,
+			`${orchestrator.webServiceAddress}/migrations`
 		);
 		expect(response.status).toEqual(200);
 		const body = await response.json();

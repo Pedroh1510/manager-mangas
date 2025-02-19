@@ -16,9 +16,9 @@ describe('GET /mangas/adm/chapters', () => {
 			`${orchestrator.webServiceAddress}/mangas/adm/chapters`,
 			{
 				params: {
-					title,
-				},
-			},
+					title
+				}
+			}
 		);
 		expect(response.status).toBe(200);
 		expect(response.data.length).toBeGreaterThanOrEqual(373);

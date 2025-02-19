@@ -4,13 +4,14 @@ import orchestrator from '../../../../orchestrator.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
+	await orchestrator.runMigrations();
 });
 
-describe.concurrent('Manga', () => {
+describe('GET /mangas/:pluginId/manga', () => {
 	describe('Leitordemanga', () => {
 		test('', async () => {
 			const response = await api.get(
-				'/mangas/Leitordemanga/manga?mangaId=/ler-manga/black-clover/',
+				'/mangas/Leitordemanga/manga?mangaId=/ler-manga/black-clover/'
 			);
 			expect(response.status).toEqual(200);
 			expect(response.data.length).toBeGreaterThanOrEqual(378);
@@ -19,7 +20,7 @@ describe.concurrent('Manga', () => {
 	describe('HiperCool', () => {
 		test('', async () => {
 			const response = await api.get(
-				'/mangas/HiperCool/manga?mangaId=/manga/regressed-warriors-female-dominance-diary/',
+				'/mangas/HiperCool/manga?mangaId=/manga/regressed-warriors-female-dominance-diary/'
 			);
 			expect(response.status).toEqual(200);
 			expect(response.data.length).toBeGreaterThanOrEqual(54);

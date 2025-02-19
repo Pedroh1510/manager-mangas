@@ -7,7 +7,17 @@ services:
     volumes:
       - .:/app
     env_file:
-      - .env
+      - .env.development
+    environment:
+      - runDocker=true
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
     ports:
       - 9229:9229
       - 3001:3001
+    networks:
+      - mangas
+
+networks:
+  mangas:
+    external: true

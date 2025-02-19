@@ -1,10 +1,11 @@
 import { config } from 'dotenv';
-config();
 
 const CONFIG_ENV = {};
 export default CONFIG_ENV;
-
 CONFIG_ENV.ENV = process.env.ENV ?? process.env.NODE_ENV;
+if (!process.env.runDocker && CONFIG_ENV.ENV === 'test') {
+	config({ path: '.env.development' });
+}
 
 CONFIG_ENV.DATABASE_URL = process.env.DATABASE_URL;
 CONFIG_ENV.POSTGRES_HOST = process.env.POSTGRES_HOST;

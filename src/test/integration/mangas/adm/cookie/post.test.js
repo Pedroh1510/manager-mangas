@@ -9,29 +9,46 @@ beforeAll(async () => {
 	await orchestrator.seedDatabase();
 });
 
-describe.concurrent('POST /mangas/adm/cookie', () => {
-	test('Set  cookie', async () => {
-		const response = await api.post('/mangas/adm/cookie', {
-			title: 'Black Clover',
-			idPlugin: 'leitordemanga',
+describe('POST /mangas/adm/cookie', () => {
+	describe('OK', () => {
+		test('Set  cookie', async () => {
+			const response = await api.post('/mangas/adm/cookie', {
+				cookie: 'algo',
+				idPlugin: 'leitordemanga'
+			});
+
+			expect(response.status).toEqual(201);
 		});
+		test('Set  cookie and agent', async () => {
+			const response = await api.post('/mangas/adm/cookie', {
+				cookie: 'algo',
+				userAgent: 'test',
+				idPlugin: 'leitordemanga'
+			});
 
-		expect(response.status).toEqual(201);
+			expect(response.status).toEqual(201);
+		});
 	});
-	test('Set  cookie', async () => {
-		const response = await api
-			.post('/mangas/adm/cookie', {
-				title: 'Black Clover',
-				idPlugin: 'leitordemanga1',
-			})
-			.catch((error) => ({ status: error.status, data: error.response?.data }));
+	describe('error', () => {
+		test('missing', async () => {
+			const response = await api
+				.post('/mangas/adm/cookie', {
+					title: 'Black Clover',
+					idPlugin: 'leitordemanga1'
+				})
+				.catch((error) => ({
+					status: error.status,
+					data: error.response?.data
+				}));
 
-		expect(response.status).toEqual(400);
-		expect(response.data).toEqual({
-			name: 'ValidationError',
-			message: 'Plugin with id leitordemanga1 not found',
-			action: 'Entre em contato com o suporte',
-			statusCode: 400,
+			expect(response.status).toEqual(400);
+
+			expect(response.data).toEqual({
+				name: 'ValidationError',
+				message: '"body.cookie" is required',
+				action: 'Verifique a request e tente novamente.',
+				statusCode: 400
+			});
 		});
 	});
 });

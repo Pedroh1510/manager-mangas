@@ -69,13 +69,30 @@ export default class LeitorDeManga extends Connector {
 	}
 
 	async _getPages(chapter) {
-		let request = new Request(
-			new URL(chapter.id, this.url),
-			this.requestOptions
-		);
-		// let data = await this.fetchDOM(request);
-		let data = await this.fetchDOM(request, 'div > source');
-		return data.map((element) => this.getAbsolutePath(element, request.url));
+		let continueSearch = true;
+		let page = 1;
+		const pages = [];
+		while (continueSearch) {
+			let request = new Request(
+				new URL(chapter.id + `/p/${page}/`, this.url),
+				this.requestOptions
+			);
+			let data = await this.fetchDOM(request, 'body');
+			if (data.length) {
+				const images = data[0].outerHTML
+					.split('data-src="')
+					.filter((item) => item.includes('uploads/WP-manga/data/manga_'))
+					.map((item) => item.split('"').shift());
+				if (images.length) {
+					pages.push(...images);
+
+					page++;
+					continue;
+				}
+			}
+			continueSearch = false;
+		}
+		return pages;
 	}
 
 	async _getMangaFromURI(uri) {
