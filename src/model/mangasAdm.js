@@ -196,9 +196,20 @@ async function registerCredentials({ idPlugin, login, password }) {
 async function downloadMangasBatch() {
 	const chaptersMissingDownload = await database
 		.query(
-			`SELECT "idChapter","pluginId","idChapterPlugin", "volume","mangas"."title" FROM "chapters"
-JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" = false
-	ORDER BY "volume"`
+			sql
+				.select(
+					'idChapter',
+					'pluginId',
+					'idChapterPlugin',
+					'volume',
+					'"mangas"."title"'
+				)
+				.from('chapters')
+				.join('mangas')
+				.on({ '"mangas"."idManga"': '"chapters"."idManga"' })
+				.where({ wasDownloaded: false })
+				.orderBy('volume')
+				.toParams()
 		)
 		.then(({ rows }) => rows);
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };
@@ -213,10 +224,13 @@ JOIN "mangas" ON "mangas"."idManga"= "chapters"."idManga" where "wasDownloaded" 
 
 async function listChaptersMissing({ title, mangaByPlugin }) {
 	const chaptersInDatabase = await database
-		.query({
-			text: 'SELECT "name","pluginId","idChapterPlugin", "volume" FROM "chapters" where "idManga" = $1;',
-			values: [mangaByPlugin[0].idManga]
-		})
+		.query(
+			sql
+				.select('name', 'pluginId', 'idChapterPlugin', 'volume')
+				.from('chapters')
+				.where({ idManga: mangaByPlugin[0].idManga })
+				.toParams()
+		)
 		.then(({ rows }) => rows);
 	const chaptersInDatabaseFormatted = {};
 	for (const chapter of chaptersInDatabase) {
@@ -247,16 +261,17 @@ async function updateMangaChapters({ title }) {
 	const chaptersMissing = await listChaptersMissing({ title, mangaByPlugin });
 	for (const chapter of chaptersMissing) {
 		await database
-			.query({
-				text: 'INSERT INTO "chapters" ("idChapterPlugin", "name", "volume", "pluginId","idManga") VALUES ($1,$2,$3,$4,$5);',
-				values: [
-					chapter.id,
-					chapter.title,
-					chapter.volume,
-					chapter.idPlugin,
-					mangaByPlugin[0].idManga
-				]
-			})
+			.query(
+				sql
+					.insertInto('chapters', {
+						idChapterPlugin: chapter.id,
+						name: chapter.title,
+						volume: chapter.volume,
+						pluginId: chapter.idPlugin,
+						idManga: mangaByPlugin[0].idManga
+					})
+					.toParams()
+			)
 			.catch((error) => {
 				if (!error.message.includes('duplicate key')) {
 					throw error;

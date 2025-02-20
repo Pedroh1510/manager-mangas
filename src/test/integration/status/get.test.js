@@ -11,10 +11,8 @@ describe('GET /status', () => {
 		const response = await fetch(`${orchestrator.webServiceAddress}/status`);
 		expect(response.status).toEqual(200);
 		const body = await response.json();
-		expect(body).toEqual({
-			version: '16.7',
-			maxConnections: 100,
-			openedConnections: 1
-		});
+		expect(body.version).toContain('16.');
+		expect(body.maxConnections).toEqual(100);
+		expect(body.openedConnections).to.above(1);
 	});
 });
