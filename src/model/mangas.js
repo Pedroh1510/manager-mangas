@@ -126,7 +126,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			userAgent = response[0]?.userAgent;
 		}
 	}
-	const paths = getPathMangaAndChapter({ title, volume: chapter });
+	const paths = getPathMangaAndChapter({ title: manga, volume: chapter });
 	const pathFolder = paths.mangaPath;
 	await mkdir(pathFolder, { recursive: true });
 	const pathFile = paths.chapterPath;
