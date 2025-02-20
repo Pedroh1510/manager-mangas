@@ -15,7 +15,10 @@ server.use(express.urlencoded({ extended: true }));
 server.use(
 	morgan('tiny', {
 		stream: {
-			write: (message) => logger.http(message.trim())
+			write: (message) => {
+				if (message.includes('GET /queues/api')) return;
+				logger.http(message.trim());
+			}
 		}
 	})
 );
