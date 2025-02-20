@@ -313,6 +313,28 @@ async function deleteMangaChapters({ title, volume }) {
 	}
 }
 
+async function deleteManga({ title }) {
+	const mangas = await listMangasRegistered({ title });
+	for (const item of mangas) {
+		const { mangaPath } = MangasService.getPathMangaAndChapter({
+			title
+		});
+		await database.query(
+			sql.deleteFrom('chapters').where({ idManga: item.idManga }).toParams()
+		);
+		await database.query(
+			sql
+				.deleteFrom('mangasPlugins')
+				.where({ idManga: item.idManga })
+				.toParams()
+		);
+		await database.query(
+			sql.deleteFrom('mangas').where({ idManga: item.idManga }).toParams()
+		);
+		await rm(mangaPath, { recursive: true, force: true });
+	}
+}
+
 const MangasAdmService = {
 	registerManga,
 	listMangasRegistered,
@@ -322,7 +344,8 @@ const MangasAdmService = {
 	downloadMangasBatch,
 	updateMangaChapters,
 	registerCredentials,
-	deleteMangaChapters
+	deleteMangaChapters,
+	deleteManga
 };
 
 export default MangasAdmService;

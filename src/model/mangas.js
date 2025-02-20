@@ -95,7 +95,7 @@ async function initMangas() {
 import AdmZip from 'adm-zip';
 import logger from '../infra/logger.js';
 
-function getPathMangaAndChapter({ title, volume }) {
+function getPathMangaAndChapter({ title, volume = 0 }) {
 	const mangaPath = path.resolve('downloads', title);
 	return {
 		mangaPath,

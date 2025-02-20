@@ -71,6 +71,32 @@ mangasAdmController.get(
 
 /**
  * @swagger
+ * /mangas/adm:
+ *   delete:
+ *     tags: [MangaAdm]
+ *     description: Delete manga
+ *     parameters:
+ *       - name: title
+ *         in: query
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description:
+ */
+mangasAdmController.delete(
+	'/',
+	MangasAdmValidator.listMangasRegistered,
+	async (req, res) => {
+		const { title } = req.query;
+		await MangasAdmService.deleteManga({ title });
+
+		res.status(200).send();
+	}
+);
+
+/**
+ * @swagger
  * /mangas/adm/cookie:
  *   post:
  *     tags: [MangaAdm]
