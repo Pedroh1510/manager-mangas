@@ -3,3 +3,5 @@ shinigami
 hakuneko
 downloads
 appdata
+!.env.development
+.env*
