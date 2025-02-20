@@ -10,8 +10,9 @@ services:
       - .env.development
     environment:
       - runDocker=true
-      - POSTGRES_HOST=localhost
+      - POSTGRES_HOST=database
       - POSTGRES_PORT=5432
+      - REDIS_HOST=cache
     ports:
       - 9229:9229
       - 3001:3001
