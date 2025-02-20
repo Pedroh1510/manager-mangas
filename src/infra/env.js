@@ -20,3 +20,5 @@ CONFIG_ENV.PORT = process.env.PORT ?? 3001;
 CONFIG_ENV.URL = process.env.URL ?? `http://localhost:${CONFIG_ENV.PORT}`;
 CONFIG_ENV.URL_DOC =
 	process.env.URL_DOC ?? `http://localhost:${CONFIG_ENV.PORT}`;
+
+CONFIG_ENV.ENABLE_JOB = !!process.env.URL_DOC ?? false;

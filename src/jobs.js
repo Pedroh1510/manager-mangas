@@ -147,11 +147,13 @@ createBullBoard({
 });
 
 async function init() {
-	logger.info('iniciado workers');
-	await updateMangasQueue.upsertJobScheduler('every-hour', {
-		every: 1000 * 60 * 60
-	});
-	await initWorkers();
+	if (CONFIG_ENV.ENABLE_JOB) {
+		logger.info('iniciado workers');
+		await updateMangasQueue.upsertJobScheduler('every-hour', {
+			every: 1000 * 60 * 60
+		});
+		await initWorkers();
+	}
 }
 const jobs = {
 	// workers: [worker, worker2, worker3, workerUpdateManga],
