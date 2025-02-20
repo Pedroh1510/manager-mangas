@@ -1,6 +1,8 @@
 import retry from 'async-retry';
 import database from '../infra/database.js';
 import CONFIG_ENV from '../infra/env.js';
+import MangasService from '../model/mangas.js';
+import { mkdir, writeFile } from 'node:fs/promises';
 
 const webServiceAddress = CONFIG_ENV.URL;
 async function waitForAllServices() {
@@ -15,7 +17,7 @@ async function waitForAllServices() {
 		return retry(fetchStatusPage, {
 			retries: 100,
 			minTimeout: 100,
-			maxTimeout: 1000,
+			maxTimeout: 1000
 		});
 	}
 }
@@ -30,17 +32,28 @@ async function runMigrations() {
 
 async function seedDatabase() {
 	await database.query(
-		`INSERT INTO "mangas"("title") VALUES('Black Clover'),('algo');`,
+		`INSERT INTO "mangas"("title") VALUES('Black Clover'),('algo');`
 	);
 	await database.query(
-		`INSERT INTO "mangasPlugins"("idManga","idPlugin") VALUES(1,'leitordemanga'),(2,'leitordemanga');`,
+		`INSERT INTO "mangasPlugins"("idManga","idPlugin") VALUES(1,'leitordemanga'),(2,'leitordemanga');`
 	);
 	await database.query(
 		`INSERT INTO chapters("idChapterPlugin","pluginId","idManga","name","volume") VALUES
 ('/ler-manga/black-clover/portugues-pt-br/capitulo-376/','leitordemanga',1,'Chapter capitulo-376','376'),
 ('/ler-manga/black-clover/portugues-pt-br/capitulo-375/','leitordemanga',1,'Chapter capitulo-375','375'),
-('/ler-manga/black-clover/portugues-pt-br/capitulo-374/','leitordemanga',1,'Chapter capitulo-374','374');`,
+('/ler-manga/black-clover/portugues-pt-br/capitulo-374/','leitordemanga',1,'Chapter capitulo-374','374');`
 	);
+}
+
+async function seedDownload() {
+	const { mangaPath, chapterPath } = MangasService.getPathMangaAndChapter({
+		title: 'Black Clover',
+		volume: 376
+	});
+	console.log(mangaPath, chapterPath);
+
+	await mkdir(mangaPath, { recursive: true }).catch(() => {});
+	await writeFile(chapterPath, '', { encoding: 'utf-8' });
 }
 
 const orchestrator = {
@@ -49,6 +62,7 @@ const orchestrator = {
 	clearDatabase,
 	runMigrations,
 	seedDatabase,
+	seedDownload
 };
 
 export default orchestrator;

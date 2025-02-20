@@ -57,12 +57,21 @@ async function updateMangaChapters({ query }, _, next) {
 	await schema.validateAsync(query);
 	return next();
 }
+async function deleteMangaChapters({ query }, _, next) {
+	const schema = Joi.object().keys({
+		title: Joi.string().required(),
+		volume: Joi.string().required()
+	});
+	await schema.validateAsync(query);
+	return next();
+}
 const MangasAdmValidator = {
 	registerManga,
 	listMangasRegistered,
 	registerCookie,
 	registerCredentials,
 	listPagesAndSend,
-	updateMangaChapters
+	updateMangaChapters,
+	deleteMangaChapters
 };
 export default MangasAdmValidator;

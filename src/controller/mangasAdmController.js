@@ -182,7 +182,7 @@ mangasAdmController.get('/update-mangas', async (_req, res) => {
  * /mangas/adm/chapters:
  *   get:
  *     tags: [MangaAdm]
- *     description: list pages mandas and send to queue download
+ *     description: list pages mangas and send to queue download
  *     parameters:
  *       - name: title
  *         in: query
@@ -202,6 +202,39 @@ mangasAdmController.get(
 		});
 
 		res.status(200).send(response);
+	}
+);
+
+/**
+ * @swagger
+ * /mangas/adm/chapters:
+ *   delete:
+ *     tags: [MangaAdm]
+ *     description: list delete chapter
+ *     parameters:
+ *       - name: title
+ *         in: query
+ *         required: true
+ *         type: string
+ *       - name: volume
+ *         in: query
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description:
+ */
+mangasAdmController.delete(
+	'/chapters',
+	MangasAdmValidator.deleteMangaChapters,
+	async (req, res) => {
+		const { title, volume } = req.query;
+		await MangasAdmService.deleteMangaChapters({
+			title,
+			volume
+		});
+
+		res.status(200).send();
 	}
 );
 

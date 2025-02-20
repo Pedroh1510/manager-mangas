@@ -95,6 +95,14 @@ async function initMangas() {
 import AdmZip from 'adm-zip';
 import logger from '../infra/logger.js';
 
+function getPathMangaAndChapter({ title, volume }) {
+	const mangaPath = path.resolve('downloads', title);
+	return {
+		mangaPath,
+		chapterPath: path.join(mangaPath, `${volume}.cbz`)
+	};
+}
+
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let counter = 1;
 	let cookie = null;
@@ -118,9 +126,10 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			userAgent = response[0]?.userAgent;
 		}
 	}
-	const pathFolder = path.resolve('downloads', manga);
+	const paths = getPathMangaAndChapter({ title, volume: chapter });
+	const pathFolder = paths.mangaPath;
 	await mkdir(pathFolder, { recursive: true });
-	const pathFile = path.join(pathFolder, `${chapter}.cbz`);
+	const pathFile = paths.chapterPath;
 	await rm(pathFile, {
 		recursive: true
 	}).catch(() => {});
@@ -341,7 +350,8 @@ const MangasService = {
 	listChaptersByManga,
 	getMangaFromPlugin,
 	listPlugins,
-	plugins
+	plugins,
+	getPathMangaAndChapter
 };
 
 export default MangasService;

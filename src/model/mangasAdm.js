@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import sql from 'sql-bricks';
 import database from '../infra/database.js';
@@ -284,6 +284,35 @@ async function updateMangaChapters({ title }) {
 	return chaptersMissing;
 }
 
+async function deleteMangaChapters({ title, volume }) {
+	const mangaByPlugin = await listMangasRegistered({ title });
+	if (!mangaByPlugin.length) return;
+	for (const manga of mangaByPlugin) {
+		const hasChapter = await database
+			.query(
+				sql
+					.select('1')
+					.from('chapters')
+					.where({ idManga: manga.idManga, volume })
+					.toParams()
+			)
+			.then((response) => response.rows.length);
+		if (!hasChapter) continue;
+		await database.query(
+			sql
+				.delete()
+				.from('chapters')
+				.where({ idManga: manga.idManga, volume })
+				.toParams()
+		);
+		const { chapterPath } = MangasService.getPathMangaAndChapter({
+			title,
+			volume
+		});
+		await rm(chapterPath);
+	}
+}
+
 const MangasAdmService = {
 	registerManga,
 	listMangasRegistered,
@@ -292,7 +321,8 @@ const MangasAdmService = {
 	registerCookie,
 	downloadMangasBatch,
 	updateMangaChapters,
-	registerCredentials
+	registerCredentials,
+	deleteMangaChapters
 };
 
 export default MangasAdmService;
