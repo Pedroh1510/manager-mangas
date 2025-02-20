@@ -16,6 +16,7 @@
     "biome:format:fix": "npx @biomejs/biome format  --write ./src",
     "biome:check": "npx @biomejs/biome check --organize-imports-enabled=true ./src",
     "biome:check:fix": "npx @biomejs/biome check --write ./src",
+    "docker:app:test": "docker exec -it mangas npm run test",
     "docker:build:push": "docker buildx build --push -t pedroh1510/mangas:latest .",
     "update:interactive": "npx npm-check-updates -i"
   },

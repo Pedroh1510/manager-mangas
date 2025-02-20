@@ -20,9 +20,6 @@ describe('DELETE /mangas/adm/chapters', () => {
 				volume
 			}
 		});
-		console.log(response.data);
 		expect(response.status).toBe(200);
-
-		// expect(response.data.length).toBeGreaterThanOrEqual(373);
 	});
 });
