@@ -149,7 +149,7 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 			sql
 				.select('cookie')
 				.from('pluginConfig')
-				.where({ idPlugin: id })
+				.where({ 'lower("idPlugin")': id.toLowerCase() })
 				.toParams()
 		)
 		.then(({ rows }) => rows);
@@ -163,7 +163,10 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 	}
 	if (response.length) {
 		await database.query(
-			sql.update('pluginConfig', data).where({ idPlugin }).toParams()
+			sql
+				.update('pluginConfig', data)
+				.where({ 'lower("idPlugin")': id.toLowerCase() })
+				.toParams()
 		);
 		return;
 	}
