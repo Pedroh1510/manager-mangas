@@ -6,6 +6,12 @@ import { BadRequestError, ValidationError } from '../infra/errors.js';
 import jobs from '../jobs.js';
 import MangasService from './mangas.js';
 
+async function listHistoryManga({ title }) {
+	return database
+		.query(sql.select('title').from('historyManga').where({ title }).toParams())
+		.then(({ rows }) => rows.map(({ title }) => title));
+}
+
 async function registerManga({ title, idPlugin }) {
 	const id = Object.keys(MangasService.plugins).find(
 		(item) => item.toLowerCase() === idPlugin?.toLowerCase()
@@ -16,7 +22,13 @@ async function registerManga({ title, idPlugin }) {
 			action: 'Change plugin id'
 		});
 	}
-
+	const historyManga = await listHistoryManga({ title });
+	if (historyManga.includes(title)) {
+		throw new BadRequestError({
+			message: 'This manga already exists in the database history',
+			action: 'Try another title'
+		});
+	}
 	let idManga = await database
 		.query(
 			sql
@@ -332,6 +344,7 @@ async function deleteManga({ title }) {
 			sql.deleteFrom('mangas').where({ idManga: item.idManga }).toParams()
 		);
 		await rm(mangaPath, { recursive: true, force: true });
+		await database.query(sql.insertInto('historyManga', { title }).toParams());
 	}
 }
 

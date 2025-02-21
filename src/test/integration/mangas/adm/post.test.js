@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import api from '../../../../infra/api.js';
 import orchestrator from '../../../orchestrator.js';
+import MangasAdmService from '../../../../model/mangasAdm.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
@@ -62,6 +63,31 @@ describe('POST /mangas/adm', () => {
 			expect(response.data).toEqual({
 				action: 'Try another title or idPlugin',
 				message: 'This manga already exists in the database',
+				name: 'BadRequestError',
+				statusCode: 400
+			});
+		});
+
+		test('ja foi deletado', async () => {
+			const consulta = () =>
+				api
+					.post('/mangas/adm', {
+						title: 'Black Clover',
+						idPlugin: 'hipercool'
+					})
+					.catch((error) => ({
+						status: error.status,
+						data: error.response?.data
+					}));
+			await consulta();
+			await MangasAdmService.deleteManga({
+				title: 'Black Clover'
+			});
+			const response = await consulta();
+			expect(response.status).toEqual(400);
+			expect(response.data).toEqual({
+				action: 'Try another title',
+				message: 'This manga already exists in the database history',
 				name: 'BadRequestError',
 				statusCode: 400
 			});
