@@ -83,22 +83,19 @@ async function initWorkers() {
 		async (job) => {
 			const { manga, chapter, pages, idChapter } = job.data;
 			logger.info(`worker3 ${manga} -- ${chapter} --> inicio`);
-			await axios
-				.get(`${CONFIG_ENV.URL}/mangas/download`, {
-					params: {
-						manga,
-						chapter,
-						pages,
-						idChapter
-					}
-				})
-				.then((res) => res.data);
+			await MangasService.downloadMangas({
+				manga,
+				chapter,
+				pages,
+				idChapter
+			});
 			logger.info(`worker3 ${manga} -- ${chapter} --> fim`);
 			return;
 		},
 		{
 			connection,
-			concurrency: 3
+			concurrency: 3,
+			useWorkerThreads: true
 		}
 	);
 	const listPagesWorker = new Worker(
@@ -131,6 +128,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
 import { ExpressAdapter } from '@bull-board/express';
 import axios from 'axios';
 import logger from './infra/logger.js';
+import MangasService from './model/mangas.js';
 
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/queues');
