@@ -469,7 +469,10 @@ export default class Connector {
 		if (request instanceof URL) {
 			request = new Request(request.href, this.requestOptions);
 		}
-		const response = await fetch(request.clone());
+		const response = await fetch(request.clone()).catch((e) => {
+			if (retries === 0) throw e;
+			return { status: 500 };
+		});
 		if (response.status >= 500 && retries > 0) {
 			await this.wait(2500);
 			return this.fetchDOM(request, selector, retries - 1);
