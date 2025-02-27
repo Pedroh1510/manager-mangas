@@ -72,11 +72,13 @@ export default class DiskusScan extends Connector {
 			this.requestOptions
 		);
 		let data = await this.fetchDOM(request, 'body');
-		return data[0].outerHTML
+		const aaa = data[0].outerHTML
+			.replaceAll('><', '\n')
 			.split('\n')
 			.filter((item) => item.includes('data-large-file='))
 			.map((item) =>
 				item.split('"').find((element) => element.includes(this.url))
 			);
+		return aaa;
 	}
 }
