@@ -221,7 +221,7 @@ async function getInstancePlugin(pluginId) {
 			sql
 				.select('cookie', 'login', 'password', 'userAgent')
 				.from('pluginConfig')
-				.where({ idPlugin: id })
+				.where({ 'lower("idPlugin")': id.toLowerCase() })
 				.toParams()
 		)
 		.then(({ rows }) => rows);
@@ -232,9 +232,9 @@ async function getInstancePlugin(pluginId) {
 			.query({
 				text: `SELECT
 				cookie
-			FROM "pluginConfig" WHERE "idPlugin" = $1
+			FROM "pluginConfig" WHERE lower("idPlugin") = $1
 			AND "cookieUpdatedAt" > to_timestamp($2, 'M/DD/YYYY HH:MI:SS');`,
-				values: [id, date.toLocaleString()]
+				values: [id.toLowerCase(), date.toLocaleString()]
 			})
 			// .query({
 			// 	text: `SELECT
@@ -302,8 +302,9 @@ async function listPages({ pluginId, chapterId }) {
  * @returns {Promise<{id:String}>}
  */
 async function getMangaFromPlugin({ idPlugin, title }) {
-	const mangas = await listMangas({ pluginId: idPlugin });
-	return mangas.find((manga) => manga.title === title);
+	const response = await listMangas({ pluginId: idPlugin, title });
+
+	return response?.length !== 0 ? response[0] : {};
 }
 
 /**
