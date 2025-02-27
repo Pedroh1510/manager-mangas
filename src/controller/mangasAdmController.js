@@ -26,6 +26,8 @@ export default mangasAdmController;
  *             properties:
  *               title:
  *                 type: string
+ *               titlePlugin:
+ *                 type: string
  *               idPlugin:
  *                 type: string
  *     responses:
@@ -36,8 +38,12 @@ mangasAdmController.post(
 	'/',
 	MangasAdmValidator.registerManga,
 	async (req, res) => {
-		const { title, idPlugin } = req.body;
-		const response = await MangasAdmService.registerManga({ title, idPlugin });
+		const { title, idPlugin, titlePlugin } = req.body;
+		const response = await MangasAdmService.registerManga({
+			title,
+			idPlugin,
+			titlePlugin
+		});
 
 		res.status(201).send(response);
 	}

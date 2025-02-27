@@ -3,6 +3,7 @@ import Joi from 'joi';
 async function registerManga({ body }, _, next) {
 	const schema = Joi.object().keys({
 		title: Joi.string().required(),
+		titlePlugin: Joi.string().optional(),
 		idPlugin: Joi.string().required()
 	});
 	await schema.validateAsync(body);

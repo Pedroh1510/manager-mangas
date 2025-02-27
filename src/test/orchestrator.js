@@ -3,6 +3,7 @@ import database from '../infra/database.js';
 import CONFIG_ENV from '../infra/env.js';
 import MangasService from '../model/mangas.js';
 import { mkdir, writeFile } from 'node:fs/promises';
+import MangasAdmService from '../model/mangasAdm.js';
 
 const webServiceAddress = CONFIG_ENV.URL;
 async function waitForAllServices() {
@@ -31,12 +32,22 @@ async function runMigrations() {
 }
 
 async function seedDatabase() {
-	await database.query(
-		`INSERT INTO "mangas"("title") VALUES('Black Clover'),('algo');`
-	);
-	await database.query(
-		`INSERT INTO "mangasPlugins"("idManga","idPlugin") VALUES(1,'leitordemanga'),(2,'leitordemanga');`
-	);
+	await MangasService.initMangas();
+	await MangasAdmService.registerManga({
+		idPlugin: 'Leitordemanga',
+		title: 'Black Clover'
+	});
+	await MangasAdmService.registerManga({
+		idPlugin: 'Leitordemanga',
+		title: 'algo'
+	});
+	// await database.query(
+	// 	`INSERT INTO "mangas"("title") VALUES('Black Clover'),('algo');`
+	// );
+	// await database.query(
+	// 	`INSERT INTO "mangasPlugins"("idManga","idPlugin") VALUES(1,'leitordemanga'),(2,'leitordemanga');`
+	// );
+
 	await database.query(
 		`INSERT INTO chapters("idChapterPlugin","pluginId","idManga","name","volume") VALUES
 ('/ler-manga/black-clover/portugues-pt-br/capitulo-376/','leitordemanga',1,'Chapter capitulo-376','376'),

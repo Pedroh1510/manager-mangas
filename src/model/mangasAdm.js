@@ -12,7 +12,7 @@ async function listHistoryManga({ title }) {
 		.then(({ rows }) => rows.map(({ title }) => title));
 }
 
-async function registerManga({ title, idPlugin }) {
+async function registerManga({ title, idPlugin, titlePlugin }) {
 	const id = Object.keys(MangasService.plugins).find(
 		(item) => item.toLowerCase() === idPlugin?.toLowerCase()
 	);
@@ -52,7 +52,15 @@ async function registerManga({ title, idPlugin }) {
 	}
 
 	await database
-		.query(sql.insertInto('mangasPlugins', { idManga, idPlugin }).toParams())
+		.query(
+			sql
+				.insertInto('mangasPlugins', {
+					idManga,
+					idPlugin,
+					titlePlugin: titlePlugin ?? title
+				})
+				.toParams()
+		)
 		.catch((error) => {
 			if (error.message.includes('duplicate key')) {
 				throw new BadRequestError({
@@ -74,19 +82,27 @@ async function listMangasRegistered({ title }) {
 	let where = {};
 	if (title) {
 		sql.like();
-		where = sql.like(['lower(title)'], `%${title?.toLowerCase()}%`);
+		where = sql.like(['lower("mangas".title)'], `%${title?.toLowerCase()}%`);
 	}
 	return database
 		.query(
 			sql
-				.select('idPlugin', 'title', '"mangas"."idManga"')
+				.select(
+					'idPlugin',
+					'"mangasPlugins"."titlePlugin" as "title"',
+					'"mangas".title as "titleFolder"',
+					'"mangas"."idManga"'
+				)
 				.from('mangasPlugins')
 				.join('mangas')
 				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
 				.where(where)
 				.toParams()
 		)
-		.then(({ rows }) => rows);
+		.then(({ rows }) => rows)
+		.then((rows) =>
+			rows.map((row) => ({ ...row, title: row.title ?? row.titleFolder }))
+		);
 }
 
 async function updateMangas() {
@@ -237,7 +253,7 @@ async function downloadMangasBatch() {
 	return { totalDownloaded: counterDownload };
 }
 
-async function listChaptersMissing({ title, mangaByPlugin }) {
+async function listChaptersMissing({ mangaByPlugin }) {
 	const chaptersInDatabase = await database
 		.query(
 			sql
@@ -252,7 +268,7 @@ async function listChaptersMissing({ title, mangaByPlugin }) {
 		chaptersInDatabaseFormatted[chapter.volume] = chapter;
 	}
 	const chaptersMissing = [];
-	for (const { idPlugin } of mangaByPlugin) {
+	for (const { idPlugin, title } of mangaByPlugin) {
 		const manga = await MangasService.getMangaFromPlugin({ idPlugin, title });
 		if (!manga) continue;
 		const chapters = await MangasService.listChaptersByManga({

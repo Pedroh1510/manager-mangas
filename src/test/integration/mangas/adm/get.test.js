@@ -13,15 +13,16 @@ describe('GET /mangas/adm', () => {
 	test('OK', async () => {
 		const title = 'Black Clover';
 		const response = await api.get('/mangas/adm', {
-			params: { title },
+			params: { title }
 		});
 		expect(response.status).toEqual(200);
 		expect(response.data).toEqual([
 			{
 				idManga: 1,
-				idPlugin: 'leitordemanga',
+				idPlugin: 'Leitordemanga',
 				title: 'Black Clover',
-			},
+				titleFolder: 'Black Clover'
+			}
 		]);
 	});
 });
