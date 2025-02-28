@@ -137,6 +137,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	const zip = new AdmZip();
 	const imagesType = ['png', 'jpeg', 'jpg', 'avif'];
 	for (const page of pages) {
+		const start = performance.now();
 		const image = await downloadImage({ url: page, cookie, userAgent });
 		if (page.endsWith('.zip')) {
 			const imageZip = new AdmZip(image);
@@ -154,6 +155,11 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			zip.addFile(`${counter}.${type}`, imageFormatted);
 		}
 		counter++;
+		const totalTime = performance.now() - start;
+		if (1000 > totalTime) {
+			const missing = 1000 - totalTime;
+			await setTimeout(missing);
+		}
 	}
 
 	await zip.writeZipPromise(pathFile);
@@ -169,6 +175,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	logger.info({ manga, chapter, status: 'fim' });
 }
 import sharp from 'sharp';
+import { setTimeout } from 'node:timers/promises';
 async function processImage(image) {
 	const options = ['webp', 'png'];
 	for (const imageFormat of options) {
@@ -321,11 +328,31 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 		mangaId,
 		pluginId: idPlugin
 	});
-	return chapters
+	const chaptersFiltered = chapters
+		.filter((chapter) => ['pt', 'pt-br'].includes(chapter.language))
 		.map((chapter) => {
 			const a = chapter.title;
 			const q = a.match(/([0-9]*[.])?[0-9]+/);
 			chapter.volume = q?.length ? Number.parseInt(q[0]) : null;
+			if (chapter.volume === null || Number.isNaN(chapter.volume)) {
+				chapter.volume = null;
+			}
+			if (
+				chapter.volume === null &&
+				chapter.title.includes('Vol.') &&
+				chapter.title.includes('Ch.')
+			) {
+				const titleOnlyVolCh = chapter.title.replace(/(?:(?![\d|\.]).)/g, '');
+				const titleArray = titleOnlyVolCh
+					.split('.')
+					.filter((item) => item.trim());
+				let volume = titleArray.join('');
+				if (titleArray.length > 2) {
+					volume = titleArray.slice(0, 2).join('');
+					volume += `.${titleArray.slice(2).join()}`;
+				}
+				chapter.volume = Number.parseFloat(volume);
+			}
 			if (chapter.volume === null || Number.isNaN(chapter.volume)) {
 				chapter.volume = null;
 			}
@@ -338,8 +365,13 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 					chapter.volume === null ||
 					chapter.volume === ''
 				)
-		)
-		.filter((chapter) => ['pt', 'pt-br'].includes(chapter.language));
+		);
+	const chaptersNotVolumeDuplicated = {};
+	for (const chapter of chaptersFiltered) {
+		if (`${chapter.volume}` in chaptersNotVolumeDuplicated) continue;
+		chaptersNotVolumeDuplicated[chapter.volume] = chapter;
+	}
+	return Object.values(chaptersNotVolumeDuplicated);
 }
 
 const MangasService = {

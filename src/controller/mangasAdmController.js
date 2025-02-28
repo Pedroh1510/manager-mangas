@@ -1,6 +1,7 @@
 import express from 'express';
 import MangasAdmService from '../model/mangasAdm.js';
 import MangasAdmValidator from '../validators/mangasAdmValidator.js';
+import MangasService from '../model/mangas.js';
 
 const mangasAdmController = express();
 export default mangasAdmController;
@@ -312,6 +313,42 @@ mangasAdmController.get(
 			title,
 			volume,
 			idChapter
+		});
+
+		res.status(200).send(response);
+	}
+);
+
+/**
+ * @swagger
+ * /mangas/adm/chapters/missing:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: list pages mandas and send to queue download
+ *     parameters:
+ *       - name: pluginId
+ *         in: query
+ *         required: true
+ *         type: string
+ *       - name: title
+ *         in: query
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Returns a list pages
+ */
+mangasAdmController.get(
+	'/chapters/missing',
+	// MangasAdmValidator.listPagesAndSend,
+	async (req, res) => {
+		const { title, pluginId } = req.query;
+		const manga = await MangasService.getMangaFromPlugin({
+			idPlugin: pluginId,
+			title
+		});
+		const response = await MangasAdmService.listChaptersMissing({
+			mangaByPlugin: [{ title, idPlugin: pluginId, idManga: manga.id }]
 		});
 
 		res.status(200).send(response);

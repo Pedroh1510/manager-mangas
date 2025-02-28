@@ -377,7 +377,8 @@ const MangasAdmService = {
 	updateMangaChapters,
 	registerCredentials,
 	deleteMangaChapters,
-	deleteManga
+	deleteManga,
+	listChaptersMissing
 };
 
 export default MangasAdmService;
