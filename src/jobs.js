@@ -97,7 +97,7 @@ async function initWorkers() {
 		},
 		{
 			connection,
-			concurrency: 3,
+			concurrency: Number.parseInt(CONFIG_ENV.CONCURRENCY) ?? 3,
 			useWorkerThreads: true
 		}
 	);

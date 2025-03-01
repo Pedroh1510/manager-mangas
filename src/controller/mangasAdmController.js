@@ -338,19 +338,15 @@ mangasAdmController.get(
  *       200:
  *         description: Returns a list pages
  */
-mangasAdmController.get(
-	'/chapters/missing',
-	// MangasAdmValidator.listPagesAndSend,
-	async (req, res) => {
-		const { title, pluginId } = req.query;
-		const manga = await MangasService.getMangaFromPlugin({
-			idPlugin: pluginId,
-			title
-		});
-		const response = await MangasAdmService.listChaptersMissing({
-			mangaByPlugin: [{ title, idPlugin: pluginId, idManga: manga.id }]
-		});
+mangasAdmController.get('/chapters/missing', async (req, res) => {
+	const { title, pluginId } = req.query;
+	const manga = await MangasService.getMangaFromPlugin({
+		idPlugin: pluginId,
+		title
+	});
+	const response = await MangasAdmService.listChaptersMissing({
+		mangaByPlugin: [{ title, idPlugin: pluginId, idManga: manga.id }]
+	});
 
-		res.status(200).send(response);
-	}
-);
+	res.status(200).send(response);
+});
