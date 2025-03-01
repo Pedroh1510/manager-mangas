@@ -68,8 +68,11 @@ async function initWorkers() {
 		downloadBatchQueue.name,
 		async (job) => {
 			logger.info('worker2');
-
-			await fetch(`${CONFIG_ENV.URL}/mangas/adm/download-batch`);
+			await api.get('mangas/adm/download-batch', {
+				params: {
+					title: job.data?.title
+				}
+			});
 			logger.info('worker2 fim');
 			return;
 		},
@@ -129,6 +132,7 @@ import { ExpressAdapter } from '@bull-board/express';
 import axios from 'axios';
 import logger from './infra/logger.js';
 import MangasService from './model/mangas.js';
+import api from './infra/api.js';
 
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/queues');
@@ -160,8 +164,8 @@ const jobs = {
 		updateMangasQueue: async () => {
 			await updateMangasQueue.add('teste', {});
 		},
-		downloadBatchQueue: async () => {
-			await downloadBatchQueue.add('teste', {}, { attempts: 100 });
+		downloadBatchQueue: async (data = {}) => {
+			await downloadBatchQueue.add('teste', data, { attempts: 100 });
 		},
 		downloadQueue: async (data) => {
 			await downloadQueue.add('teste', data, { attempts: 100 });

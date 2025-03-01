@@ -188,8 +188,8 @@ mangasAdmController.post(
  *       200:
  *         description: OK
  */
-mangasAdmController.get('/download-batch', async (_req, res) => {
-	const response = await MangasAdmService.downloadMangasBatch();
+mangasAdmController.get('/download-batch', async (req, res) => {
+	const response = await MangasAdmService.downloadMangasBatch(req.query.title);
 
 	res.status(200).send(response);
 });

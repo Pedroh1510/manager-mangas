@@ -224,7 +224,11 @@ async function registerCredentials({ idPlugin, login, password }) {
 	await database.query(sql.insertInto('pluginConfig', data).toParams());
 }
 
-async function downloadMangasBatch() {
+async function downloadMangasBatch(title) {
+	const where = { wasDownloaded: false };
+	if (title) {
+		where.title = title;
+	}
 	const chaptersMissingDownload = await database
 		.query(
 			sql
@@ -238,7 +242,7 @@ async function downloadMangasBatch() {
 				.from('chapters')
 				.join('mangas')
 				.on({ '"mangas"."idManga"': '"chapters"."idManga"' })
-				.where({ wasDownloaded: false })
+				.where(where)
 				.orderBy('volume')
 				.toParams()
 		)
@@ -310,7 +314,7 @@ async function updateMangaChapters({ title }) {
 			});
 	}
 	if (chaptersMissing.length) {
-		await jobs.queues.downloadBatchQueue();
+		await jobs.queues.downloadBatchQueue({ title });
 	}
 	return chaptersMissing;
 }
