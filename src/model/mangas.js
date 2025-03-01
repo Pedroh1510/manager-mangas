@@ -1,10 +1,8 @@
 import fs from 'node:fs';
-import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import sql from 'sql-bricks';
 import { JSDOM } from 'jsdom';
 import database from '../infra/database.js';
-import { downloadImage } from '../utils/download.js';
 
 const plugins = {};
 async function initMangas() {
@@ -92,19 +90,10 @@ async function initMangas() {
 		1;
 	});
 }
-import AdmZip from 'adm-zip';
 import logger from '../infra/logger.js';
-
-function getPathMangaAndChapter({ title, volume = 0 }) {
-	const mangaPath = path.resolve('downloads', title);
-	return {
-		mangaPath,
-		chapterPath: path.join(mangaPath, `${volume}.cbz`)
-	};
-}
+import Download from './download.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
-	let counter = 1;
 	let cookie = null;
 	let userAgent = null;
 	if (idChapter) {
@@ -126,43 +115,14 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			userAgent = response[0]?.userAgent;
 		}
 	}
-	const paths = getPathMangaAndChapter({ title: manga, volume: chapter });
-	const pathFolder = paths.mangaPath;
-	await mkdir(pathFolder, { recursive: true });
-	const pathFile = paths.chapterPath;
-	await rm(pathFile, {
-		recursive: true
-	}).catch(() => {});
 	logger.info({ manga, chapter, status: 'inicio' });
-	const zip = new AdmZip();
-	const imagesType = ['png', 'jpeg', 'jpg', 'avif'];
-	for (const page of pages) {
-		const start = performance.now();
-		const image = await downloadImage({ url: page, cookie, userAgent });
-		if (page.endsWith('.zip')) {
-			const imageZip = new AdmZip(image);
-			const zipEntries = imageZip.getEntries();
-			for (const entry of zipEntries) {
-				if (imagesType.some((item) => entry.name.endsWith(item))) {
-					const name = entry.name.split('.');
-					name.pop();
-					const { imageFormatted, type } = await processImage(entry.getData());
-					zip.addFile(`${name.join('.')}.${type}`, imageFormatted);
-				}
-			}
-		} else {
-			const { imageFormatted, type } = await processImage(image);
-			zip.addFile(`${counter}.${type}`, imageFormatted);
-		}
-		counter++;
-		const totalTime = performance.now() - start;
-		if (1000 > totalTime && page.includes('mangadex')) {
-			const missing = 1000 - totalTime;
-			await setTimeout(missing);
-		}
-	}
-
-	await zip.writeZipPromise(pathFile);
+	await Download.downloadChapter({
+		chapter,
+		pages,
+		cookie,
+		userAgent,
+		manga
+	});
 
 	if (idChapter) {
 		await database.query(
@@ -173,23 +133,6 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 		);
 	}
 	logger.info({ manga, chapter, status: 'fim' });
-}
-import sharp from 'sharp';
-import { setTimeout } from 'node:timers/promises';
-async function processImage(image) {
-	const options = ['webp', 'png'];
-	for (const imageFormat of options) {
-		try {
-			const result = await sharp(image)
-				.toFormat(imageFormat)
-				.webp({
-					quality: 80
-				})
-				.toBuffer();
-			return { imageFormatted: result, type: imageFormat };
-		} catch (error) {}
-	}
-	return { imageFormatted: image, type: 'png' };
 }
 
 async function listPlugins({ name }) {
@@ -383,8 +326,7 @@ const MangasService = {
 	listChaptersByManga,
 	getMangaFromPlugin,
 	listPlugins,
-	plugins,
-	getPathMangaAndChapter
+	plugins
 };
 
 export default MangasService;

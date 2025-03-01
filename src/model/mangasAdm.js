@@ -5,6 +5,7 @@ import database from '../infra/database.js';
 import { BadRequestError, ValidationError } from '../infra/errors.js';
 import jobs from '../jobs.js';
 import MangasService from './mangas.js';
+import Download from './download.js';
 
 async function listHistoryManga({ title }) {
 	return database
@@ -340,7 +341,7 @@ async function deleteMangaChapters({ title, volume }) {
 				.where({ idManga: manga.idManga, volume })
 				.toParams()
 		);
-		const { chapterPath } = MangasService.getPathMangaAndChapter({
+		const { chapterPath } = Download.getPathMangaAndChapter({
 			title,
 			volume
 		});
@@ -351,7 +352,7 @@ async function deleteMangaChapters({ title, volume }) {
 async function deleteManga({ title }) {
 	const mangas = await listMangasRegistered({ title });
 	for (const item of mangas) {
-		const { mangaPath } = MangasService.getPathMangaAndChapter({
+		const { mangaPath } = Download.getPathMangaAndChapter({
 			title
 		});
 		await database.query(
