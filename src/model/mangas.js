@@ -156,7 +156,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 		}
 		counter++;
 		const totalTime = performance.now() - start;
-		if (1000 > totalTime) {
+		if (1000 > totalTime && page.includes('mangadex')) {
 			const missing = 1000 - totalTime;
 			await setTimeout(missing);
 		}
