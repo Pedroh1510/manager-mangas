@@ -106,7 +106,11 @@ async function listMangasRegistered({ title }) {
 		);
 }
 
-async function updateMangas() {
+async function updateMangas({ idPlugin }) {
+	const where = {};
+	if (idPlugin) {
+		where['lower("idPlugin")'] = idPlugin.toLowerCase();
+	}
 	const mangas = await database
 		.query(
 			sql
@@ -114,6 +118,7 @@ async function updateMangas() {
 				.from('mangasPlugins')
 				.join('mangas')
 				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
+				.where(where)
 				.toParams()
 		)
 		.then(({ rows }) => rows);

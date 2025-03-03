@@ -22,4 +22,5 @@ CONFIG_ENV.URL_DOC =
 	process.env.URL_DOC ?? `http://localhost:${CONFIG_ENV.PORT}`;
 
 CONFIG_ENV.ENABLE_JOB = !!process.env.URL_DOC ?? false;
-CONFIG_ENV.CONCURRENCY = process.env.CONCURRENCY ?? 3;
+const concurrency = Number.parseInt(process.env.CONCURRENCY);
+CONFIG_ENV.CONCURRENCY = Number.isNaN(concurrency) ? 1 : concurrency;

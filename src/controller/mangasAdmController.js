@@ -200,12 +200,17 @@ mangasAdmController.get('/download-batch', async (req, res) => {
  *   get:
  *     tags: [MangaAdm]
  *     description: Start update mandas
+ *     parameters:
+ *       - name: idPlugin
+ *         in: query
+ *         required: false
+ *         type: string
  *     responses:
  *       200:
  *         description: OK
  */
-mangasAdmController.get('/update-mangas', async (_req, res) => {
-	const response = await MangasAdmService.updateMangas();
+mangasAdmController.get('/update-mangas', async (req, res) => {
+	const response = await MangasAdmService.updateMangas(req.query);
 
 	res.status(200).send(response);
 });
