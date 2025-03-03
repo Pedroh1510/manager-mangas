@@ -1,3 +1,4 @@
+import { setTimeout } from 'timers/promises';
 import Connector from '../engine/Connector.mjs';
 import Manga from '../engine/Manga.mjs';
 
@@ -96,8 +97,14 @@ export default class MangaDex extends Connector {
 	async _getChapters(manga) {
 		let chapterList = [];
 		for (let page = 0, run = true; run; page++) {
+			const start = performance.now();
 			let chapters = await this._getChaptersFromPage(manga, page);
 			chapters.length > 0 ? chapterList.push(...chapters) : (run = false);
+			const totalTime = start - performance.now();
+			const missingTime = 1000 - totalTime;
+			if (missingTime > 0) {
+				await setTimeout(missingTime);
+			}
 		}
 		return chapterList.reverse();
 	}
