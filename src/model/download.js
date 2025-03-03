@@ -9,6 +9,56 @@ function getPathMangaAndChapter({ title, volume = 0 }) {
 	};
 }
 
+const activeDownloadByDomain = {};
+
+async function addActiveDownloads(url) {
+	await waitToDownload(url);
+	const { origin } = new URL(url);
+	if (activeDownloadByDomain[origin]) {
+		activeDownloadByDomain[origin]++;
+	} else {
+		activeDownloadByDomain[origin] = 1;
+	}
+	if (activeDownloadByDomain[origin] < 0) {
+		activeDownloadByDomain[origin] = 0;
+	}
+}
+function removeActiveDownloads(url) {
+	const { origin } = new URL(url);
+	if (activeDownloadByDomain[origin]) {
+		activeDownloadByDomain[origin]--;
+	} else {
+		activeDownloadByDomain[origin] = 0;
+	}
+	if (activeDownloadByDomain[origin] < 0) {
+		activeDownloadByDomain[origin] = 0;
+	}
+}
+
+async function waitToDownload(url) {
+	const { origin } = new URL(url);
+	const maxDownload = getMaxConcurrency(origin);
+	if (!activeDownloadByDomain[origin] || activeDownloadByDomain[origin] < 0) {
+		activeDownloadByDomain[origin] = 0;
+		return;
+	}
+	if (activeDownloadByDomain[origin] >= maxDownload) {
+		await setTimeout(1000);
+		return waitToDownload(url);
+	}
+	return 1;
+}
+function getMaxConcurrency(url) {
+	const fromTo = {
+		mangadex: 1
+	};
+	const plugins = Object.keys(fromTo);
+	const currentPlugin = plugins.find((plugin) => url.includes(plugin));
+	if (currentPlugin) {
+		return fromTo[currentPlugin];
+	}
+	return CONFIG_ENV.CONCURRENCY;
+}
 async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 	const paths = getPathMangaAndChapter({ title: manga, volume: chapter });
 	const pathFolder = paths.mangaPath;
@@ -21,6 +71,9 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 	const zip = new AdmZip();
 	const imagesType = ['png', 'jpeg', 'jpg', 'avif'];
 	let counter = 1;
+	if (pages.length) {
+		await addActiveDownloads(pages[0]);
+	}
 	for (const page of pages) {
 		const start = performance.now();
 		const image = await downloadImage({ url: page, cookie, userAgent });
@@ -46,6 +99,9 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 			await setTimeout(missing);
 		}
 	}
+	if (pages.length) {
+		removeActiveDownloads(pages[0]);
+	}
 
 	await zip.writeZipPromise(pathFile);
 }
@@ -55,6 +111,7 @@ import sharp from 'sharp';
 import { setTimeout } from 'node:timers/promises';
 import { mkdir, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import CONFIG_ENV from '../infra/env.js';
 
 export async function downloadImage({ url, cookie, userAgent }) {
 	return axios({

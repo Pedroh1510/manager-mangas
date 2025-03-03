@@ -97,8 +97,8 @@ async function initWorkers() {
 		},
 		{
 			connection,
-			concurrency: Number.parseInt(CONFIG_ENV.CONCURRENCY) ?? 3,
-			useWorkerThreads: true
+			concurrency: CONFIG_ENV.CONCURRENCY,
+			useWorkerThreads: false
 		}
 	);
 	const listPagesWorker = new Worker(
@@ -149,7 +149,7 @@ createBullBoard({
 });
 
 async function init() {
-	if (CONFIG_ENV.ENABLE_JOB) {
+	if (!CONFIG_ENV.ENABLE_JOB) {
 		logger.info('iniciado workers');
 		await updateMangasQueue.upsertJobScheduler('every-hour', {
 			every: 1000 * 60 * 60
