@@ -212,7 +212,15 @@ async function getInstancePlugin(pluginId) {
 async function listMangas({ pluginId, title }) {
 	const instance = await getInstancePlugin(pluginId);
 	let mangas = await instance.getMangas();
-	if (mangas.length === 0) {
+	let isOld = false;
+	if (mangas.length > 0) {
+		const pathToCache = `${Engine.Storage.config}mangas.${instance.id}`;
+		const qq = fs.statSync(path.resolve('src', '..', pathToCache));
+		const now = new Date();
+		now.setDate(now.getDate() - 7);
+		isOld = now >= qq.mtime;
+	}
+	if (mangas.length === 0 || isOld) {
 		mangas = await instance.updateMangas();
 	}
 
