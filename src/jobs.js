@@ -230,7 +230,7 @@ const jobs = {
 			await processQueue.add('downloadBatch', data ?? {}, {
 				attempts: 100,
 				jobId: id,
-				priority: 3
+				priority: 2
 			});
 			// await downloadBatchQueue.add('teste', data ?? {}, { attempts: 100 });
 		},
@@ -241,7 +241,7 @@ const jobs = {
 			await processQueue.add('updateChapters', data ?? {}, {
 				attempts: 100,
 				jobId: id,
-				priority: 2
+				priority: 3
 			});
 			// await updateMangaQueue.add('teste', data, { attempts: 100, jobId: id });
 		},
@@ -249,7 +249,7 @@ const jobs = {
 			await processQueue.add('listPages', data ?? {}, {
 				attempts: 100,
 				jobId: id,
-				priority: 4
+				priority: 1
 			});
 			// await listPagesQueue.add('teste', data, { attempts: 100, jobId: id });
 		}
