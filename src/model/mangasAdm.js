@@ -127,7 +127,7 @@ async function updateMangas({ idPlugin }) {
 
 	let counterMangasUpdated = 0;
 	for (const { title } of mangas) {
-		await jobs.queues.updateMangaQueue({ title });
+		await jobs.queues.updateMangaQueue({ title }, `updateMangaQueue-${title}`);
 		counterMangasUpdated++;
 	}
 
@@ -149,12 +149,15 @@ async function listPagesAndSend({
 		pluginId: pluginId
 	});
 	if (!pages.length) return;
-	await jobs.queues.downloadQueue({
-		manga: title,
-		chapter: volume,
-		pages,
-		idChapter: idChapter
-	});
+	await jobs.queues.downloadQueue(
+		{
+			manga: title,
+			chapter: volume,
+			pages,
+			idChapter: idChapter
+		},
+		`downloadQueue-${title}${volume}${idChapter}`
+	);
 }
 
 async function registerCookie({ cookie, idPlugin, userAgent = null }) {
@@ -257,7 +260,8 @@ async function downloadMangasBatch(title) {
 	const chaptersBatch = chaptersMissingDownload;
 	let counterDownload = 0;
 	for (const chapter of chaptersBatch) {
-		await jobs.queues.listPagesQueue(chapter);
+		const id = `listPagesQueue-${chapter.idChapterPlugin}, ${chapter.pluginId}, ${chapter.title}, ${chapter.volume}, ${chapter.idChapter}`;
+		await jobs.queues.listPagesQueue(chapter, id);
 		counterDownload++;
 	}
 	return { totalDownloaded: counterDownload };
@@ -320,7 +324,10 @@ async function updateMangaChapters({ title }) {
 			});
 	}
 	if (chaptersMissing.length) {
-		await jobs.queues.downloadBatchQueue({ title });
+		await jobs.queues.downloadBatchQueue(
+			{ title },
+			`downloadBatchQueue-${title}`
+		);
 	}
 	return chaptersMissing;
 }
