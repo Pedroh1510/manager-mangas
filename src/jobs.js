@@ -174,26 +174,26 @@ async function initWorkers() {
 		}
 	);
 
-	// const worker3 = new Worker(
-	// 	downloadQueue.name,
-	// 	async (job) => {
-	// 		const { manga, chapter, pages, idChapter } = job.data;
-	// 		logger.info(`worker3 ${manga} -- ${chapter} --> inicio`);
-	// 		await MangasService.downloadMangas({
-	// 			manga,
-	// 			chapter,
-	// 			pages,
-	// 			idChapter
-	// 		});
-	// 		logger.info(`worker3 ${manga} -- ${chapter} --> fim`);
-	// 		return;
-	// 	},
-	// 	{
-	// 		connection,
-	// 		concurrency: CONFIG_ENV.CONCURRENCY,
-	// 		useWorkerThreads: false
-	// 	}
-	// );
+	const worker3 = new Worker(
+		downloadQueue.name,
+		async (job) => {
+			const { manga, chapter, pages, idChapter } = job.data;
+			logger.info(`worker3 ${manga} -- ${chapter} --> inicio`);
+			await MangasService.downloadMangas({
+				manga,
+				chapter,
+				pages,
+				idChapter
+			});
+			logger.info(`worker3 ${manga} -- ${chapter} --> fim`);
+			return;
+		},
+		{
+			connection,
+			concurrency: CONFIG_ENV.CONCURRENCY,
+			useWorkerThreads: false
+		}
+	);
 }
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
@@ -219,7 +219,7 @@ createBullBoard({
 });
 
 async function init() {
-	if (!CONFIG_ENV.ENABLE_JOB) {
+	if (CONFIG_ENV.ENABLE_JOB) {
 		logger.info('iniciado workers');
 		await updateMangasQueue.upsertJobScheduler(
 			'every-12h',
