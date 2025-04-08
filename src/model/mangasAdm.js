@@ -118,6 +118,7 @@ async function updateMangas({ idPlugin }) {
 				.from('mangasPlugins')
 				.join('mangas')
 				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
+				.orderBy('idPlugin')
 				.where(where)
 				.toParams()
 		)

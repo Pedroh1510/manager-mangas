@@ -29,18 +29,19 @@ export default class TopToonCO extends Connector {
 
 	async access() {
 		if (this.page !== null) return;
-		const browser = await puppeteer.launch({
-			headless: true,
-			args: [
-				'--no-sandbox',
-				'--disable-setuid-sandbox',
-				// '--disable-web-security',
-				'--disable-features=IsolateOrigins,site-per-process'
-				// '--disable-dev-shm-usage'
-			]
-		});
-		this.browser = browser;
-		const page = await browser.newPage();
+		if (this.browser === null) {
+			this.browser = puppeteer.launch({
+				headless: true,
+				args: [
+					'--no-sandbox',
+					'--disable-setuid-sandbox',
+					// '--disable-web-security',
+					'--disable-features=IsolateOrigins,site-per-process'
+					// '--disable-dev-shm-usage'
+				]
+			});
+		}
+		const page = await this.browser.newPage();
 		const timeout = 30000;
 		page.setDefaultTimeout(timeout);
 		{
@@ -162,7 +163,6 @@ export default class TopToonCO extends Connector {
 	}
 	async close() {
 		await this.page?.close().catch(() => {});
-		await this.browser?.close().catch(() => {});
 		this.page = null;
 		this.browser = null;
 	}
