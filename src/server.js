@@ -44,7 +44,33 @@ server.use((error, _req, res, _next) => {
 	return res.status(500).send('Something broke!');
 });
 
-server.listen(CONFIG_ENV.PORT, async () => {
+const serverInstance = server.listen(CONFIG_ENV.PORT, async () => {
 	logger.info(`Server running on port ${CONFIG_ENV.PORT}`);
 	await jobs.init();
 });
+
+function grace(code) {
+	console.log(`${code} signal received.`);
+	let status = 0;
+	return (e) => {
+		if (e) {
+			logger.error(e);
+			status = 1;
+		}
+		serverInstance.close(async (error) => {
+			if (error) {
+				logger.error(error);
+				status = 1;
+			}
+			await logger.close();
+			process.exit(status);
+		});
+	};
+}
+
+process.on('SIGTERM', grace('SIGTERM'));
+
+process.on('SIGINT', grace('SIGINT'));
+
+process.on('uncaughtException', grace('uncaughtException'));
+process.on('unhandledRejection', grace('unhandledRejection'));

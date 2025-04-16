@@ -25,7 +25,7 @@ async function getNewClient() {
 		user: CONFIG_ENV.POSTGRES_USER,
 		password: CONFIG_ENV.POSTGRES_PASSWORD,
 		application_name: CONFIG_ENV.APPLICATION_NAME,
-		ssl: CONFIG_ENV.ENV === 'production',
+		ssl: CONFIG_ENV.ENV === 'production'
 	});
 	await client.connect();
 	return client;
@@ -33,7 +33,7 @@ async function getNewClient() {
 
 const database = {
 	query: query,
-	getNewClient,
+	getNewClient
 };
 
 export default database;
