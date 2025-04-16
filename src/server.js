@@ -49,7 +49,7 @@ const serverInstance = server.listen(CONFIG_ENV.PORT, async () => {
 	await jobs.init();
 });
 
-function grace(code) {
+function graceful(code) {
 	console.log(`${code} signal received.`);
 	let status = 0;
 	return (e) => {
@@ -68,9 +68,9 @@ function grace(code) {
 	};
 }
 
-process.on('SIGTERM', grace('SIGTERM'));
+process.on('SIGTERM', graceful('SIGTERM'));
 
-process.on('SIGINT', grace('SIGINT'));
+process.on('SIGINT', graceful('SIGINT'));
 
-process.on('uncaughtException', grace('uncaughtException'));
-process.on('unhandledRejection', grace('unhandledRejection'));
+process.on('uncaughtException', graceful('uncaughtException'));
+process.on('unhandledRejection', graceful('unhandledRejection'));
