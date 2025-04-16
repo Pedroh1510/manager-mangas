@@ -168,9 +168,15 @@ export default class MangaDex extends Connector {
 	}
 
 	async _getPages(chapter) {
+		const start = performance.now();
 		const uri = new URL('/at-home/server/' + chapter.id, this.api);
 		const request = new Request(uri, this.requestOptions);
 		const data = await this.fetchJSON(request, 3);
+		const totalTime = start - performance.now();
+		const missingTime = 1000 - totalTime;
+		if (missingTime > 0) {
+			await setTimeout(missingTime);
+		}
 		return data.chapter.data.map(
 			(file) => `${data.baseUrl}/data/${data.chapter.hash}/${file}`
 		);
