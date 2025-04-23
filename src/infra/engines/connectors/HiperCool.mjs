@@ -10,7 +10,13 @@ export default class HiperCool extends Connector {
 		this.url = 'https://hiper.cool';
 	}
 
+	init() {
+		this.requestOptions.headers.set('referer', this.url);
+		this.requestOptions.headers.set('cookie', this.cookie);
+		this.requestOptions.headers.set('User-Agent', this.userAgent);
+	}
 	async _getMangas() {
+		this.init();
 		let page = 1;
 		let morePages = true;
 
@@ -51,11 +57,31 @@ export default class HiperCool extends Connector {
 	}
 
 	async _getChapters(manga) {
+		this.init();
 		let request = new Request(new URL(manga.id, this.url), this.requestOptions);
 		let data = await this.fetchDOM(
 			request,
 			'#tab-chapter-listing > div > div > ul > li > a'
 		);
+		if (!data.length) {
+			data = await this.fetchDOM(request, '*');
+			const response = await fetch(request.url + 'ajax/chapters/?t=1', {
+				method: 'POST'
+			}).catch(() => null);
+			if (response === null) return [];
+			const a = await response.text();
+			return a
+				.split('"')
+				.filter((item) => item.includes(request.url))
+				.map((item) => ({
+					id: item.replace('https://hiper.cool', ''),
+					title: item
+						.split('/')
+						.filter((item) => item)
+						.pop(),
+					language: 'pt'
+				}));
+		}
 
 		return data.map((element) => {
 			return {
@@ -77,7 +103,15 @@ export default class HiperCool extends Connector {
 			this.requestOptions
 		);
 		let data = await this.fetchDOM(request, 'div > source');
-		return data.map((element) => this.getAbsolutePath(element, request.url));
+		const a = data.map((item) => {
+			const value = item.src ?? item['data-src'];
+			if (value) return;
+			return item?.outerHTML
+				?.split('"')
+				?.find((element) => element.includes('https'))
+				?.trim();
+		});
+		return a;
 	}
 
 	async _getMangaFromURI(uri) {
