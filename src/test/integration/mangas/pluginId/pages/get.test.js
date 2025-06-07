@@ -30,4 +30,13 @@ describe('GET /mangas/:pluginId/pages', () => {
 			expect(response.data.length).toEqual(38);
 		});
 	});
+	describe('MangaLivreTv', () => {
+		test('', async () => {
+			const response = await api(
+				'/mangas/MangaLivreTv/pages?chapterId=/manga/live-dungeon/capitulo-01/'
+			);
+			expect(response.status).toEqual(200);
+			expect(response.data.length).toEqual(38);
+		});
+	});
 });

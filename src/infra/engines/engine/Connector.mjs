@@ -461,6 +461,22 @@ export default class Connector {
 	}
 
 	async fetchDOM(request, selector, retries, encoding) {
+		return this.fetchDOMMethod({
+			request,
+			encoding,
+			retries,
+			selector,
+			method: 'GET'
+		});
+	}
+
+	async fetchDOMMethod({
+		request,
+		method = 'GET',
+		selector,
+		retries,
+		encoding
+	}) {
 		retries = retries || 0;
 		if (typeof request === 'string') {
 			request = new Request(request, this.requestOptions);
@@ -469,13 +485,20 @@ export default class Connector {
 		if (request instanceof URL) {
 			request = new Request(request.href, this.requestOptions);
 		}
-		const response = await fetch(request.clone()).catch((e) => {
-			if (retries === 0) throw e;
-			return { status: 500 };
-		});
+		const response = await fetch(request.clone(), { method: method }).catch(
+			(e) => {
+				if (retries === 0) throw e;
+				return { status: 500 };
+			}
+		);
 		if (response.status >= 500 && retries > 0) {
 			await this.wait(2500);
-			return this.fetchDOM(request, selector, retries - 1);
+			return this.fetchDOMMethod({
+				request,
+				selector,
+				retries: retries - 1,
+				method
+			});
 		}
 		const content = response.headers.get('content-type');
 		if (response.status === 200 || content.includes('text/html')) {

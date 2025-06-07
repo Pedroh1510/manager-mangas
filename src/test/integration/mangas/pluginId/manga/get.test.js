@@ -26,4 +26,16 @@ describe('GET /mangas/:pluginId/manga', () => {
 			expect(response.data.length).toBeGreaterThanOrEqual(54);
 		});
 	});
+
+	describe('MangaLivreTv', () => {
+		test('', async () => {
+			const response = await api.get(
+				'/mangas/MangaLivreTv/manga?mangaId=/manga/live-dungeon/'
+				// '/mangas/MangaLivreTv/manga?mangaId=/manga/00-day-of-summer-holiday/'
+			);
+			expect(response.status).toEqual(200);
+			expect(response.data.length).toBeGreaterThanOrEqual(54);
+			console.log(response.data);
+		});
+	});
 });

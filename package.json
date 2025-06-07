@@ -17,6 +17,8 @@
     "biome:check": "npx @biomejs/biome check --organize-imports-enabled=true ./src",
     "biome:check:fix": "npx @biomejs/biome check --write ./src",
     "docker:app:test": "docker exec -it mangas npm run test",
+    "docker:dev": "docker compose -f ./compose.yml up -d && docker logs -f mangas",
+    "docker:services": "docker compose -f ./src/infra/compose.yml up -d",
     "docker:build:push": "docker buildx build --push -t pedroh1510/mangas:latest .",
     "update:interactive": "npx npm-check-updates -i"
   },
