@@ -103,15 +103,16 @@ export default class HiperCool extends Connector {
 			this.requestOptions
 		);
 		let data = await this.fetchDOM(request, 'div > source');
-		const a = data.map((item) => {
-			const value = item.src ?? item['data-src'];
-			if (value) return;
-			return item?.outerHTML
-				?.split('"')
-				?.find((element) => element.includes('https'))
-				?.trim();
-		});
-		return a;
+		return data
+			.map((item) => {
+				const value = item.src ?? item['data-src'];
+				if (value) return;
+				return item?.outerHTML
+					?.split('"')
+					?.find((element) => element.includes('https'))
+					?.trim();
+			})
+			.filter((item) => item);
 	}
 
 	async _getMangaFromURI(uri) {
