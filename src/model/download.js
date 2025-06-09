@@ -109,8 +109,8 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 import axios from 'axios';
 import sharp from 'sharp';
 import { setTimeout } from 'node:timers/promises';
-import { mkdir, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { mkdir, readdir, rm } from 'node:fs/promises';
+import path, { join, resolve } from 'node:path';
 import CONFIG_ENV from '../infra/env.js';
 
 export async function downloadImage({ url, cookie, userAgent }) {
@@ -143,10 +143,39 @@ async function processImage(image) {
 	}
 	return { imageFormatted: image, type: 'png' };
 }
+import archiver from 'archiver';
+import { createReadStream } from 'node:fs';
+import { PassThrough } from 'node:stream';
+async function downloadMangaFromDisk({ title, volume }) {
+	if (volume !== undefined) {
+		volume = Number.parseFloat(volume).toFixed(4);
+	}
+	const { chapterPath, mangaPath } = getPathMangaAndChapter({ title, volume });
+
+	const zip = archiver('zip');
+	if (volume === undefined) {
+		const files = await readdir(mangaPath);
+		for (const file of files) {
+			zip.append(createReadStream(path.join(mangaPath, file)), {
+				name: file
+			});
+		}
+		// zip.directory(mangaPath, true);
+	} else {
+		zip.append(createReadStream(chapterPath), {
+			name: chapterPath.split('/').pop()
+		});
+	}
+	const output = new PassThrough();
+	zip.pipe(output);
+	zip.finalize();
+	return output;
+}
 
 const Download = {
 	downloadChapter,
-	getPathMangaAndChapter
+	getPathMangaAndChapter,
+	downloadMangaFromDisk
 };
 
 export default Download;

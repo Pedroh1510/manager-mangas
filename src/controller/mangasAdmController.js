@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { response } from 'express';
 import MangasAdmService from '../model/mangasAdm.js';
 import MangasAdmValidator from '../validators/mangasAdmValidator.js';
 import MangasService from '../model/mangas.js';
@@ -192,6 +192,30 @@ mangasAdmController.get('/download-batch', async (req, res) => {
 	const response = await MangasAdmService.downloadMangasBatch(req.query.title);
 
 	res.status(200).send(response);
+});
+
+/**
+ * @swagger
+ * /mangas/adm/download:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: download
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+mangasAdmController.get('/download', async (req, res) => {
+	const response = await MangasAdmService.downloadManga({
+		title: req.query.title,
+		volume: req.query.volume
+	});
+
+	// res.status(200).attachment(`${Date.UTC()}.zip`).
+	res.writeHead(200, {
+		'Content-Type': 'application/zip',
+		'Content-disposition': `attachment; filename=${Date.UTC()}.zip`
+	});
+	response.pipe(res);
 });
 
 /**

@@ -385,6 +385,10 @@ async function deleteManga({ title }) {
 	}
 }
 
+async function downloadManga({ title, volume }) {
+	return Download.downloadMangaFromDisk({ title, volume });
+}
+
 const MangasAdmService = {
 	registerManga,
 	listMangasRegistered,
@@ -396,7 +400,8 @@ const MangasAdmService = {
 	registerCredentials,
 	deleteMangaChapters,
 	deleteManga,
-	listChaptersMissing
+	listChaptersMissing,
+	downloadManga
 };
 
 export default MangasAdmService;
