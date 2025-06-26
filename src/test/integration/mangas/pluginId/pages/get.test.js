@@ -39,4 +39,15 @@ describe('GET /mangas/:pluginId/pages', () => {
 			expect(response.data.length).toEqual(38);
 		});
 	});
+	describe('YomuComics', () => {
+		test('', async () => {
+			const response = await api('/mangas/YomuComics/pages', {
+				params: {
+					chapterId: '/sobrevivendo-no-jogo-como-um-barbaro-capitulo-01/'
+				}
+			});
+			expect(response.status).toEqual(200);
+			expect(response.data.length).toEqual(21);
+		});
+	});
 });

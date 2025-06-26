@@ -275,6 +275,7 @@ async function getMangaFromPlugin({ idPlugin, title }) {
  * @returns {Promise<Chapter[]>}
  */
 async function listChaptersByManga({ idPlugin, mangaId }) {
+	if (!idPlugin || !mangaId) return [];
 	const chapters = await listChapters({
 		mangaId,
 		pluginId: idPlugin

@@ -4,6 +4,7 @@ const CONFIG_ENV = {};
 export default CONFIG_ENV;
 CONFIG_ENV.ENV = process.env.ENV ?? process.env.NODE_ENV;
 if (!process.env.runDocker && CONFIG_ENV.ENV === 'test') {
+	// config({ path: '.env.prod' });
 	config({ path: '.env.development' });
 }
 

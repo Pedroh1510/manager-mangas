@@ -38,4 +38,16 @@ describe('GET /mangas/:pluginId/manga', () => {
 			console.log(response.data);
 		});
 	});
+
+	describe('YomuComics', () => {
+		test('', async () => {
+			const response = await api.get('/mangas/YomuComics/manga', {
+				params: {
+					mangaId: '/manga/sobrevivendo-no-jogo-como-um-barbaro/'
+				}
+			});
+			expect(response.status).toEqual(200);
+			expect(response.data.length).toBeGreaterThanOrEqual(100);
+		});
+	});
 });

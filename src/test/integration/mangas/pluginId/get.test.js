@@ -27,4 +27,21 @@ describe('GET /mangas/:pluginId', () => {
 			console.log(response.data[0]);
 		});
 	});
+	describe('YomuComics', () => {
+		test('', async () => {
+			const response = await api('/mangas/yomucomics', {
+				params: {
+					title: 'Sobrevivendo no Jogo Como um Bárbaro'
+				}
+			}).then(({ status, data }) => ({ status, data }));
+			expect(response.status).toEqual(200);
+			expect(response.data.length).toEqual(1);
+			expect(response.data).toEqual([
+				{
+					id: '/manga/sobrevivendo-no-jogo-como-um-barbaro/',
+					title: 'Sobrevivendo no Jogo Como um Bárbaro'
+				}
+			]);
+		});
+	});
 });
