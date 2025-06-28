@@ -254,6 +254,28 @@ async function listPages({ pluginId, chapterId }) {
 
 /**
  *
+ * @param {Object} param
+ * @param {String} param.pluginId
+ * @param {String} param.title
+ * @param {{id:String}[]} param.chapters
+ */
+async function listPagesBatch({ pluginId, chapters, title }) {
+	const instance = await getInstancePlugin(pluginId);
+	const chaptersNew = [];
+	for (const chapter of chapters) {
+		logger.info(`listPagesBatch ${title} -> ${chapter.volume}`);
+		try {
+			const pages = await instance._getPages({ id: chapter.id });
+			chaptersNew.push({ ...chapter, pages });
+		} catch (error) {
+			logger.error(error);
+		}
+	}
+	return chaptersNew;
+}
+
+/**
+ *
  * @param {Object} params
  * @param {String} params.idPlugin
  * @param {String} params.title
@@ -265,22 +287,8 @@ async function getMangaFromPlugin({ idPlugin, title }) {
 	return response?.length !== 0 ? response[0] : {};
 }
 
-/**
- * @typedef {Object} Chapter
- * @prop {String} id
- * @prop {String} title
- * @prop {String} volume
- * @prop {String} language
- *
- * @returns {Promise<Chapter[]>}
- */
-async function listChaptersByManga({ idPlugin, mangaId }) {
-	if (!idPlugin || !mangaId) return [];
-	const chapters = await listChapters({
-		mangaId,
-		pluginId: idPlugin
-	});
-	const chaptersFiltered = chapters
+function formatChapters(chapters) {
+	return chapters
 		.filter((chapter) => ['pt', 'pt-br'].includes(chapter.language))
 		.map((chapter) => {
 			const a = chapter.title;
@@ -318,12 +326,63 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 					chapter.volume === ''
 				)
 		);
+}
+
+/**
+ * @typedef {Object} Chapter
+ * @prop {String} id
+ * @prop {String} title
+ * @prop {String} volume
+ * @prop {String} language
+ *
+ * @returns {Promise<Chapter[]>}
+ */
+async function listChaptersByManga({ idPlugin, mangaId }) {
+	if (!idPlugin || !mangaId) return [];
+	const chapters = await listChapters({
+		mangaId,
+		pluginId: idPlugin
+	});
+	const chaptersFiltered = formatChapters(chapters);
 	const chaptersNotVolumeDuplicated = {};
 	for (const chapter of chaptersFiltered) {
 		if (`${chapter.volume}` in chaptersNotVolumeDuplicated) continue;
 		chaptersNotVolumeDuplicated[chapter.volume] = chapter;
 	}
 	return Object.values(chaptersNotVolumeDuplicated);
+}
+
+/**
+ * @returns {Promise<{[title]:{id:String,:title:String,volume:number}[]}>}
+ */
+async function listChaptersByTitle({ idPlugin, titleList = [] }) {
+	const instancePlugin = await getInstancePlugin(idPlugin);
+	let mangas = await instancePlugin.getMangas();
+	let isOld = false;
+	if (mangas.length > 0) {
+		const pathToCache = `${Engine.Storage.config}mangas.${instancePlugin.id}`;
+		const qq = fs.statSync(path.resolve('src', '..', pathToCache));
+		const now = new Date();
+		now.setDate(now.getDate() - 7);
+		isOld = now >= qq.mtime;
+	}
+	if (mangas.length === 0 || isOld) {
+		logger.info(`atualizando mangas ${idPlugin}`);
+		mangas = await instancePlugin.updateMangas();
+	}
+	for (const manga of mangas) {
+		manga.title = manga.title.toLowerCase();
+	}
+	const chaptersByTitle = {};
+	for (const title of titleList) {
+		const manga = mangas.find((item) => item.title === title.toLowerCase());
+		if (!manga) continue;
+		const chapters = await instancePlugin._getChapters(manga);
+		if (!chapters?.length) continue;
+		chaptersByTitle[title] = formatChapters(chapters);
+		logger.info(`title: ${title} totalChapters: ${chapters.length}`);
+	}
+	return chaptersByTitle;
 }
 
 const MangasService = {
@@ -335,7 +394,9 @@ const MangasService = {
 	listChaptersByManga,
 	getMangaFromPlugin,
 	listPlugins,
-	plugins
+	plugins,
+	listChaptersByTitle,
+	listPagesBatch
 };
 
 export default MangasService;

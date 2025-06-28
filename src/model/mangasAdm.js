@@ -6,6 +6,7 @@ import { BadRequestError, ValidationError } from '../infra/errors.js';
 import jobs from '../jobs.js';
 import MangasService from './mangas.js';
 import Download from './download.js';
+import MangasRepository from '../repository/mangas.js';
 
 async function listHistoryManga({ title }) {
 	return database
@@ -104,6 +105,116 @@ async function listMangasRegistered({ title }) {
 		.then((rows) =>
 			rows.map((row) => ({ ...row, title: row.title ?? row.titleFolder }))
 		);
+}
+
+async function getMangasByPlugin(idPlugin) {
+	const mangasInDatabase = await MangasRepository.listMangas({ idPlugin });
+
+	if (!mangasInDatabase.length) return { totalUpdated: 0 };
+	const titleList = mangasInDatabase.map(
+		(item) => item?.titlePlugin?.toLowerCase() || item?.title?.toLowerCase()
+	);
+
+	const chapterGrouped = await MangasService.listChaptersByTitle({
+		idPlugin,
+		titleList
+	});
+	const mangas = {};
+	for (const mangaInDatabase of mangasInDatabase) {
+		const key =
+			mangaInDatabase.titlePlugin?.toLowerCase() ||
+			mangaInDatabase.title?.toLowerCase();
+		const chapters = chapterGrouped[key];
+		if (!chapters) continue;
+		mangas[key] = {
+			...mangaInDatabase,
+			chapters: chapters
+		};
+	}
+
+	return mangas;
+}
+
+async function updateMangasBatch({ idPlugin }) {
+	const mangas = await getMangasByPlugin(idPlugin);
+	const titleList = Object.keys(mangas);
+	const chapterGrouped = await chapterGroupedByTitle(titleList);
+
+	const mangasMissing = {};
+	for (const title of titleList) {
+		const manga = mangas[title];
+		const chapters = chapterGrouped[title];
+		if (!chapters) {
+			mangasMissing[title] = manga;
+			continue;
+		}
+		const chaptersInDatabase = {};
+		for (const chapter of chapters) {
+			chaptersInDatabase[chapter.volume] = chapter;
+		}
+		manga.chapters = manga.chapters.filter(
+			(item) => !chaptersInDatabase[Number.parseFloat(item.volume).toFixed(4)]
+		);
+		if (!manga.chapters.length) continue;
+		mangasMissing[title] = manga;
+	}
+	const totalUpdated = {};
+	for (const title of titleList) {
+		totalUpdated[title] = 0;
+		const manga = mangasMissing[title];
+		if (!manga?.chapters) continue;
+		manga.chapters = await MangasService.listPagesBatch({
+			pluginId: idPlugin,
+			chapters: manga.chapters.slice(0, 5),
+			title
+		});
+		if (!manga?.chapters) continue;
+		for (const chapter of manga.chapters) {
+			const result = await MangasRepository.insertChapter({
+				id: chapter.id,
+				idManga: manga.idManga,
+				idPlugin,
+				title: chapter.title,
+				volume: chapter.volume
+			});
+			if (!result) continue;
+			chapter.idChapter = result.idChapter;
+		}
+	}
+
+	for (const title of titleList) {
+		totalUpdated[title] = 0;
+		const manga = mangasMissing[title];
+		if (!manga?.chapters) continue;
+		for (const chapter of manga.chapters) {
+			if (!chapter.idChapter) continue;
+			await jobs.queues.downloadQueue(
+				{
+					manga: manga.title,
+					chapter: chapter.volume,
+					pages: chapter.pages,
+					idChapter: chapter.idChapter
+				},
+				`downloadQueue-${title}${chapter.volume}`
+			);
+			totalUpdated[title]++;
+		}
+	}
+
+	return totalUpdated;
+}
+
+async function chapterGroupedByTitle(titleList) {
+	const chapters = await MangasRepository.listChapters({ title: titleList });
+	const chapterGroupedByTitle = {};
+	for (const chapter of chapters) {
+		const key = chapter.title.toLowerCase();
+		if (!chapterGroupedByTitle[key]) {
+			chapterGroupedByTitle[key] = [];
+		}
+		chapterGroupedByTitle[key].push(chapter);
+	}
+	return chapterGroupedByTitle;
 }
 
 async function updateMangas({ idPlugin }) {
@@ -401,7 +512,8 @@ const MangasAdmService = {
 	deleteMangaChapters,
 	deleteManga,
 	listChaptersMissing,
-	downloadManga
+	downloadManga,
+	updateMangasBatch
 };
 
 export default MangasAdmService;

@@ -171,6 +171,7 @@ export default class Request {
 			let abortAction = setTimeout(() => {
 				this._fetchUICleanup(abortAction);
 				if (!preventCallback) {
+					page?.close();
 					reject(
 						new Error(
 							`Failed to load "${
@@ -197,10 +198,12 @@ export default class Request {
 					let jsResult = await page.evaluate(injectionScript);
 					preventCallback = true; // no other event shall resolve/reject this promise anymore
 					this._fetchUICleanup(abortAction);
+					page?.close();
 					resolve(jsResult);
 				} catch (error) {
 					preventCallback = true; // no other event shall resolve/reject this promise anymore
 					this._fetchUICleanup(abortAction);
+					page?.close();
 					reject(error);
 				}
 			});
@@ -209,6 +212,7 @@ export default class Request {
 			page.on('error', (err) => {
 				if (!preventCallback) {
 					this._fetchUICleanup(abortAction);
+					page?.close();
 					reject(err);
 				}
 			});
