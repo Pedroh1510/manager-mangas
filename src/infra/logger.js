@@ -1,8 +1,33 @@
 import { setTimeout } from 'node:timers/promises';
 import winston from 'winston';
+import * as stack from 'stack-trace';
 
-const { combine, timestamp, printf, colorize, align, errors } = winston.format;
-
+const { combine, timestamp, printf, colorize, align, errors, metadata } =
+	winston.format;
+const getTrace = () => {
+	let isAfterLogger = false;
+	const aaaa = stack
+		.get()
+		.slice(2)
+		.map((item) => item.getFileName());
+	const fileProps = stack
+		.get()
+		.slice(2)
+		.find((item) => {
+			const file = item.getFileName();
+			if (item.getFileName().includes('/infra/logger.js')) {
+				isAfterLogger = true;
+				return false;
+			}
+			return isAfterLogger;
+		});
+	if (!fileProps) return {};
+	return {
+		fileName: fileProps.getFileName(),
+		functionName: fileProps.getFunctionName(),
+		line: fileProps.getLineNumber()
+	};
+};
 const formatLog = () =>
 	combine(
 		errors({ stack: true }),
@@ -11,7 +36,10 @@ const formatLog = () =>
 			format: 'DD/MM/YYYY HH:mm:ss.SSS '
 		}),
 		align(),
-		printf((info) => `[${info.timestamp}] ${info.level}: ${info.message}`)
+		printf((info) => {
+			const { fileName, functionName, line } = getTrace();
+			return `[${info.timestamp}] [${fileName}:${line}] [${functionName}] ${info.level}: ${info.message}`;
+		})
 	);
 
 class Logger {

@@ -49,6 +49,7 @@
     "sharp": "^0.33.5",
     "sql-bricks": "^3.0.1",
     "sql-bricks-postgres": "^0.6.0",
+    "stack-trace": "^1.0.0-pre2",
     "swagger-autogen": "^2.23.7",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
