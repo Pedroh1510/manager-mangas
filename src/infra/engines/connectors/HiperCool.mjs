@@ -98,6 +98,7 @@ export default class HiperCool extends Connector {
 	}
 
 	async _getPages(chapter) {
+		this.init();
 		let request = new Request(
 			new URL(chapter.id, this.url),
 			this.requestOptions
