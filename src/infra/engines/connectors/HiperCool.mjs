@@ -59,10 +59,7 @@ export default class HiperCool extends Connector {
 	async _getChapters(manga) {
 		this.init();
 		let request = new Request(new URL(manga.id, this.url), this.requestOptions);
-		let data = await this.fetchDOM(
-			request,
-			'#tab-chapter-listing > div > div > ul > li > a'
-		);
+		let data = await this.fetchDOM(request, 'li.wp-manga-chapter > a');
 		if (!data.length) {
 			data = await this.fetchDOM(request, '*');
 			const response = await fetch(request.url + 'ajax/chapters/?t=1', {
