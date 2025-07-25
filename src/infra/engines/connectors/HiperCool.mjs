@@ -61,23 +61,48 @@ export default class HiperCool extends Connector {
 		let request = new Request(new URL(manga.id, this.url), this.requestOptions);
 		let data = await this.fetchDOM(request, 'li.wp-manga-chapter > a');
 		if (!data.length) {
-			data = await this.fetchDOM(request, '*');
 			const response = await fetch(request.url + 'ajax/chapters/?t=1', {
-				method: 'POST'
-			}).catch(() => null);
-			if (response === null) return [];
-			const a = await response.text();
-			return a
-				.split('"')
-				.filter((item) => item.includes(request.url))
-				.map((item) => ({
-					id: item.replace('https://hiper.cool', ''),
-					title: item
-						.split('/')
-						.filter((item) => item)
-						.pop(),
+				method: 'POST',
+				headers: request.headers
+			});
+			if (!response.ok) {
+				return [];
+			}
+			let dom = document.createElement('html');
+			dom.innerHTML = await response.text();
+			const data = await Promise.resolve([
+				...dom.querySelectorAll('li.wp-manga-chapter > a')
+			]);
+			return data.map((element) => {
+				return {
+					id: this.getRootRelativeOrAbsoluteLink(element, this.url),
+					title:
+						'Chapter ' +
+						element.pathname
+							.split('/')
+							.filter((element) => element !== '')
+							.pop(),
 					language: 'pt'
-				}));
+				};
+			});
+			// data = await this.fetchDOM(request, '*');
+
+			// const response = await fetch(request.url + 'ajax/chapters/?t=1', {
+			// 	method: 'POST'
+			// }).catch(() => null);
+			// if (response === null) return [];
+			// const a = await response.text();
+			// return aq
+			// 	.split('"')
+			// 	.filter((item) => item.includes(request.url))
+			// 	.map((item) => ({
+			// 		id: item.replace('https://hiper.cool', ''),
+			// 		title: item
+			// 			.split('/')
+			// 			.filter((item) => item)
+			// 			.pop(),
+			// 		language: 'pt'
+			// 	}));
 		}
 
 		return data.map((element) => {
