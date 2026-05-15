@@ -8,8 +8,10 @@ import logger from './infra/logger.js';
 import jobs from './jobs.js';
 import MangasService from './model/mangas.js';
 import router from './routes.js';
+import cors from 'cors';
 
 const server = express();
+server.use(cors('*'));
 server.use(express.json({}));
 server.use(express.urlencoded({ extended: true }));
 server.use(
