@@ -23,4 +23,59 @@ export default class Mangeek extends Connector {
 			.update(`M<${param}#MANG33K>D`)
 			.digest('hex');
 	}
+
+	async _getAllTags() {
+		this.init();
+		const nonce = this._nonce();
+		const key = this._keyGen(nonce);
+		const request = new Request(
+			new URL(`/api/v2/pt/home/${nonce}/${key}`, this.url),
+			this.requestOptions
+		);
+		const data = await this.fetchJSON(request);
+		return data?.tags ?? [];
+	}
+
+	async _getMangas() {
+		this.init();
+		const tags = await this._getAllTags();
+		const seen = new Map();
+
+		for (const tag of tags) {
+			let ignore = [];
+			let morePages = true;
+			while (morePages) {
+				try {
+					const nonce = this._nonce();
+					const key = this._keyGen(nonce);
+					const request = new Request(
+						new URL(`/api/v2/pt/discover/${nonce}/${key}`, this.url),
+						{
+							...this.requestOptions,
+							method: 'POST',
+							body: JSON.stringify({ tags: [tag], ignore })
+						}
+					);
+					request.headers.set('content-type', 'application/json');
+					const page = await this.fetchJSON(request);
+					if (!page?.length) {
+						morePages = false;
+						break;
+					}
+					for (const manga of page) {
+						seen.set(manga.id, { id: String(manga.id), title: manga.title });
+					}
+					ignore = ignore.concat(page.map((manga) => manga.id));
+					if (page.length < 25) {
+						morePages = false;
+					} else {
+						await this.wait(500);
+					}
+				} catch (error) {
+					morePages = false;
+				}
+			}
+		}
+		return [...seen.values()];
+	}
 }
