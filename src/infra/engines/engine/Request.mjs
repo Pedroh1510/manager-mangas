@@ -223,7 +223,16 @@ export default class Request {
 				referer: reqOpts.httpReferrer,
 				'user-agent': reqOpts.userAgent
 			});
-			await page.goto(request.url);
+			try {
+				await page.goto(request.url);
+			} catch (error) {
+				if (!preventCallback) {
+					preventCallback = true;
+					this._fetchUICleanup(abortAction);
+					page?.close();
+					reject(error);
+				}
+			}
 		});
 	}
 
