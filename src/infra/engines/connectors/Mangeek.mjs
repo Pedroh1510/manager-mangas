@@ -94,4 +94,16 @@ export default class Mangeek extends Connector {
 			language: 'pt'
 		}));
 	}
+
+	async _getPages(chapter) {
+		this.init();
+		const nonce = this._nonce();
+		const key = this._keyGen(chapter.id);
+		const request = new Request(
+			new URL(`/api/v2/pt/chapter/${nonce}/${chapter.id}/${key}`, this.url),
+			this.requestOptions
+		);
+		const data = await this.fetchJSON(request);
+		return data?.pages ?? [];
+	}
 }

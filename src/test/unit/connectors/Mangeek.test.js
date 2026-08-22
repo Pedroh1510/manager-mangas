@@ -190,21 +190,21 @@ describe('Mangeek', () => {
 						title: 'The Great Mage Returns After 4000 Years',
 						chapters: [
 							{ id: 171705, title: 'Capítulo 01' },
-							{ id: 171706, title: 'Capítulo 02' }
-						]
-					})
-				})
+							{ id: 171706, title: 'Capítulo 02' },
+						],
+					}),
+				}),
 			);
 
 			const chapters = await connector._getChapters({ id: '1968' });
 
 			expect(chapters).toEqual([
 				{ id: '171705', title: 'Capítulo 01', language: 'pt' },
-				{ id: '171706', title: 'Capítulo 02', language: 'pt' }
+				{ id: '171706', title: 'Capítulo 02', language: 'pt' },
 			]);
 			const calledRequest = fetch.mock.calls[0][0];
 			const match = calledRequest.url.match(
-				/\/api\/v2\/pt\/manga\/([0-9A-F]+)\/1968\/([0-9a-f]{32})$/
+				/\/api\/v2\/pt\/manga\/([0-9A-F]+)\/1968\/([0-9a-f]{32})$/,
 			);
 			expect(match).not.toBeNull();
 			expect(match[2]).toBe(connector._keyGen('1968'));
@@ -218,11 +218,55 @@ describe('Mangeek', () => {
 				'fetch',
 				vi.fn().mockResolvedValue({
 					status: 200,
-					json: async () => ({ id: 1968, title: 'X' })
-				})
+					json: async () => ({ id: 1968, title: 'X' }),
+				}),
 			);
 
 			expect(await connector._getChapters({ id: '1968' })).toEqual([]);
+
+			vi.unstubAllGlobals();
+		});
+	});
+
+	describe('_getPages', () => {
+		test('returns the pages array from the chapter response as-is (no per-image signing)', async () => {
+			const connector = new Mangeek();
+			const pages = [
+				'https://l6k2.c11.e2-3.dev/static4/chapters/000.webp',
+				'http://51.79.78.152/storage/static/chapters/001.webp',
+			];
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					status: 200,
+					json: async () => ({ id: 171705, title: 'Capítulo 01', pages }),
+				}),
+			);
+
+			const result = await connector._getPages({ id: '171705' });
+
+			expect(result).toEqual(pages);
+			const calledRequest = fetch.mock.calls[0][0];
+			const match = calledRequest.url.match(
+				/\/api\/v2\/pt\/chapter\/([0-9A-F]+)\/171705\/([0-9a-f]{32})$/,
+			);
+			expect(match).not.toBeNull();
+			expect(match[2]).toBe(connector._keyGen('171705'));
+
+			vi.unstubAllGlobals();
+		});
+
+		test('returns an empty array when the response has no pages field', async () => {
+			const connector = new Mangeek();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					status: 200,
+					json: async () => ({ id: 171705, title: 'X' }),
+				}),
+			);
+
+			expect(await connector._getPages({ id: '171705' })).toEqual([]);
 
 			vi.unstubAllGlobals();
 		});
