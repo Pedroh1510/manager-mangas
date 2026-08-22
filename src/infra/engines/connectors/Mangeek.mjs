@@ -78,4 +78,20 @@ export default class Mangeek extends Connector {
 		}
 		return [...seen.values()];
 	}
+
+	async _getChapters(manga) {
+		this.init();
+		const nonce = this._nonce();
+		const key = this._keyGen(manga.id);
+		const request = new Request(
+			new URL(`/api/v2/pt/manga/${nonce}/${manga.id}/${key}`, this.url),
+			this.requestOptions
+		);
+		const data = await this.fetchJSON(request);
+		return (data.chapters ?? []).map((chapter) => ({
+			id: String(chapter.id),
+			title: chapter.title,
+			language: 'pt'
+		}));
+	}
 }

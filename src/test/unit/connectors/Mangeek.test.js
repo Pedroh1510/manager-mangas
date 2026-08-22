@@ -49,7 +49,9 @@ describe('Mangeek', () => {
 			const responseBody = { tags: ['Ação', 'Aventura', 'Webtoon'] };
 			vi.stubGlobal(
 				'fetch',
-				vi.fn().mockResolvedValue({ status: 200, json: async () => responseBody })
+				vi
+					.fn()
+					.mockResolvedValue({ status: 200, json: async () => responseBody }),
 			);
 
 			const tags = await connector._getAllTags();
@@ -57,7 +59,7 @@ describe('Mangeek', () => {
 			expect(tags).toEqual(responseBody.tags);
 			const calledRequest = fetch.mock.calls[0][0];
 			const match = calledRequest.url.match(
-				/\/api\/v2\/pt\/home\/([0-9A-F]+)\/([0-9a-f]{32})$/
+				/\/api\/v2\/pt\/home\/([0-9A-F]+)\/([0-9a-f]{32})$/,
 			);
 			expect(match).not.toBeNull();
 			expect(match[2]).toBe(connector._keyGen(match[1]));
@@ -69,7 +71,7 @@ describe('Mangeek', () => {
 			const connector = new Mangeek();
 			vi.stubGlobal(
 				'fetch',
-				vi.fn().mockResolvedValue({ status: 200, json: async () => ({}) })
+				vi.fn().mockResolvedValue({ status: 200, json: async () => ({}) }),
 			);
 
 			expect(await connector._getAllTags()).toEqual([]);
@@ -81,16 +83,18 @@ describe('Mangeek', () => {
 	describe('_getMangas', () => {
 		test('paginates /discover per tag, dedupes by manga id across tags, and isolates a failing tag', async () => {
 			const connector = new Mangeek();
-			connector._getAllTags = vi.fn().mockResolvedValue(['Ação', 'Aventura', 'Terror']);
+			connector._getAllTags = vi
+				.fn()
+				.mockResolvedValue(['Ação', 'Aventura', 'Terror']);
 
 			const acaoPage1 = Array.from({ length: 25 }, (_, i) => ({
 				id: i + 1,
-				title: `Manga ${i + 1}`
+				title: `Manga ${i + 1}`,
 			}));
 			const acaoPage2 = [{ id: 26, title: 'Manga 26' }]; // < 25 => last page for this tag
 			const aventuraPage1 = [
 				{ id: 1, title: 'Manga 1' }, // overlaps with Ação, must not duplicate
-				{ id: 50, title: 'Manga 50' }
+				{ id: 50, title: 'Manga 50' },
 			];
 
 			const fetchMock = vi.fn(async (request) => {
@@ -99,7 +103,8 @@ describe('Mangeek', () => {
 				if (tag === 'Ação') {
 					return {
 						status: 200,
-						json: async () => (body.ignore.length === 0 ? acaoPage1 : acaoPage2)
+						json: async () =>
+							body.ignore.length === 0 ? acaoPage1 : acaoPage2,
 					};
 				}
 				if (tag === 'Aventura') {
@@ -119,9 +124,18 @@ describe('Mangeek', () => {
 
 			// 26 unique from Ação (ids 1-26) + 1 new from Aventura (id 50); id 1 not duplicated
 			expect(mangas).toHaveLength(27);
-			expect(mangas.find((m) => m.id === '1')).toEqual({ id: '1', title: 'Manga 1' });
-			expect(mangas.find((m) => m.id === '50')).toEqual({ id: '50', title: 'Manga 50' });
-			expect(mangas.find((m) => m.id === '26')).toEqual({ id: '26', title: 'Manga 26' });
+			expect(mangas.find((m) => m.id === '1')).toEqual({
+				id: '1',
+				title: 'Manga 1',
+			});
+			expect(mangas.find((m) => m.id === '50')).toEqual({
+				id: '50',
+				title: 'Manga 50',
+			});
+			expect(mangas.find((m) => m.id === '26')).toEqual({
+				id: '26',
+				title: 'Manga 26',
+			});
 
 			vi.useRealTimers();
 			vi.unstubAllGlobals();
@@ -132,7 +146,10 @@ describe('Mangeek', () => {
 			connector._getAllTags = vi.fn().mockResolvedValue(['Ação']);
 
 			const bodies = [];
-			const page1 = Array.from({ length: 25 }, (_, i) => ({ id: i + 1, title: `M${i + 1}` }));
+			const page1 = Array.from({ length: 25 }, (_, i) => ({
+				id: i + 1,
+				title: `M${i + 1}`,
+			}));
 			const page2 = [{ id: 26, title: 'M26' }];
 			let call = 0;
 			const fetchMock = vi.fn(async (request) => {
@@ -150,13 +167,63 @@ describe('Mangeek', () => {
 			expect(bodies[0]).toEqual({ tags: ['Ação'], ignore: [] });
 			expect(bodies[1]).toEqual({
 				tags: ['Ação'],
-				ignore: page1.map((m) => m.id)
+				ignore: page1.map((m) => m.id),
 			});
 			expect(fetchMock.mock.calls[0][0].headers.get('content-type')).toBe(
-				'application/json'
+				'application/json',
 			);
 
 			vi.useRealTimers();
+			vi.unstubAllGlobals();
+		});
+	});
+
+	describe('_getChapters', () => {
+		test('maps the manga detail response into id/title/language chapter objects', async () => {
+			const connector = new Mangeek();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					status: 200,
+					json: async () => ({
+						id: 1968,
+						title: 'The Great Mage Returns After 4000 Years',
+						chapters: [
+							{ id: 171705, title: 'Capítulo 01' },
+							{ id: 171706, title: 'Capítulo 02' }
+						]
+					})
+				})
+			);
+
+			const chapters = await connector._getChapters({ id: '1968' });
+
+			expect(chapters).toEqual([
+				{ id: '171705', title: 'Capítulo 01', language: 'pt' },
+				{ id: '171706', title: 'Capítulo 02', language: 'pt' }
+			]);
+			const calledRequest = fetch.mock.calls[0][0];
+			const match = calledRequest.url.match(
+				/\/api\/v2\/pt\/manga\/([0-9A-F]+)\/1968\/([0-9a-f]{32})$/
+			);
+			expect(match).not.toBeNull();
+			expect(match[2]).toBe(connector._keyGen('1968'));
+
+			vi.unstubAllGlobals();
+		});
+
+		test('returns an empty array when the response has no chapters field', async () => {
+			const connector = new Mangeek();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					status: 200,
+					json: async () => ({ id: 1968, title: 'X' })
+				})
+			);
+
+			expect(await connector._getChapters({ id: '1968' })).toEqual([]);
+
 			vi.unstubAllGlobals();
 		});
 	});
