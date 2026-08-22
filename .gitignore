@@ -5,3 +5,4 @@ downloads
 appdata
 !.env.development
 .env*
+.superpowers/
