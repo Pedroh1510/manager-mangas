@@ -10,6 +10,12 @@ export default class Mangeek extends Connector {
 		this.url = 'http://geekstations.com.br';
 	}
 
+	async _initializeConnector() {
+		// do nothing on purpose — pure JSON API, no scraping/cookies/challenge needed,
+		// and the generic browser warm-up navigation gets Chrome-upgraded to HTTPS,
+		// which this site's server refuses (no HTTPS listener)
+	}
+
 	init() {
 		this.requestOptions.headers.set('accept', 'application/json');
 	}
