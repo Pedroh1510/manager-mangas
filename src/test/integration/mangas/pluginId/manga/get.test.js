@@ -11,7 +11,7 @@ describe('GET /mangas/:pluginId/manga', () => {
 	describe('Leitordemanga', () => {
 		test('', async () => {
 			const response = await api.get(
-				'/mangas/Leitordemanga/manga?mangaId=/ler-manga/black-clover/'
+				'/mangas/Leitordemanga/manga?mangaId=/ler-manga/black-clover/',
 			);
 			expect(response.status).toEqual(200);
 			expect(response.data.length).toBeGreaterThanOrEqual(378);
@@ -20,7 +20,7 @@ describe('GET /mangas/:pluginId/manga', () => {
 	describe('HiperCool', () => {
 		test('', async () => {
 			const response = await api.get(
-				'/mangas/HiperCool/manga?mangaId=/manga/regressed-warriors-female-dominance-diary/'
+				'/mangas/HiperCool/manga?mangaId=/manga/regressed-warriors-female-dominance-diary/',
 			);
 			expect(response.status).toEqual(200);
 			expect(response.data.length).toBeGreaterThanOrEqual(54);
@@ -30,7 +30,7 @@ describe('GET /mangas/:pluginId/manga', () => {
 	describe('MangaLivreTv', () => {
 		test('', async () => {
 			const response = await api.get(
-				'/mangas/MangaLivreTv/manga?mangaId=/manga/live-dungeon/'
+				'/mangas/MangaLivreTv/manga?mangaId=/manga/live-dungeon/',
 				// '/mangas/MangaLivreTv/manga?mangaId=/manga/00-day-of-summer-holiday/'
 			);
 			expect(response.status).toEqual(200);
@@ -43,11 +43,21 @@ describe('GET /mangas/:pluginId/manga', () => {
 		test('', async () => {
 			const response = await api.get('/mangas/YomuComics/manga', {
 				params: {
-					mangaId: '/manga/sobrevivendo-no-jogo-como-um-barbaro/'
-				}
+					mangaId: '/manga/sobrevivendo-no-jogo-como-um-barbaro/',
+				},
 			});
 			expect(response.status).toEqual(200);
 			expect(response.data.length).toBeGreaterThanOrEqual(100);
+		});
+	});
+
+	describe('Mangeek', () => {
+		test('', async () => {
+			const response = await api.get(
+				'/mangas/mangeek/manga?mangaId=278', // Solo Leveling — stable/popular
+			);
+			expect(response.status).toEqual(200);
+			expect(response.data.length).toBeGreaterThanOrEqual(204);
 		});
 	});
 });
