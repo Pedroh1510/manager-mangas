@@ -151,8 +151,24 @@ export default class Request {
 	async fetchUI(request, injectionScript, timeout, images) {
 		timeout = timeout || 60000;
 		return new Promise(async (resolve, reject) => {
-			const page = await this.browser.newPage();
-			page.setRequestInterception(true);
+			let page;
+			try {
+				page = await this.browser.newPage();
+			} catch (error) {
+				reject(error);
+				return;
+			}
+
+			let preventCallback = false;
+
+			page.setRequestInterception(true).catch((error) => {
+				if (!preventCallback) {
+					preventCallback = true;
+					this._fetchUICleanup(abortAction);
+					page?.close();
+					reject(error);
+				}
+			});
 			page.on('request', (request) => {
 				// check url matches glob pattern in Engine.Blacklist.patterns
 				if (
@@ -165,8 +181,6 @@ export default class Request {
 					request.continue();
 				}
 			});
-
-			let preventCallback = false;
 
 			let abortAction = setTimeout(() => {
 				this._fetchUICleanup(abortAction);
@@ -187,7 +201,14 @@ export default class Request {
 			// wait until dom is ready
 			// await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
 			page.on('domcontentloaded', () =>
-				page.evaluate(this._domPreparationScript)
+				page.evaluate(this._domPreparationScript).catch((error) => {
+					if (!preventCallback) {
+						preventCallback = true;
+						this._fetchUICleanup(abortAction);
+						page?.close();
+						reject(error);
+					}
+				})
 			);
 
 			page.on('load', async () => {
@@ -211,6 +232,7 @@ export default class Request {
 			// on did-fail-load
 			page.on('error', (err) => {
 				if (!preventCallback) {
+					preventCallback = true;
 					this._fetchUICleanup(abortAction);
 					page?.close();
 					reject(err);
@@ -222,6 +244,13 @@ export default class Request {
 				...reqOpts.extraHeaders,
 				referer: reqOpts.httpReferrer,
 				'user-agent': reqOpts.userAgent
+			}).catch((error) => {
+				if (!preventCallback) {
+					preventCallback = true;
+					this._fetchUICleanup(abortAction);
+					page?.close();
+					reject(error);
+				}
 			});
 			try {
 				await page.goto(request.url);
