@@ -45,7 +45,16 @@ describe('GET /mangas/:pluginId', () => {
 		});
 	});
 	describe('Mangeek', () => {
-		test(
+		// This test does a full live crawl of geekstations.com.br's catalog
+		// (cold cache: 42 tags via /discover, paginated and rate-limited).
+		// Measured ~875s end to end, which would make `npm test` take 15+
+		// minutes on every run for everyone, every time (the on-disk cache at
+		// appdata/shinigami.mangas.mangeek expires after 7 days — see
+		// src/model/mangas.js:220 — and is always absent on a fresh checkout
+		// or in CI). Gated behind an opt-in env var so it's skipped by
+		// default; run it on demand with:
+		//   RUN_MANGEEK_CATALOG_CRAWL=1 npx vitest run src/test/integration/mangas/pluginId/get.test.js
+		test.skipIf(!process.env.RUN_MANGEEK_CATALOG_CRAWL)(
 			'',
 			async () => {
 				const response = await api('/mangas/mangeek/').then(
