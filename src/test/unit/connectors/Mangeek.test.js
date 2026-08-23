@@ -1,7 +1,12 @@
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import Mangeek from '../../../infra/engines/connectors/Mangeek.mjs';
 
 describe('Mangeek', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
 	describe('metadata', () => {
 		test('sets id, label, tags and base url', () => {
 			const connector = new Mangeek();
@@ -22,8 +27,6 @@ describe('Mangeek', () => {
 
 			expect(nonce).toBe(Date.now().toString(16).toUpperCase());
 			expect(nonce).toMatch(/^[0-9A-F]+$/);
-
-			vi.useRealTimers();
 		});
 	});
 
@@ -63,8 +66,6 @@ describe('Mangeek', () => {
 			);
 			expect(match).not.toBeNull();
 			expect(match[2]).toBe(connector._keyGen(match[1]));
-
-			vi.unstubAllGlobals();
 		});
 
 		test('returns an empty array when the response has no tags field', async () => {
@@ -75,8 +76,6 @@ describe('Mangeek', () => {
 			);
 
 			expect(await connector._getAllTags()).toEqual([]);
-
-			vi.unstubAllGlobals();
 		});
 	});
 
@@ -136,9 +135,6 @@ describe('Mangeek', () => {
 				id: '26',
 				title: 'Manga 26',
 			});
-
-			vi.useRealTimers();
-			vi.unstubAllGlobals();
 		});
 
 		test('sends tags and an accumulating ignore list in the discover request body', async () => {
@@ -172,9 +168,6 @@ describe('Mangeek', () => {
 			expect(fetchMock.mock.calls[0][0].headers.get('content-type')).toBe(
 				'application/json',
 			);
-
-			vi.useRealTimers();
-			vi.unstubAllGlobals();
 		});
 	});
 
@@ -208,8 +201,6 @@ describe('Mangeek', () => {
 			);
 			expect(match).not.toBeNull();
 			expect(match[2]).toBe(connector._keyGen('1968'));
-
-			vi.unstubAllGlobals();
 		});
 
 		test('returns an empty array when the response has no chapters field', async () => {
@@ -223,8 +214,6 @@ describe('Mangeek', () => {
 			);
 
 			expect(await connector._getChapters({ id: '1968' })).toEqual([]);
-
-			vi.unstubAllGlobals();
 		});
 	});
 
@@ -252,8 +241,6 @@ describe('Mangeek', () => {
 			);
 			expect(match).not.toBeNull();
 			expect(match[2]).toBe(connector._keyGen('171705'));
-
-			vi.unstubAllGlobals();
 		});
 
 		test('returns an empty array when the response has no pages field', async () => {
@@ -267,8 +254,6 @@ describe('Mangeek', () => {
 			);
 
 			expect(await connector._getPages({ id: '171705' })).toEqual([]);
-
-			vi.unstubAllGlobals();
 		});
 	});
 });
