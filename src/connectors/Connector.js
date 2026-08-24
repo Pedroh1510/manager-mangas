@@ -30,14 +30,12 @@ export default class Connector {
 		throw new Error(`${this.constructor.name} does not implement _getMangas()`);
 	}
 
-	// eslint-disable-next-line no-unused-vars
 	async _getChapters(manga) {
 		throw new Error(
 			`${this.constructor.name} does not implement _getChapters()`,
 		);
 	}
 
-	// eslint-disable-next-line no-unused-vars
 	async _getPages(chapter) {
 		throw new Error(`${this.constructor.name} does not implement _getPages()`);
 	}

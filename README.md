@@ -1,6 +1,6 @@
 # manager-mangas
 
-API REST para gerenciamento e download de mangás, com suporte a centenas de fontes (plugins/connectors). Construída com Node.js, Express, PostgreSQL e Redis.
+API REST para gerenciamento e download de mangás, com suporte a fontes via plugins/connectors (atualmente: Mangeek). Construída com Node.js, Express, PostgreSQL e Redis.
 
 ## Funcionalidades
 
@@ -170,12 +170,12 @@ O arquivo `compose.prod.yml` pode ser usado para ambiente de produção.
 ```
 src/
 ├── controller/         # Controllers Express (rotas e handlers)
-├── service/             # Serviços e regras de negócio
-│   └── queue/           # Filas BullMQ (por conector, background-tasks, download)
-├── connectors/           # Conectores de fontes de mangá + registry
+├── service/            # Serviços e regras de negócio
+│   └── queue/          # Filas BullMQ (por conector, background-tasks, download)
+├── connectors/         # Conectores de fontes de mangá + registry
 ├── repository/         # Acesso ao banco de dados
 ├── validators/         # Validação de entrada (Joi)
-├── utils/                # Funções puras (parsing, cache de catálogo)
+├── utils/              # Funções puras (parsing, cache de catálogo)
 ├── infra/
 │   ├── migrations/     # Migrations do banco de dados
 │   ├── database.js     # Configuração do PostgreSQL
