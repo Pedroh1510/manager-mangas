@@ -17,15 +17,15 @@ async function listChapters({ title }) {
 				.join('mangas')
 				.on({
 					'"mangasPlugins"."idManga"': 'mangas."idManga"',
-					'"chapters"."idManga"': 'mangas."idManga"'
+					'"chapters"."idManga"': 'mangas."idManga"',
 				})
 				.where(
 					SqlBricks.or(
 						SqlBricks.in('lower("title")', title),
-						SqlBricks.in('lower("titlePlugin")', title)
-					)
+						SqlBricks.in('lower("titlePlugin")', title),
+					),
 				)
-				.toParams()
+				.toParams(),
 		)
 		.then((result) => result.rows);
 }
@@ -46,14 +46,14 @@ async function listMangas({ idPlugin }) {
 				'idPlugin',
 				'titlePlugin',
 				'"mangas"."idManga"',
-				'mangas.title'
+				'mangas.title',
 			)
 				.from('mangasPlugins')
 				.join('mangas')
 				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
 				.orderBy('idPlugin')
 				.where(where)
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => rows);
 }
@@ -66,10 +66,10 @@ async function insertChapter({ id, title, volume, idPlugin, idManga }) {
 				name: title,
 				volume: volume,
 				pluginId: idPlugin,
-				idManga: idManga
+				idManga: idManga,
 			})
 				.returning('idChapter')
-				.toParams()
+				.toParams(),
 		)
 		.catch((error) => {
 			if (!error.message.includes('duplicate key')) {
