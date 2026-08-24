@@ -1,6 +1,6 @@
-import swaggerUi from 'swagger-ui-express';
-import swaggerJSDoc from 'swagger-jsdoc';
 import express from 'express';
+import swaggerJSDoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
 import CONFIG_ENV from './env.js';
 
 const routerDoc = express();
@@ -12,12 +12,12 @@ const swaggerOptions = {
 		info: {
 			title: 'My API',
 			version: '1.0.0',
-			description: 'API documentation using Swagger'
+			description: 'API documentation using Swagger',
 		},
 		servers: [
 			{
-				url: CONFIG_ENV.URL_DOC
-			}
+				url: CONFIG_ENV.URL_DOC,
+			},
 		],
 		components: {
 			//  securitySchemes: {
@@ -27,9 +27,9 @@ const swaggerOptions = {
 			//          bearerFormat: 'JWT',
 			//      },
 			//  },
-		}
+		},
 	},
-	apis: ['./src/controller/*.js', './src/routes.js'] // Path to your API docs
+	apis: ['./src/controller/*.js', './src/routes.js'], // Path to your API docs
 };
 
 const swaggerDocs = swaggerJSDoc(swaggerOptions);

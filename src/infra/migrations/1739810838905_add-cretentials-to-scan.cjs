@@ -12,12 +12,12 @@ exports.up = (pgm) => {
 	pgm.addColumn('pluginConfig', {
 		login: {
 			type: 'varchar(255)',
-			default: null
+			default: null,
 		},
 		password: {
 			type: 'text',
-			default: null
-		}
+			default: null,
+		},
 	});
 };
 

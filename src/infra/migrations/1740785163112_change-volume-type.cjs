@@ -10,7 +10,7 @@ exports.shorthands = undefined;
  */
 exports.up = (pgm) => {
 	pgm.alterColumn('chapters', 'volume', {
-		type: 'NUMERIC(10,4)'
+		type: 'NUMERIC(10,4)',
 	});
 };
 

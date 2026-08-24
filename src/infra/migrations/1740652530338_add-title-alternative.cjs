@@ -12,8 +12,8 @@ exports.up = (pgm) => {
 	pgm.addColumn('mangasPlugins', {
 		titlePlugin: {
 			type: 'text',
-			default: null
-		}
+			default: null,
+		},
 	});
 };
 

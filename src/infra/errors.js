@@ -10,7 +10,7 @@ export class ValidationError extends Error {
 			name: this.name,
 			message: this.message,
 			action: this.action,
-			statusCode: this.statusCode
+			statusCode: this.statusCode,
 		};
 	}
 }
@@ -27,7 +27,7 @@ export class BadRequestError extends Error {
 			name: this.name,
 			message: this.message,
 			action: this.action,
-			statusCode: this.statusCode
+			statusCode: this.statusCode,
 		};
 	}
 }

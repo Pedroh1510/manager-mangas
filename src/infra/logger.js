@@ -1,6 +1,6 @@
 import { setTimeout } from 'node:timers/promises';
-import winston from 'winston';
 import * as stack from 'stack-trace';
+import winston from 'winston';
 
 const { combine, timestamp, printf, colorize, align, errors, metadata } =
 	winston.format;
@@ -25,7 +25,7 @@ const getTrace = () => {
 	return {
 		fileName: fileProps.getFileName(),
 		functionName: fileProps.getFunctionName(),
-		line: fileProps.getLineNumber()
+		line: fileProps.getLineNumber(),
 	};
 };
 const formatLog = () =>
@@ -33,20 +33,20 @@ const formatLog = () =>
 		errors({ stack: true }),
 		colorize({ all: true }),
 		timestamp({
-			format: 'DD/MM/YYYY HH:mm:ss.SSS '
+			format: 'DD/MM/YYYY HH:mm:ss.SSS ',
 		}),
 		align(),
 		printf((info) => {
 			const { fileName, functionName, line } = getTrace();
 			return `[${info.timestamp}] [${fileName}:${line}] [${functionName}] ${info.level}: ${info.message}`;
-		})
+		}),
 	);
 
 class Logger {
 	logger = winston.createLogger({
 		format: formatLog(),
 		level: 'debug',
-		transports: [new winston.transports.Console()]
+		transports: [new winston.transports.Console()],
 	});
 
 	info(message) {

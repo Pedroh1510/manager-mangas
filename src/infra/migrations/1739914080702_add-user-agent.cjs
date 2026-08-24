@@ -12,8 +12,8 @@ exports.up = (pgm) => {
 	pgm.addColumn('pluginConfig', {
 		userAgent: {
 			type: 'varchar(255)',
-			default: null
-		}
+			default: null,
+		},
 	});
 };
 
