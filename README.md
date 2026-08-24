@@ -4,7 +4,7 @@ API REST para gerenciamento e download de mangás, com suporte a centenas de fon
 
 ## Funcionalidades
 
-- Listagem de plugins disponíveis (centenas de fontes de mangá)
+- Listagem de plugins disponíveis (conector: Mangeek)
 - Busca de mangás e capítulos por plugin
 - Download de páginas individualmente ou em lote
 - Gerenciamento de mangás cadastrados (registro, atualização, remoção)
@@ -19,7 +19,6 @@ API REST para gerenciamento e download de mangás, com suporte a centenas de fon
 - **Framework:** Express
 - **Banco de dados:** PostgreSQL
 - **Fila:** Redis + BullMQ
-- **Web scraping:** Puppeteer
 - **Validação:** Joi
 - **Linter/Formatter:** Biome
 - **Testes:** Vitest
@@ -171,13 +170,13 @@ O arquivo `compose.prod.yml` pode ser usado para ambiente de produção.
 ```
 src/
 ├── controller/         # Controllers Express (rotas e handlers)
-├── model/              # Serviços e regras de negócio
+├── service/             # Serviços e regras de negócio
+│   └── queue/           # Filas BullMQ (por conector, background-tasks, download)
+├── connectors/           # Conectores de fontes de mangá + registry
 ├── repository/         # Acesso ao banco de dados
 ├── validators/         # Validação de entrada (Joi)
+├── utils/                # Funções puras (parsing, cache de catálogo)
 ├── infra/
-│   ├── engines/
-│   │   ├── connectors/ # Plugins de fontes de mangá (500+ fontes)
-│   │   └── engine/     # Motor de scraping
 │   ├── migrations/     # Migrations do banco de dados
 │   ├── database.js     # Configuração do PostgreSQL
 │   ├── env.js          # Variáveis de ambiente
@@ -185,6 +184,5 @@ src/
 │   ├── logger.js       # Logger (Winston)
 │   └── swagger.js      # Configuração do Swagger
 ├── routes.js           # Roteamento principal
-├── jobs.js             # Configuração das filas BullMQ
 └── server.js           # Entry point
 ```
