@@ -6,3 +6,4 @@ appdata
 !.env.development
 .env*
 .superpowers/
+.worktrees/
