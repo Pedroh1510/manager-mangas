@@ -2,13 +2,13 @@ import 'express-async-errors';
 import express from 'express';
 import morgan from 'morgan';
 
+import cors from 'cors';
 import CONFIG_ENV from './infra/env.js';
 import { ValidationError } from './infra/errors.js';
 import logger from './infra/logger.js';
 import jobs from './jobs.js';
 import MangasService from './model/mangas.js';
 import router from './routes.js';
-import cors from 'cors';
 
 const server = express();
 server.use(cors('*'));
@@ -20,12 +20,10 @@ server.use(
 			write: (message) => {
 				if (message.includes('GET /queues/api')) return;
 				logger.http(message.trim());
-			}
-		}
-	})
+			},
+		},
+	}),
 );
-
-await MangasService.initMangas();
 
 server.use(router);
 
@@ -38,7 +36,7 @@ server.use((error, _req, res, _next) => {
 	if (error.name === 'ValidationError') {
 		const errorNew = new ValidationError({
 			message: error.message,
-			action: 'Verifique a request e tente novamente.'
+			action: 'Verifique a request e tente novamente.',
 		});
 		return res.status(errorNew.statusCode).send(errorNew);
 	}

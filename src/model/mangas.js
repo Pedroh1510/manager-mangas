@@ -1,101 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { JSDOM } from 'jsdom';
 import sql from 'sql-bricks';
 import database from '../infra/database.js';
-
-const plugins = {};
-async function initMangas() {
-	const PATH = path.resolve('src', 'infra', 'engines');
-	const PLUGIN_PATH = path.join(PATH, 'connectors');
-
-	const dom = new JSDOM('<!DOCTYPE html>');
-	const { document } = dom.window;
-	globalThis.document = document;
-	const EngineRequest = (await import(`${PATH}/engine/Request.mjs`)).default;
-	const Blacklist = (await import(`${PATH}/engine/Blacklist.mjs`)).default;
-	const Settings = (await import(`${PATH}/engine/Settings.mjs`)).default;
-	const Storage = (await import(`${PATH}/engine/Storage.mjs`)).default;
-	const er = new EngineRequest();
-	await er.setup();
-	globalThis.Engine = {
-		Request: er,
-		Blacklist: new Blacklist(),
-		Settings: new Settings(),
-		Storage: new Storage(),
-	};
-	function recFindByExt(base, ext, files, result) {
-		const filesNew = files || fs.readdirSync(base);
-		let resultArray = result || [];
-
-		for (const file of filesNew) {
-			const newbase = path.join(base, file);
-			if (fs.statSync(newbase).isDirectory()) {
-				resultArray = recFindByExt(
-					newbase,
-					ext,
-					fs.readdirSync(newbase),
-					resultArray,
-				);
-			} else {
-				if (file.substr(-1 * (ext.length + 1)) === `.${ext}`) {
-					if (resultArray) {
-						resultArray.push(newbase);
-					}
-				}
-			}
-		}
-		return resultArray;
-	}
-	function searchPluginsInFolder(folder) {
-		return recFindByExt(folder, 'mjs');
-	}
-
-	async function loadPlugin(pluginPath) {
-		return import(pluginPath);
-	}
-	const loadedPlugins = [];
-	for (const filePath of searchPluginsInFolder(PLUGIN_PATH)) {
-		loadedPlugins.push(
-			loadPlugin(filePath)
-				.then((module) => {
-					return {
-						module,
-						name: path.basename(filePath, path.extname(filePath)),
-					};
-				})
-				.catch((e) => {
-					1;
-				}),
-		);
-	}
-
-	await Promise.allSettled(loadedPlugins).then((item) => {
-		if (item.length) {
-			for (const aaa of item) {
-				try {
-					if (aaa.status === 'fulfilled') {
-						if (aaa.value === undefined) {
-							continue;
-						}
-						const { module, name } = aaa.value;
-						plugins[name] = {
-							module: module.default,
-							name,
-						};
-					}
-				} catch (err) {
-					2;
-					throw err;
-				}
-			}
-		}
-		1;
-	});
-}
 import logger from '../infra/logger.js';
-import { formatChapters } from '../utils/chapterFormat.js';
 import Download from './download.js';
+import {
+	getConnectorClass,
+	hasConnector,
+	listConnectorIds,
+} from '../connectors/registry.js';
+import { isStale, loadCatalog, saveCatalog } from '../utils/mangaCatalog.js';
+import { formatChapters } from '../utils/chapterFormat.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let cookie = null;
@@ -140,35 +55,29 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 }
 
 async function listPlugins({ name }) {
-	const data = Object.keys(plugins).map((id) => {
-		const { module } = plugins[id];
-		try {
-			const instance = new module();
-			return {
-				url: instance.url,
-				id: instance.id,
-			};
-		} catch {
-			return null;
-		}
+	const data = listConnectorIds().map((id) => {
+		const ConnectorClass = getConnectorClass(id);
+		const instance = new ConnectorClass();
+		return {
+			url: instance.url,
+			id: instance.id,
+		};
 	});
 	if (name) {
-		return data
-			.filter((item) => item !== null)
-			.filter((item) => item.id?.toLowerCase().includes(name?.toLowerCase()));
+		return data.filter((item) =>
+			item.id?.toLowerCase().includes(name?.toLowerCase()),
+		);
 	}
 	return data;
 }
 
 async function getInstancePlugin(pluginId) {
-	const id = Object.keys(plugins).find(
-		(item) => item.toLowerCase() === pluginId.toLowerCase(),
-	);
-	if (id === undefined) {
+	if (!hasConnector(pluginId)) {
 		throw new Error(`Plugin with id ${pluginId} not found`);
 	}
-	const { module } = plugins[id];
-	const instance = new module();
+	const ConnectorClass = getConnectorClass(pluginId);
+	const instance = new ConnectorClass();
+	const id = instance.id;
 
 	const response = await database
 		.query(
@@ -213,20 +122,23 @@ async function getInstancePlugin(pluginId) {
 	}
 	return instance;
 }
+async function refreshCatalog(instance) {
+	const mangas = await instance._getMangas();
+	await saveCatalog(instance.id, mangas);
+	return mangas;
+}
+
+async function getCatalog(instance) {
+	if (await isStale(instance.id)) {
+		return refreshCatalog(instance);
+	}
+	const cached = await loadCatalog(instance.id);
+	return cached ?? refreshCatalog(instance);
+}
+
 async function listMangas({ pluginId, title }) {
 	const instance = await getInstancePlugin(pluginId);
-	let mangas = await instance.getMangas();
-	let isOld = false;
-	if (mangas.length > 0) {
-		const pathToCache = `${Engine.Storage.config}mangas.${instance.id}`;
-		const qq = fs.statSync(path.resolve('src', '..', pathToCache));
-		const now = new Date();
-		now.setDate(now.getDate() - 7);
-		isOld = now >= qq.mtime;
-	}
-	if (mangas.length === 0 || isOld) {
-		mangas = await instance.updateMangas();
-	}
+	const mangas = await getCatalog(instance);
 
 	const data = mangas.map((manga) => ({ id: manga.id, title: manga.title }));
 	if (title) {
@@ -319,28 +231,17 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
  * @returns {Promise<{[title]:{id:String,:title:String,volume:number}[]}>}
  */
 async function listChaptersByTitle({ idPlugin, titleList = [] }) {
-	const instancePlugin = await getInstancePlugin(idPlugin);
-	let mangas = await instancePlugin.getMangas();
-	let isOld = false;
-	if (mangas.length > 0) {
-		const pathToCache = `${Engine.Storage.config}mangas.${instancePlugin.id}`;
-		const qq = fs.statSync(path.resolve('src', '..', pathToCache));
-		const now = new Date();
-		now.setDate(now.getDate() - 7);
-		isOld = now >= qq.mtime;
-	}
-	if (mangas.length === 0 || isOld) {
-		logger.info(`atualizando mangas ${idPlugin}`);
-		mangas = await instancePlugin.updateMangas();
-	}
-	for (const manga of mangas) {
-		manga.title = manga.title.toLowerCase();
-	}
+	const instance = await getInstancePlugin(idPlugin);
+	const catalog = await getCatalog(instance);
+	const mangas = catalog.map((manga) => ({
+		...manga,
+		title: manga.title.toLowerCase(),
+	}));
 	const chaptersByTitle = {};
 	for (const title of titleList) {
 		const manga = mangas.find((item) => item.title === title.toLowerCase());
 		if (!manga) continue;
-		const chapters = await instancePlugin._getChapters(manga);
+		const chapters = await instance._getChapters(manga);
 		if (!chapters?.length) continue;
 		chaptersByTitle[title] = formatChapters(chapters);
 		logger.info(`title: ${title} totalChapters: ${chapters.length}`);
@@ -349,7 +250,6 @@ async function listChaptersByTitle({ idPlugin, titleList = [] }) {
 }
 
 const MangasService = {
-	initMangas,
 	downloadMangas,
 	listMangas,
 	listChapters,
@@ -357,7 +257,7 @@ const MangasService = {
 	listChaptersByManga,
 	getMangaFromPlugin,
 	listPlugins,
-	plugins,
+	hasConnector,
 	listChaptersByTitle,
 	listPagesBatch,
 };

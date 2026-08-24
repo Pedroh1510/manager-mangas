@@ -15,10 +15,7 @@ async function listHistoryManga({ title }) {
 }
 
 async function registerManga({ title, idPlugin, titlePlugin }) {
-	const id = Object.keys(MangasService.plugins).find(
-		(item) => item.toLowerCase() === idPlugin?.toLowerCase()
-	);
-	if (id === undefined) {
+	if (!MangasService.hasConnector(idPlugin)) {
 		throw new ValidationError({
 			message: `Plugin with id ${idPlugin} not found`,
 			action: 'Change plugin id'
@@ -273,10 +270,7 @@ async function listPagesAndSend({
 }
 
 async function registerCookie({ cookie, idPlugin, userAgent = null }) {
-	const id = Object.keys(MangasService.plugins).find(
-		(item) => item.toLowerCase() === idPlugin.toLowerCase()
-	);
-	if (id === undefined) {
+	if (!MangasService.hasConnector(idPlugin)) {
 		throw new ValidationError({
 			message: `Plugin with id ${idPlugin} not found`
 		});
@@ -286,7 +280,7 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 			sql
 				.select('cookie')
 				.from('pluginConfig')
-				.where({ 'lower("idPlugin")': id.toLowerCase() })
+				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
 				.toParams()
 		)
 		.then(({ rows }) => rows);
@@ -302,7 +296,7 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 		await database.query(
 			sql
 				.update('pluginConfig', data)
-				.where({ 'lower("idPlugin")': id.toLowerCase() })
+				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
 				.toParams()
 		);
 		return;
@@ -312,10 +306,7 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 }
 
 async function registerCredentials({ idPlugin, login, password }) {
-	const id = Object.keys(MangasService.plugins).find(
-		(item) => item.toLowerCase() === idPlugin.toLowerCase()
-	);
-	if (id === undefined) {
+	if (!MangasService.hasConnector(idPlugin)) {
 		throw new ValidationError({
 			message: `Plugin with id ${idPlugin} not found`
 		});
@@ -326,7 +317,7 @@ async function registerCredentials({ idPlugin, login, password }) {
 			sql
 				.select('cookie')
 				.from('pluginConfig')
-				.where({ idPlugin: id })
+				.where({ idPlugin })
 				.toParams()
 		)
 		.then(({ rows }) => rows);

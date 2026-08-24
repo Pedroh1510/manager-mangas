@@ -1,9 +1,11 @@
+import { mkdir, writeFile } from 'node:fs/promises';
 import retry from 'async-retry';
 import database from '../infra/database.js';
 import CONFIG_ENV from '../infra/env.js';
-import MangasService from '../model/mangas.js';
-import { mkdir, writeFile } from 'node:fs/promises';
 import MangasAdmService from '../model/mangasAdm.js';
+import Download from '../model/download.js';
+import { registerForTests } from '../connectors/registry.js';
+import TestFixtureConnector from '../connectors/testFixture/TestFixtureConnector.js';
 
 const webServiceAddress = CONFIG_ENV.URL;
 async function waitForAllServices() {
@@ -18,7 +20,7 @@ async function waitForAllServices() {
 		return retry(fetchStatusPage, {
 			retries: 100,
 			minTimeout: 100,
-			maxTimeout: 1000
+			maxTimeout: 1000,
 		});
 	}
 }
@@ -32,34 +34,28 @@ async function runMigrations() {
 }
 
 async function seedDatabase() {
-	await MangasService.initMangas();
+	registerForTests('test-fixture', TestFixtureConnector);
 	await MangasAdmService.registerManga({
-		idPlugin: 'Leitordemanga',
-		title: 'Black Clover'
+		idPlugin: 'test-fixture',
+		title: 'Black Clover',
 	});
 	await MangasAdmService.registerManga({
-		idPlugin: 'Leitordemanga',
-		title: 'algo'
+		idPlugin: 'test-fixture',
+		title: 'algo',
 	});
-	// await database.query(
-	// 	`INSERT INTO "mangas"("title") VALUES('Black Clover'),('algo');`
-	// );
-	// await database.query(
-	// 	`INSERT INTO "mangasPlugins"("idManga","idPlugin") VALUES(1,'leitordemanga'),(2,'leitordemanga');`
-	// );
 
 	await database.query(
 		`INSERT INTO chapters("idChapterPlugin","pluginId","idManga","name","volume") VALUES
-('/ler-manga/black-clover/portugues-pt-br/capitulo-376/','leitordemanga',1,'Chapter capitulo-376','376'),
-('/ler-manga/black-clover/portugues-pt-br/capitulo-375/','leitordemanga',1,'Chapter capitulo-375','375'),
-('/ler-manga/black-clover/portugues-pt-br/capitulo-374/','leitordemanga',1,'Chapter capitulo-374','374');`
+('ch-376','test-fixture',1,'Chapter capitulo-376','376'),
+('ch-375','test-fixture',1,'Chapter capitulo-375','375'),
+('ch-374','test-fixture',1,'Chapter capitulo-374','374');`,
 	);
 }
 
 async function seedDownload() {
-	const { mangaPath, chapterPath } = MangasService.getPathMangaAndChapter({
+	const { mangaPath, chapterPath } = Download.getPathMangaAndChapter({
 		title: 'Black Clover',
-		volume: 376
+		volume: 376,
 	});
 	console.log(mangaPath, chapterPath);
 
@@ -73,7 +69,7 @@ const orchestrator = {
 	clearDatabase,
 	runMigrations,
 	seedDatabase,
-	seedDownload
+	seedDownload,
 };
 
 export default orchestrator;
