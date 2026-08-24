@@ -8,46 +8,16 @@ beforeAll(async () => {
 });
 
 describe('GET /mangas/:pluginId/manga', () => {
-	describe('Leitordemanga', () => {
+	describe('test-fixture', () => {
 		test('', async () => {
-			const response = await api.get(
-				'/mangas/Leitordemanga/manga?mangaId=/ler-manga/black-clover/',
-			);
-			expect(response.status).toEqual(200);
-			expect(response.data.length).toBeGreaterThanOrEqual(378);
-		});
-	});
-	describe('HiperCool', () => {
-		test('', async () => {
-			const response = await api.get(
-				'/mangas/HiperCool/manga?mangaId=/manga/regressed-warriors-female-dominance-diary/',
-			);
-			expect(response.status).toEqual(200);
-			expect(response.data.length).toBeGreaterThanOrEqual(54);
-		});
-	});
-
-	describe('MangaLivreTv', () => {
-		test('', async () => {
-			const response = await api.get(
-				'/mangas/MangaLivreTv/manga?mangaId=/manga/live-dungeon/',
-				// '/mangas/MangaLivreTv/manga?mangaId=/manga/00-day-of-summer-holiday/'
-			);
-			expect(response.status).toEqual(200);
-			expect(response.data.length).toBeGreaterThanOrEqual(54);
-			console.log(response.data);
-		});
-	});
-
-	describe('YomuComics', () => {
-		test('', async () => {
-			const response = await api.get('/mangas/YomuComics/manga', {
-				params: {
-					mangaId: '/manga/sobrevivendo-no-jogo-como-um-barbaro/',
-				},
+			const response = await api.get('/mangas/test-fixture/manga', {
+				params: { mangaId: '1' },
 			});
 			expect(response.status).toEqual(200);
-			expect(response.data.length).toBeGreaterThanOrEqual(100);
+			expect(response.data).toEqual([
+				{ id: 'ch-376', title: 'Capítulo 376', language: 'pt' },
+				{ id: 'ch-375', title: 'Capítulo 375', language: 'pt' },
+			]);
 		});
 	});
 

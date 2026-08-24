@@ -16,11 +16,14 @@ describe('GET /mangas/adm/chapters', () => {
 			`${orchestrator.webServiceAddress}/mangas/adm/chapters`,
 			{
 				params: {
-					title
-				}
-			}
+					title,
+				},
+			},
 		);
 		expect(response.status).toBe(200);
-		expect(response.data.length).toBeGreaterThanOrEqual(373);
+		// TestFixtureConnector's catalog only exposes 2 chapters (ch-376,
+		// ch-375) for this manga — deterministic, unlike the old real-site
+		// scrape this test used to depend on.
+		expect(response.data.length).toBe(2);
 	});
 });

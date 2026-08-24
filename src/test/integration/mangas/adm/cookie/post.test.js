@@ -14,7 +14,7 @@ describe('POST /mangas/adm/cookie', () => {
 		test('Set  cookie', async () => {
 			const response = await api.post('/mangas/adm/cookie', {
 				cookie: 'algo',
-				idPlugin: 'leitordemanga'
+				idPlugin: 'test-fixture',
 			});
 
 			expect(response.status).toEqual(201);
@@ -23,7 +23,7 @@ describe('POST /mangas/adm/cookie', () => {
 			const response = await api.post('/mangas/adm/cookie', {
 				cookie: 'algo',
 				userAgent: 'test',
-				idPlugin: 'leitordemanga'
+				idPlugin: 'test-fixture',
 			});
 
 			expect(response.status).toEqual(201);
@@ -34,11 +34,11 @@ describe('POST /mangas/adm/cookie', () => {
 			const response = await api
 				.post('/mangas/adm/cookie', {
 					title: 'Black Clover',
-					idPlugin: 'leitordemanga1'
+					idPlugin: 'invalid-plugin',
 				})
 				.catch((error) => ({
 					status: error.status,
-					data: error.response?.data
+					data: error.response?.data,
 				}));
 
 			expect(response.status).toEqual(400);
@@ -47,7 +47,7 @@ describe('POST /mangas/adm/cookie', () => {
 				name: 'ValidationError',
 				message: '"body.cookie" is required',
 				action: 'Verifique a request e tente novamente.',
-				statusCode: 400
+				statusCode: 400,
 			});
 		});
 	});

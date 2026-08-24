@@ -3,12 +3,18 @@ import express from 'express';
 import morgan from 'morgan';
 
 import cors from 'cors';
+import { registerForTests } from './connectors/registry.js';
+import TestFixtureConnector from './connectors/testFixture/TestFixtureConnector.js';
 import CONFIG_ENV from './infra/env.js';
 import { ValidationError } from './infra/errors.js';
 import logger from './infra/logger.js';
 import jobs from './jobs.js';
 import MangasService from './model/mangas.js';
 import router from './routes.js';
+
+if (CONFIG_ENV.ENV === 'test') {
+	registerForTests('test-fixture', TestFixtureConnector);
+}
 
 const server = express();
 server.use(cors('*'));

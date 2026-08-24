@@ -1,13 +1,12 @@
 import { beforeAll, describe, expect, test } from 'vitest';
-import orchestrator from '../../../../../orchestrator.js';
 import api from '../../../../../../infra/api.js';
+import orchestrator from '../../../../../orchestrator.js';
 import AdmUtils from '../../utils.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
-	// await orchestrator.clearDatabase();
-	// await orchestrator.runMigrations();
-	// await orchestrator.seedDatabase();
+	await orchestrator.clearDatabase();
+	await orchestrator.runMigrations();
 });
 
 const url = '/mangas/adm/update-mangas/batch';
@@ -15,24 +14,24 @@ const admUtils = new AdmUtils();
 
 describe(`GET ${url}`, () => {
 	test('OK', async () => {
-		const idPlugin = 'hipercool';
-		const titles = ['Pick Me Up!', 'The Return of the Iron-Blood Sword Hound'];
-		for (const title of titles) {
-			await admUtils.registerManga({
-				idPlugin,
-				title
-			});
-		}
+		const idPlugin = 'test-fixture';
+		// TestFixtureConnector's catalog only knows one manga ('Black Clover',
+		// id '1'), with two chapters (ch-376, ch-375) — register against that
+		// title so the connector's catalog lookup in listChaptersByTitle
+		// actually matches something.
+		await admUtils.registerManga({
+			idPlugin,
+			title: 'Black Clover',
+		});
 		const response = await api.get(url, {
 			params: {
-				idPlugin
-			}
+				idPlugin,
+			},
 		});
 		expect(response.status).toBe(200);
 
 		expect(response.data).toStrictEqual({
-			'pick me up!': 5,
-			'the return of the iron-blood sword hound': 5
+			'black clover': 2,
 		});
 	});
 });

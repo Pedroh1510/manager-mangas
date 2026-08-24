@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import api from '../../../../infra/api.js';
-import orchestrator from '../../../orchestrator.js';
 import MangasAdmService from '../../../../model/mangasAdm.js';
+import orchestrator from '../../../orchestrator.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
@@ -14,17 +14,17 @@ describe('POST /mangas/adm', () => {
 		const response = await api
 			.post('/mangas/adm', {
 				title: 'teste',
-				idPlugin: 'seitacelestial'
+				idPlugin: 'test-fixture',
 			})
 			.catch((error) => ({
 				status: error.status,
-				data: error.response?.data
+				data: error.response?.data,
 			}));
 
 		expect(response.status).toEqual(201);
 		expect(response.data).toEqual({
 			idManga: 1,
-			idPlugin: 'seitacelestial'
+			idPlugin: 'test-fixture',
 		});
 	});
 	describe('Error', () => {
@@ -32,18 +32,18 @@ describe('POST /mangas/adm', () => {
 			const response = await api
 				.post('/mangas/adm', {
 					title: 'teste',
-					idPlugin: 'algo'
+					idPlugin: 'algo',
 				})
 				.catch((error) => ({
 					status: error.status,
-					data: error.response?.data
+					data: error.response?.data,
 				}));
 			expect(response.status).toEqual(400);
 			expect(response.data).toEqual({
 				action: 'Change plugin id',
 				message: 'Plugin with id algo not found',
 				name: 'ValidationError',
-				statusCode: 400
+				statusCode: 400,
 			});
 		});
 		test('duplicated', async () => {
@@ -51,11 +51,11 @@ describe('POST /mangas/adm', () => {
 				api
 					.post('/mangas/adm', {
 						title: 'duplicado',
-						idPlugin: 'hipercool'
+						idPlugin: 'test-fixture',
 					})
 					.catch((error) => ({
 						status: error.status,
-						data: error.response?.data
+						data: error.response?.data,
 					}));
 			await consulta();
 			const response = await consulta();
@@ -64,7 +64,7 @@ describe('POST /mangas/adm', () => {
 				action: 'Try another title or idPlugin',
 				message: 'This manga already exists in the database',
 				name: 'BadRequestError',
-				statusCode: 400
+				statusCode: 400,
 			});
 		});
 
@@ -73,15 +73,15 @@ describe('POST /mangas/adm', () => {
 				api
 					.post('/mangas/adm', {
 						title: 'Black Clover',
-						idPlugin: 'hipercool'
+						idPlugin: 'test-fixture',
 					})
 					.catch((error) => ({
 						status: error.status,
-						data: error.response?.data
+						data: error.response?.data,
 					}));
 			await consulta();
 			await MangasAdmService.deleteManga({
-				title: 'Black Clover'
+				title: 'Black Clover',
 			});
 			const response = await consulta();
 			expect(response.status).toEqual(400);
@@ -89,7 +89,7 @@ describe('POST /mangas/adm', () => {
 				action: 'Try another title',
 				message: 'This manga already exists in the database history',
 				name: 'BadRequestError',
-				statusCode: 400
+				statusCode: 400,
 			});
 		});
 	});

@@ -5,11 +5,11 @@ export default class AdmUtils {
 		const response = await api
 			.post('/mangas/adm', {
 				title: manga?.title ?? 'teste',
-				idPlugin: manga.idPlugin ?? 'seitacelestial'
+				idPlugin: manga.idPlugin ?? 'test-fixture',
 			})
 			.catch((error) => ({
 				status: error.status,
-				data: error.response?.data
+				data: error.response?.data,
 			}));
 		return response;
 	}
