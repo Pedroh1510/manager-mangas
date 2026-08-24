@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import Mangeek from '../../../infra/engines/connectors/Mangeek.mjs';
+import Mangeek from '../../../connectors/mangeek/Mangeek.js';
 
 describe('Mangeek', () => {
 	afterEach(() => {
