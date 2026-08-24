@@ -1,15 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import sql from 'sql-bricks';
-import {
-	getConnectorClass,
-	hasConnector,
-	listConnectorIds,
-} from '../connectors/registry.js';
+import * as registry from '../connectors/registry.js';
 import database from '../infra/database.js';
 import logger from '../infra/logger.js';
 import { formatChapters } from '../utils/chapterFormat.js';
-import { isStale, loadCatalog, saveCatalog } from '../utils/mangaCatalog.js';
+import * as mangaCatalog from '../utils/mangaCatalog.js';
 import Download from './download.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
@@ -55,8 +51,8 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 }
 
 async function listPlugins({ name }) {
-	const data = listConnectorIds().map((id) => {
-		const ConnectorClass = getConnectorClass(id);
+	const data = registry.listConnectorIds().map((id) => {
+		const ConnectorClass = registry.getConnectorClass(id);
 		const instance = new ConnectorClass();
 		return {
 			url: instance.url,
@@ -72,10 +68,10 @@ async function listPlugins({ name }) {
 }
 
 async function getInstancePlugin(pluginId) {
-	if (!hasConnector(pluginId)) {
+	if (!registry.hasConnector(pluginId)) {
 		throw new Error(`Plugin with id ${pluginId} not found`);
 	}
-	const ConnectorClass = getConnectorClass(pluginId);
+	const ConnectorClass = registry.getConnectorClass(pluginId);
 	const instance = new ConnectorClass();
 	const id = instance.id;
 
@@ -124,15 +120,15 @@ async function getInstancePlugin(pluginId) {
 }
 async function refreshCatalog(instance) {
 	const mangas = await instance._getMangas();
-	await saveCatalog(instance.id, mangas);
+	await mangaCatalog.saveCatalog(instance.id, mangas);
 	return mangas;
 }
 
 async function getCatalog(instance) {
-	if (await isStale(instance.id)) {
+	if (await mangaCatalog.isStale(instance.id)) {
 		return refreshCatalog(instance);
 	}
-	const cached = await loadCatalog(instance.id);
+	const cached = await mangaCatalog.loadCatalog(instance.id);
 	return cached ?? refreshCatalog(instance);
 }
 
@@ -257,7 +253,7 @@ const MangaService = {
 	listChaptersByManga,
 	getMangaFromPlugin,
 	listPlugins,
-	hasConnector,
+	hasConnector: (id) => registry.hasConnector(id),
 	listChaptersByTitle,
 	listPagesBatch,
 };
