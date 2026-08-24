@@ -5,7 +5,7 @@ function getPathMangaAndChapter({ title, volume = 0 }) {
 	const mangaPath = resolve('downloads', title);
 	return {
 		mangaPath,
-		chapterPath: join(mangaPath, `${volume}.cbz`)
+		chapterPath: join(mangaPath, `${volume}.cbz`),
 	};
 }
 
@@ -50,7 +50,7 @@ async function waitToDownload(url) {
 }
 function getMaxConcurrency(url) {
 	const fromTo = {
-		mangadex: 1
+		mangadex: 1,
 	};
 	const plugins = Object.keys(fromTo);
 	const currentPlugin = plugins.find((plugin) => url.includes(plugin));
@@ -65,7 +65,7 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 	await mkdir(pathFolder, { recursive: true });
 	const pathFile = paths.chapterPath;
 	await rm(pathFile, {
-		recursive: true
+		recursive: true,
 	}).catch(() => {});
 	logger.info({ manga, chapter, status: 'inicio' });
 	const zip = new AdmZip();
@@ -106,11 +106,11 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 	await zip.writeZipPromise(pathFile);
 }
 
-import axios from 'axios';
-import sharp from 'sharp';
-import { setTimeout } from 'node:timers/promises';
 import { mkdir, readdir, rm } from 'node:fs/promises';
 import path, { join, resolve } from 'node:path';
+import { setTimeout } from 'node:timers/promises';
+import axios from 'axios';
+import sharp from 'sharp';
 import CONFIG_ENV from '../infra/env.js';
 
 export async function downloadImage({ url, cookie, userAgent }) {
@@ -123,8 +123,8 @@ export async function downloadImage({ url, cookie, userAgent }) {
 			cookie,
 			'User-Agent':
 				userAgent ??
-				'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0'
-		}
+				'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0',
+		},
 	}).then(({ data }) => Buffer.from(data, 'base64'));
 }
 
@@ -135,7 +135,7 @@ async function processImage(image) {
 			const result = await sharp(image)
 				.toFormat(imageFormat)
 				.webp({
-					quality: 80
+					quality: 80,
 				})
 				.toBuffer();
 			return { imageFormatted: result, type: imageFormat };
@@ -143,9 +143,9 @@ async function processImage(image) {
 	}
 	return { imageFormatted: image, type: 'png' };
 }
-import archiver from 'archiver';
 import { createReadStream } from 'node:fs';
 import { PassThrough } from 'node:stream';
+import archiver from 'archiver';
 async function downloadMangaFromDisk({ title, volume }) {
 	if (volume !== undefined) {
 		volume = Number.parseFloat(volume).toFixed(4);
@@ -157,13 +157,13 @@ async function downloadMangaFromDisk({ title, volume }) {
 		const files = await readdir(mangaPath);
 		for (const file of files) {
 			zip.append(createReadStream(path.join(mangaPath, file)), {
-				name: file
+				name: file,
 			});
 		}
 		// zip.directory(mangaPath, true);
 	} else {
 		zip.append(createReadStream(chapterPath), {
-			name: chapterPath.split('/').pop()
+			name: chapterPath.split('/').pop(),
 		});
 	}
 	const output = new PassThrough();
@@ -175,7 +175,7 @@ async function downloadMangaFromDisk({ title, volume }) {
 const Download = {
 	downloadChapter,
 	getPathMangaAndChapter,
-	downloadMangaFromDisk
+	downloadMangaFromDisk,
 };
 
 export default Download;

@@ -1,11 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import retry from 'async-retry';
-import database from '../infra/database.js';
-import CONFIG_ENV from '../infra/env.js';
-import MangasAdmService from '../model/mangasAdm.js';
-import Download from '../model/download.js';
 import { registerForTests } from '../connectors/registry.js';
 import TestFixtureConnector from '../connectors/testFixture/TestFixtureConnector.js';
+import database from '../infra/database.js';
+import CONFIG_ENV from '../infra/env.js';
+import Download from '../service/download.js';
+import MangaAdminService from '../service/mangaAdmin.js';
 
 const webServiceAddress = CONFIG_ENV.URL;
 async function waitForAllServices() {
@@ -35,11 +35,11 @@ async function runMigrations() {
 
 async function seedDatabase() {
 	registerForTests('test-fixture', TestFixtureConnector);
-	await MangasAdmService.registerManga({
+	await MangaAdminService.registerManga({
 		idPlugin: 'test-fixture',
 		title: 'Black Clover',
 	});
-	await MangasAdmService.registerManga({
+	await MangaAdminService.registerManga({
 		idPlugin: 'test-fixture',
 		title: 'algo',
 	});

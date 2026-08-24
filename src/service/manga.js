@@ -1,16 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import sql from 'sql-bricks';
-import database from '../infra/database.js';
-import logger from '../infra/logger.js';
-import Download from './download.js';
 import {
 	getConnectorClass,
 	hasConnector,
 	listConnectorIds,
 } from '../connectors/registry.js';
-import { isStale, loadCatalog, saveCatalog } from '../utils/mangaCatalog.js';
+import database from '../infra/database.js';
+import logger from '../infra/logger.js';
 import { formatChapters } from '../utils/chapterFormat.js';
+import { isStale, loadCatalog, saveCatalog } from '../utils/mangaCatalog.js';
+import Download from './download.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let cookie = null;
@@ -249,7 +249,7 @@ async function listChaptersByTitle({ idPlugin, titleList = [] }) {
 	return chaptersByTitle;
 }
 
-const MangasService = {
+const MangaService = {
 	downloadMangas,
 	listMangas,
 	listChapters,
@@ -262,4 +262,4 @@ const MangasService = {
 	listPagesBatch,
 };
 
-export default MangasService;
+export default MangaService;

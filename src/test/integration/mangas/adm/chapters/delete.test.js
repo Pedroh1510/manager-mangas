@@ -17,8 +17,8 @@ describe('DELETE /mangas/adm/chapters', () => {
 		const response = await api.delete('/mangas/adm/chapters', {
 			params: {
 				title,
-				volume
-			}
+				volume,
+			},
 		});
 		expect(response.status).toBe(200);
 	});

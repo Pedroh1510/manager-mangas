@@ -14,7 +14,7 @@ describe('DELETE /mangas/adm', () => {
 	test('OK', async () => {
 		const title = 'Black Clover';
 		const response = await api.delete('/mangas/adm', {
-			params: { title }
+			params: { title },
 		});
 		expect(response.status).toEqual(200);
 	});

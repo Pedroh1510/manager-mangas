@@ -1,5 +1,5 @@
 import express from 'express';
-import MangasService from '../model/mangas.js';
+import MangaService from '../service/manga.js';
 import mangasAdmController from './mangasAdmController.js';
 
 const mangasController = express();
@@ -30,7 +30,7 @@ mangasController.use('/adm', mangasAdmController);
  */
 mangasController.get('/plugins', async (req, res) => {
 	const { name } = req.query;
-	const response = await MangasService.listPlugins({ name });
+	const response = await MangaService.listPlugins({ name });
 
 	res.status(200).send(response);
 });
@@ -68,7 +68,7 @@ mangasController.get('/plugins', async (req, res) => {
  */
 mangasController.get('/download', async (req, res) => {
 	const { manga, chapter, pages, idChapter } = req.query;
-	await MangasService.downloadMangas({ chapter, manga, pages, idChapter });
+	await MangaService.downloadMangas({ chapter, manga, pages, idChapter });
 
 	res.status(200).send();
 });
@@ -96,7 +96,7 @@ mangasController.get('/:pluginId', async (req, res) => {
 	const { pluginId } = req.params;
 	const { title } = req.query;
 
-	const mangas = await MangasService.listMangas({ pluginId, title });
+	const mangas = await MangaService.listMangas({ pluginId, title });
 
 	res.status(200).send(mangas);
 });
@@ -124,7 +124,7 @@ mangasController.get('/:pluginId/manga', async (req, res) => {
 	const { pluginId } = req.params;
 	const { mangaId } = req.query;
 
-	const chapters = await MangasService.listChapters({ mangaId, pluginId });
+	const chapters = await MangaService.listChapters({ mangaId, pluginId });
 	res.status(200).send(chapters);
 });
 
@@ -150,7 +150,7 @@ mangasController.get('/:pluginId/manga', async (req, res) => {
 mangasController.get('/:pluginId/pages', async (req, res) => {
 	const { pluginId } = req.params;
 	const { chapterId } = req.query;
-	const pages = await MangasService.listPages({ chapterId, pluginId });
+	const pages = await MangaService.listPages({ chapterId, pluginId });
 
 	res.status(200).send(JSON.stringify(pages, null, 2));
 });

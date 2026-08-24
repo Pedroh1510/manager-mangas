@@ -9,7 +9,7 @@ import CONFIG_ENV from './infra/env.js';
 import { ValidationError } from './infra/errors.js';
 import logger from './infra/logger.js';
 import jobs from './jobs.js';
-import MangasService from './model/mangas.js';
+import MangaService from './service/manga.js';
 import router from './routes.js';
 
 if (CONFIG_ENV.ENV === 'test') {

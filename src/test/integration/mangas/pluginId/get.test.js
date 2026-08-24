@@ -23,7 +23,7 @@ describe('GET /mangas/:pluginId', () => {
 		// Measured ~875s end to end, which would make `npm test` take 15+
 		// minutes on every run for everyone, every time (the on-disk cache at
 		// appdata/shinigami.mangas.mangeek expires after 7 days — see
-		// src/model/mangas.js:220 — and is always absent on a fresh checkout
+		// src/service/manga.js:220 — and is always absent on a fresh checkout
 		// or in CI). Gated behind an opt-in env var so it's skipped by
 		// default; run it on demand with:
 		//   RUN_MANGEEK_CATALOG_CRAWL=1 npx vitest run src/test/integration/mangas/pluginId/get.test.js

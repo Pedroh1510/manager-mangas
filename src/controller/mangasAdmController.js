@@ -1,7 +1,7 @@
 import express, { response } from 'express';
-import MangasAdmService from '../model/mangasAdm.js';
+import MangaService from '../service/manga.js';
+import MangaAdminService from '../service/mangaAdmin.js';
 import MangasAdmValidator from '../validators/mangasAdmValidator.js';
-import MangasService from '../model/mangas.js';
 
 const mangasAdmController = express();
 export default mangasAdmController;
@@ -40,14 +40,14 @@ mangasAdmController.post(
 	MangasAdmValidator.registerManga,
 	async (req, res) => {
 		const { title, idPlugin, titlePlugin } = req.body;
-		const response = await MangasAdmService.registerManga({
+		const response = await MangaAdminService.registerManga({
 			title,
 			idPlugin,
-			titlePlugin
+			titlePlugin,
 		});
 
 		res.status(201).send(response);
-	}
+	},
 );
 
 /**
@@ -70,10 +70,10 @@ mangasAdmController.get(
 	MangasAdmValidator.listMangasRegistered,
 	async (req, res) => {
 		const { title } = req.query;
-		const response = await MangasAdmService.listMangasRegistered({ title });
+		const response = await MangaAdminService.listMangasRegistered({ title });
 
 		res.status(200).send(response);
-	}
+	},
 );
 
 /**
@@ -96,10 +96,10 @@ mangasAdmController.delete(
 	MangasAdmValidator.listMangasRegistered,
 	async (req, res) => {
 		const { title } = req.query;
-		await MangasAdmService.deleteManga({ title });
+		await MangaAdminService.deleteManga({ title });
 
 		res.status(200).send();
-	}
+	},
 );
 
 /**
@@ -130,14 +130,14 @@ mangasAdmController.post(
 	MangasAdmValidator.registerCookie,
 	async (req, res) => {
 		const { cookie, idPlugin, userAgent } = req.body;
-		const response = await MangasAdmService.registerCookie({
+		const response = await MangaAdminService.registerCookie({
 			cookie,
 			idPlugin,
-			userAgent
+			userAgent,
 		});
 
 		res.status(201).send(response);
-	}
+	},
 );
 
 /**
@@ -168,14 +168,14 @@ mangasAdmController.post(
 	MangasAdmValidator.registerCredentials,
 	async (req, res) => {
 		const { login, password, idPlugin } = req.body;
-		const response = await MangasAdmService.registerCredentials({
+		const response = await MangaAdminService.registerCredentials({
 			login,
 			password,
-			idPlugin
+			idPlugin,
 		});
 
 		res.status(201).send(response);
-	}
+	},
 );
 
 /**
@@ -189,7 +189,7 @@ mangasAdmController.post(
  *         description: OK
  */
 mangasAdmController.get('/download-batch', async (req, res) => {
-	const response = await MangasAdmService.downloadMangasBatch(req.query.title);
+	const response = await MangaAdminService.downloadMangasBatch(req.query.title);
 
 	res.status(200).send(response);
 });
@@ -205,15 +205,15 @@ mangasAdmController.get('/download-batch', async (req, res) => {
  *         description: OK
  */
 mangasAdmController.get('/download', async (req, res) => {
-	const response = await MangasAdmService.downloadManga({
+	const response = await MangaAdminService.downloadManga({
 		title: req.query.title,
-		volume: req.query.volume
+		volume: req.query.volume,
 	});
 
 	// res.status(200).attachment(`${Date.UTC()}.zip`).
 	res.writeHead(200, {
 		'Content-Type': 'application/zip',
-		'Content-disposition': `attachment; filename=${Date.UTC()}.zip`
+		'Content-disposition': `attachment; filename=${Date.UTC()}.zip`,
 	});
 	response.pipe(res);
 });
@@ -234,7 +234,7 @@ mangasAdmController.get('/download', async (req, res) => {
  *         description: OK
  */
 mangasAdmController.get('/update-mangas/batch', async (req, res) => {
-	const response = await MangasAdmService.updateMangasBatch(req.query);
+	const response = await MangaAdminService.updateMangasBatch(req.query);
 
 	res.status(200).send(response);
 });
@@ -255,7 +255,7 @@ mangasAdmController.get('/update-mangas/batch', async (req, res) => {
  *         description: OK
  */
 mangasAdmController.get('/update-mangas', async (req, res) => {
-	const response = await MangasAdmService.updateMangas(req.query);
+	const response = await MangaAdminService.updateMangas(req.query);
 
 	res.status(200).send(response);
 });
@@ -280,12 +280,12 @@ mangasAdmController.get(
 	MangasAdmValidator.updateMangaChapters,
 	async (req, res) => {
 		const { title } = req.query;
-		const response = await MangasAdmService.updateMangaChapters({
-			title: Array.isArray(title) ? title[0] : title
+		const response = await MangaAdminService.updateMangaChapters({
+			title: Array.isArray(title) ? title[0] : title,
 		});
 
 		res.status(200).send(response);
-	}
+	},
 );
 
 /**
@@ -312,13 +312,13 @@ mangasAdmController.delete(
 	MangasAdmValidator.deleteMangaChapters,
 	async (req, res) => {
 		const { title, volume } = req.query;
-		await MangasAdmService.deleteMangaChapters({
+		await MangaAdminService.deleteMangaChapters({
 			title,
-			volume
+			volume,
 		});
 
 		res.status(200).send();
-	}
+	},
 );
 
 /**
@@ -357,16 +357,16 @@ mangasAdmController.get(
 	MangasAdmValidator.listPagesAndSend,
 	async (req, res) => {
 		const { idChapterPlugin, pluginId, title, volume, idChapter } = req.query;
-		const response = await MangasAdmService.listPagesAndSend({
+		const response = await MangaAdminService.listPagesAndSend({
 			idChapterPlugin,
 			pluginId,
 			title,
 			volume,
-			idChapter
+			idChapter,
 		});
 
 		res.status(200).send(response);
-	}
+	},
 );
 
 /**
@@ -390,12 +390,12 @@ mangasAdmController.get(
  */
 mangasAdmController.get('/chapters/missing', async (req, res) => {
 	const { title, pluginId } = req.query;
-	const manga = await MangasService.getMangaFromPlugin({
+	const manga = await MangaService.getMangaFromPlugin({
 		idPlugin: pluginId,
-		title
+		title,
 	});
-	const response = await MangasAdmService.listChaptersMissing({
-		mangaByPlugin: [{ title, idPlugin: pluginId, idManga: manga.id }]
+	const response = await MangaAdminService.listChaptersMissing({
+		mangaByPlugin: [{ title, idPlugin: pluginId, idManga: manga.id }],
 	});
 
 	res.status(200).send(response);

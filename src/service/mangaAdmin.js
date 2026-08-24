@@ -4,9 +4,9 @@ import sql from 'sql-bricks';
 import database from '../infra/database.js';
 import { BadRequestError, ValidationError } from '../infra/errors.js';
 import jobs from '../jobs.js';
-import MangasService from './mangas.js';
-import Download from './download.js';
 import MangasRepository from '../repository/mangas.js';
+import Download from './download.js';
+import MangaService from './manga.js';
 
 async function listHistoryManga({ title }) {
 	return database
@@ -15,17 +15,17 @@ async function listHistoryManga({ title }) {
 }
 
 async function registerManga({ title, idPlugin, titlePlugin }) {
-	if (!MangasService.hasConnector(idPlugin)) {
+	if (!MangaService.hasConnector(idPlugin)) {
 		throw new ValidationError({
 			message: `Plugin with id ${idPlugin} not found`,
-			action: 'Change plugin id'
+			action: 'Change plugin id',
 		});
 	}
 	const historyManga = await listHistoryManga({ title });
 	if (historyManga.includes(title)) {
 		throw new BadRequestError({
 			message: 'This manga already exists in the database history',
-			action: 'Try another title'
+			action: 'Try another title',
 		});
 	}
 	let idManga = await database
@@ -34,9 +34,9 @@ async function registerManga({ title, idPlugin, titlePlugin }) {
 				.select('idManga')
 				.from('mangas')
 				.where({
-					title
+					title,
 				})
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => {
 			return rows.length ? rows[0].idManga : null;
@@ -45,7 +45,7 @@ async function registerManga({ title, idPlugin, titlePlugin }) {
 	if (!idManga) {
 		const response = await database.query({
 			text: 'INSERT INTO "mangas" ("title") VALUES ($1) RETURNING "idManga"',
-			values: [title]
+			values: [title],
 		});
 		idManga = response.rows[0].idManga;
 	}
@@ -56,16 +56,16 @@ async function registerManga({ title, idPlugin, titlePlugin }) {
 				.insertInto('mangasPlugins', {
 					idManga,
 					idPlugin,
-					titlePlugin: titlePlugin ?? title
+					titlePlugin: titlePlugin ?? title,
 				})
-				.toParams()
+				.toParams(),
 		)
 		.catch((error) => {
 			if (error.message.includes('duplicate key')) {
 				throw new BadRequestError({
 					cause: error,
 					message: 'This manga already exists in the database',
-					action: 'Try another title or idPlugin'
+					action: 'Try another title or idPlugin',
 				});
 			}
 			throw error;
@@ -73,7 +73,7 @@ async function registerManga({ title, idPlugin, titlePlugin }) {
 
 	return {
 		idManga,
-		idPlugin
+		idPlugin,
 	};
 }
 
@@ -90,17 +90,17 @@ async function listMangasRegistered({ title }) {
 					'idPlugin',
 					'"mangasPlugins"."titlePlugin" as "title"',
 					'"mangas".title as "titleFolder"',
-					'"mangas"."idManga"'
+					'"mangas"."idManga"',
 				)
 				.from('mangasPlugins')
 				.join('mangas')
 				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
 				.where(where)
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => rows)
 		.then((rows) =>
-			rows.map((row) => ({ ...row, title: row.title ?? row.titleFolder }))
+			rows.map((row) => ({ ...row, title: row.title ?? row.titleFolder })),
 		);
 }
 
@@ -109,12 +109,12 @@ async function getMangasByPlugin(idPlugin) {
 
 	if (!mangasInDatabase.length) return { totalUpdated: 0 };
 	const titleList = mangasInDatabase.map(
-		(item) => item?.titlePlugin?.toLowerCase() || item?.title?.toLowerCase()
+		(item) => item?.titlePlugin?.toLowerCase() || item?.title?.toLowerCase(),
 	);
 
-	const chapterGrouped = await MangasService.listChaptersByTitle({
+	const chapterGrouped = await MangaService.listChaptersByTitle({
 		idPlugin,
-		titleList
+		titleList,
 	});
 	const mangas = {};
 	for (const mangaInDatabase of mangasInDatabase) {
@@ -125,7 +125,7 @@ async function getMangasByPlugin(idPlugin) {
 		if (!chapters) continue;
 		mangas[key] = {
 			...mangaInDatabase,
-			chapters: chapters
+			chapters: chapters,
 		};
 	}
 
@@ -150,7 +150,7 @@ async function updateMangasBatch({ idPlugin }) {
 			chaptersInDatabase[chapter.volume] = chapter;
 		}
 		manga.chapters = manga.chapters.filter(
-			(item) => !chaptersInDatabase[Number.parseFloat(item.volume).toFixed(4)]
+			(item) => !chaptersInDatabase[Number.parseFloat(item.volume).toFixed(4)],
 		);
 		if (!manga.chapters.length) continue;
 		mangasMissing[title] = manga;
@@ -160,10 +160,10 @@ async function updateMangasBatch({ idPlugin }) {
 		totalUpdated[title] = 0;
 		const manga = mangasMissing[title];
 		if (!manga?.chapters) continue;
-		manga.chapters = await MangasService.listPagesBatch({
+		manga.chapters = await MangaService.listPagesBatch({
 			pluginId: idPlugin,
 			chapters: manga.chapters.slice(0, 5),
-			title
+			title,
 		});
 		if (!manga?.chapters) continue;
 		for (const chapter of manga.chapters) {
@@ -172,7 +172,7 @@ async function updateMangasBatch({ idPlugin }) {
 				idManga: manga.idManga,
 				idPlugin,
 				title: chapter.title,
-				volume: chapter.volume
+				volume: chapter.volume,
 			});
 			if (!result) continue;
 			chapter.idChapter = result.idChapter;
@@ -190,9 +190,9 @@ async function updateMangasBatch({ idPlugin }) {
 					manga: manga.title,
 					chapter: chapter.volume,
 					pages: chapter.pages,
-					idChapter: chapter.idChapter
+					idChapter: chapter.idChapter,
 				},
-				`downloadQueue-${title}${chapter.volume}`
+				`downloadQueue-${title}${chapter.volume}`,
 			);
 			totalUpdated[title]++;
 		}
@@ -228,7 +228,7 @@ async function updateMangas({ idPlugin }) {
 				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
 				.orderBy('idPlugin')
 				.where(where)
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => rows);
 
@@ -241,7 +241,7 @@ async function updateMangas({ idPlugin }) {
 	}
 
 	return {
-		totalUpdated: counterMangasUpdated
+		totalUpdated: counterMangasUpdated,
 	};
 }
 
@@ -250,12 +250,12 @@ async function listPagesAndSend({
 	pluginId,
 	title,
 	volume,
-	idChapter
+	idChapter,
 }) {
 	if (!idChapterPlugin || !pluginId || !title || !volume || !idChapter) return;
-	const pages = await MangasService.listPages({
+	const pages = await MangaService.listPages({
 		chapterId: idChapterPlugin,
-		pluginId: pluginId
+		pluginId: pluginId,
 	});
 	if (!pages.length) return;
 	await jobs.queues.downloadQueue(
@@ -263,16 +263,16 @@ async function listPagesAndSend({
 			manga: title,
 			chapter: volume,
 			pages,
-			idChapter: idChapter
+			idChapter: idChapter,
 		},
-		`downloadQueue-${title}${volume}${idChapter}`
+		`downloadQueue-${title}${volume}${idChapter}`,
 	);
 }
 
 async function registerCookie({ cookie, idPlugin, userAgent = null }) {
-	if (!MangasService.hasConnector(idPlugin)) {
+	if (!MangaService.hasConnector(idPlugin)) {
 		throw new ValidationError({
-			message: `Plugin with id ${idPlugin} not found`
+			message: `Plugin with id ${idPlugin} not found`,
 		});
 	}
 	const response = await database
@@ -281,12 +281,12 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 				.select('cookie')
 				.from('pluginConfig')
 				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => rows);
 	const data = {
 		cookie,
-		cookieUpdatedAt: new Date()
+		cookieUpdatedAt: new Date(),
 	};
 
 	if (userAgent) {
@@ -297,7 +297,7 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 			sql
 				.update('pluginConfig', data)
 				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
-				.toParams()
+				.toParams(),
 		);
 		return;
 	}
@@ -306,29 +306,25 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 }
 
 async function registerCredentials({ idPlugin, login, password }) {
-	if (!MangasService.hasConnector(idPlugin)) {
+	if (!MangaService.hasConnector(idPlugin)) {
 		throw new ValidationError({
-			message: `Plugin with id ${idPlugin} not found`
+			message: `Plugin with id ${idPlugin} not found`,
 		});
 	}
 
 	const response = await database
 		.query(
-			sql
-				.select('cookie')
-				.from('pluginConfig')
-				.where({ idPlugin })
-				.toParams()
+			sql.select('cookie').from('pluginConfig').where({ idPlugin }).toParams(),
 		)
 		.then(({ rows }) => rows);
 
 	const data = {
 		login,
-		password
+		password,
 	};
 	if (response.length) {
 		await database.query(
-			sql.update('pluginConfig', data).where({ idPlugin }).toParams()
+			sql.update('pluginConfig', data).where({ idPlugin }).toParams(),
 		);
 		return;
 	}
@@ -349,14 +345,14 @@ async function downloadMangasBatch(title) {
 					'pluginId',
 					'idChapterPlugin',
 					'volume',
-					'"mangas"."title"'
+					'"mangas"."title"',
 				)
 				.from('chapters')
 				.join('mangas')
 				.on({ '"mangas"."idManga"': '"chapters"."idManga"' })
 				.where(where)
 				.orderBy('volume')
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => rows);
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };
@@ -377,7 +373,7 @@ async function listChaptersMissing({ mangaByPlugin }) {
 				.select('name', 'pluginId', 'idChapterPlugin', 'volume')
 				.from('chapters')
 				.where({ idManga: mangaByPlugin[0].idManga })
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => rows);
 	const chaptersInDatabaseFormatted = {};
@@ -386,11 +382,11 @@ async function listChaptersMissing({ mangaByPlugin }) {
 	}
 	const chaptersMissing = [];
 	for (const { idPlugin, title } of mangaByPlugin) {
-		const manga = await MangasService.getMangaFromPlugin({ idPlugin, title });
+		const manga = await MangaService.getMangaFromPlugin({ idPlugin, title });
 		if (!manga) continue;
-		const chapters = await MangasService.listChaptersByManga({
+		const chapters = await MangaService.listChaptersByManga({
 			idPlugin,
-			mangaId: manga.id
+			mangaId: manga.id,
 		});
 		for (const chapter of chapters) {
 			if (chaptersInDatabaseFormatted[chapter.volume]) continue;
@@ -416,9 +412,9 @@ async function updateMangaChapters({ title }) {
 						name: chapter.title,
 						volume: chapter.volume,
 						pluginId: chapter.idPlugin,
-						idManga: mangaByPlugin[0].idManga
+						idManga: mangaByPlugin[0].idManga,
 					})
-					.toParams()
+					.toParams(),
 			)
 			.catch((error) => {
 				if (!error.message.includes('duplicate key')) {
@@ -429,7 +425,7 @@ async function updateMangaChapters({ title }) {
 	if (chaptersMissing.length) {
 		await jobs.queues.downloadBatchQueue(
 			{ title },
-			`downloadBatchQueue-${title}`
+			`downloadBatchQueue-${title}`,
 		);
 	}
 	return chaptersMissing;
@@ -445,7 +441,7 @@ async function deleteMangaChapters({ title, volume }) {
 					.select('1')
 					.from('chapters')
 					.where({ idManga: manga.idManga, volume })
-					.toParams()
+					.toParams(),
 			)
 			.then((response) => response.rows.length);
 		if (!hasChapter) continue;
@@ -454,11 +450,11 @@ async function deleteMangaChapters({ title, volume }) {
 				.delete()
 				.from('chapters')
 				.where({ idManga: manga.idManga, volume })
-				.toParams()
+				.toParams(),
 		);
 		const { chapterPath } = Download.getPathMangaAndChapter({
 			title,
-			volume
+			volume,
 		});
 		await rm(chapterPath);
 	}
@@ -468,19 +464,19 @@ async function deleteManga({ title }) {
 	const mangas = await listMangasRegistered({ title });
 	for (const item of mangas) {
 		const { mangaPath } = Download.getPathMangaAndChapter({
-			title
+			title,
 		});
 		await database.query(
-			sql.deleteFrom('chapters').where({ idManga: item.idManga }).toParams()
+			sql.deleteFrom('chapters').where({ idManga: item.idManga }).toParams(),
 		);
 		await database.query(
 			sql
 				.deleteFrom('mangasPlugins')
 				.where({ idManga: item.idManga })
-				.toParams()
+				.toParams(),
 		);
 		await database.query(
-			sql.deleteFrom('mangas').where({ idManga: item.idManga }).toParams()
+			sql.deleteFrom('mangas').where({ idManga: item.idManga }).toParams(),
 		);
 		await rm(mangaPath, { recursive: true, force: true });
 		await database.query(sql.insertInto('historyManga', { title }).toParams());
@@ -491,7 +487,7 @@ async function downloadManga({ title, volume }) {
 	return Download.downloadMangaFromDisk({ title, volume });
 }
 
-const MangasAdmService = {
+const MangaAdminService = {
 	registerManga,
 	listMangasRegistered,
 	updateMangas,
@@ -504,7 +500,7 @@ const MangasAdmService = {
 	deleteManga,
 	listChaptersMissing,
 	downloadManga,
-	updateMangasBatch
+	updateMangasBatch,
 };
 
-export default MangasAdmService;
+export default MangaAdminService;

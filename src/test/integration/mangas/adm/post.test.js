@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import api from '../../../../infra/api.js';
-import MangasAdmService from '../../../../model/mangasAdm.js';
+import MangaAdminService from '../../../../service/mangaAdmin.js';
 import orchestrator from '../../../orchestrator.js';
 
 beforeAll(async () => {
@@ -80,7 +80,7 @@ describe('POST /mangas/adm', () => {
 						data: error.response?.data,
 					}));
 			await consulta();
-			await MangasAdmService.deleteManga({
+			await MangaAdminService.deleteManga({
 				title: 'Black Clover',
 			});
 			const response = await consulta();
