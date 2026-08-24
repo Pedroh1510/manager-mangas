@@ -1,5 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import sql from 'sql-bricks';
 import * as registry from '../connectors/registry.js';
 import database from '../infra/database.js';
