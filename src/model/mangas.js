@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import sql from 'sql-bricks';
 import { JSDOM } from 'jsdom';
+import sql from 'sql-bricks';
 import database from '../infra/database.js';
 
 const plugins = {};
@@ -22,7 +22,7 @@ async function initMangas() {
 		Request: er,
 		Blacklist: new Blacklist(),
 		Settings: new Settings(),
-		Storage: new Storage()
+		Storage: new Storage(),
 	};
 	function recFindByExt(base, ext, files, result) {
 		const filesNew = files || fs.readdirSync(base);
@@ -35,7 +35,7 @@ async function initMangas() {
 					newbase,
 					ext,
 					fs.readdirSync(newbase),
-					resultArray
+					resultArray,
 				);
 			} else {
 				if (file.substr(-1 * (ext.length + 1)) === `.${ext}`) {
@@ -61,12 +61,12 @@ async function initMangas() {
 				.then((module) => {
 					return {
 						module,
-						name: path.basename(filePath, path.extname(filePath))
+						name: path.basename(filePath, path.extname(filePath)),
 					};
 				})
 				.catch((e) => {
 					1;
-				})
+				}),
 		);
 	}
 
@@ -81,7 +81,7 @@ async function initMangas() {
 						const { module, name } = aaa.value;
 						plugins[name] = {
 							module: module.default,
-							name
+							name,
 						};
 					}
 				} catch (err) {
@@ -94,6 +94,7 @@ async function initMangas() {
 	});
 }
 import logger from '../infra/logger.js';
+import { formatChapters } from '../utils/chapterFormat.js';
 import Download from './download.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
@@ -107,10 +108,10 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 					.from('chapters')
 					.join('pluginConfig')
 					.on({
-						'lower("pluginConfig"."idPlugin")': 'lower(chapters."pluginId")'
+						'lower("pluginConfig"."idPlugin")': 'lower(chapters."pluginId")',
 					})
 					.where({ idChapter, wasDownloaded: false })
-					.toParams()
+					.toParams(),
 			)
 			.then(({ rows }) => rows);
 		if (response.length) {
@@ -124,7 +125,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 		pages,
 		cookie,
 		userAgent,
-		manga
+		manga,
 	});
 
 	if (idChapter) {
@@ -132,7 +133,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			sql
 				.update('chapters', { wasDownloaded: true })
 				.where({ idChapter })
-				.toParams()
+				.toParams(),
 		);
 	}
 	logger.info({ manga, chapter, status: 'fim' });
@@ -145,7 +146,7 @@ async function listPlugins({ name }) {
 			const instance = new module();
 			return {
 				url: instance.url,
-				id: instance.id
+				id: instance.id,
 			};
 		} catch {
 			return null;
@@ -161,7 +162,7 @@ async function listPlugins({ name }) {
 
 async function getInstancePlugin(pluginId) {
 	const id = Object.keys(plugins).find(
-		(item) => item.toLowerCase() === pluginId.toLowerCase()
+		(item) => item.toLowerCase() === pluginId.toLowerCase(),
 	);
 	if (id === undefined) {
 		throw new Error(`Plugin with id ${pluginId} not found`);
@@ -175,7 +176,7 @@ async function getInstancePlugin(pluginId) {
 				.select('cookie', 'login', 'password', 'userAgent')
 				.from('pluginConfig')
 				.where({ 'lower("idPlugin")': id.toLowerCase() })
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => rows);
 	if (response.length && response[0].cookie) {
@@ -187,7 +188,7 @@ async function getInstancePlugin(pluginId) {
 				cookie
 			FROM "pluginConfig" WHERE lower("idPlugin") = $1
 			AND "cookieUpdatedAt" > to_timestamp($2, 'M/DD/YYYY HH:MI:SS');`,
-				values: [id.toLowerCase(), date.toLocaleString()]
+				values: [id.toLowerCase(), date.toLocaleString()],
 			})
 			// .query({
 			// 	text: `SELECT
@@ -232,7 +233,7 @@ async function listMangas({ pluginId, title }) {
 		return data.filter(
 			(item) =>
 				item.title.toLowerCase() === title.toLowerCase() ||
-				item.title.toLowerCase().includes(title.toLowerCase().trim())
+				item.title.toLowerCase().includes(title.toLowerCase().trim()),
 		);
 	}
 	return data;
@@ -290,47 +291,6 @@ async function getMangaFromPlugin({ idPlugin, title }) {
 	return response?.length !== 0 ? response[0] : {};
 }
 
-function formatChapters(chapters) {
-	return chapters
-		.filter((chapter) => ['pt', 'pt-br'].includes(chapter.language))
-		.map((chapter) => {
-			const a = chapter.title;
-			const q = a.match(/([0-9]*[.])?[0-9]+/);
-			chapter.volume = q?.length ? Number.parseInt(q[0]) : null;
-			if (chapter.volume === null || Number.isNaN(chapter.volume)) {
-				chapter.volume = null;
-			}
-			if (
-				chapter.volume === null &&
-				chapter.title.includes('Vol.') &&
-				chapter.title.includes('Ch.')
-			) {
-				const titleOnlyVolCh = chapter.title.replace(/(?:(?![\d|\.]).)/g, '');
-				const titleArray = titleOnlyVolCh
-					.split('.')
-					.filter((item) => item.trim());
-				let volume = titleArray.join('');
-				if (titleArray.length > 2) {
-					volume = titleArray.slice(0, 2).join('');
-					volume += `.${titleArray.slice(2).join()}`;
-				}
-				chapter.volume = Number.parseFloat(volume);
-			}
-			if (chapter.volume === null || Number.isNaN(chapter.volume)) {
-				chapter.volume = null;
-			}
-			return chapter;
-		})
-		.filter(
-			(chapter) =>
-				!(
-					chapter.volume === undefined ||
-					chapter.volume === null ||
-					chapter.volume === ''
-				)
-		);
-}
-
 /**
  * @typedef {Object} Chapter
  * @prop {String} id
@@ -344,7 +304,7 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 	if (!idPlugin || !mangaId) return [];
 	const chapters = await listChapters({
 		mangaId,
-		pluginId: idPlugin
+		pluginId: idPlugin,
 	});
 	const chaptersFiltered = formatChapters(chapters);
 	const chaptersNotVolumeDuplicated = {};
@@ -399,7 +359,7 @@ const MangasService = {
 	listPlugins,
 	plugins,
 	listChaptersByTitle,
-	listPagesBatch
+	listPagesBatch,
 };
 
 export default MangasService;
