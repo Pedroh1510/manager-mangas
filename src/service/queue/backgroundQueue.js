@@ -5,7 +5,10 @@ import connection from './connection.js';
 
 const QUEUE_NAME = 'background-tasks';
 
-const queue = new Queue(QUEUE_NAME, { connection });
+const queue = new Queue(QUEUE_NAME, {
+	connection,
+	defaultJobOptions: { removeOnComplete: true, removeOnFail: { age: 10 } },
+});
 
 const operations = {
 	updateAllMangas: () => MangaAdminService.updateMangas({}),

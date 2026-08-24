@@ -19,7 +19,22 @@ function queueName(connectorId) {
 
 export function getConnectorQueue(connectorId) {
 	if (!queues.has(connectorId)) {
-		queues.set(connectorId, new Queue(queueName(connectorId), { connection }));
+		queues.set(
+			connectorId,
+			new Queue(queueName(connectorId), {
+				connection,
+				// removeOnComplete can't be `true` here (unlike downloadQueue):
+				// enqueueAndWait() reads the result back via job.waitUntilFinished(),
+				// which needs the job's Redis hash to still exist when it polls right
+				// after registering listeners. Instant removal races that poll and
+				// throws "Missing key for job ... isFinished". A bounded retention
+				// still keeps returnvalue payloads from growing unbounded in Redis.
+				defaultJobOptions: {
+					removeOnComplete: { age: 3600, count: 1000 },
+					removeOnFail: { age: 10 },
+				},
+			}),
+		);
 	}
 	return queues.get(connectorId);
 }
