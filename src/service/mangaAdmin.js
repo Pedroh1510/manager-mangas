@@ -319,7 +319,11 @@ async function registerCredentials({ idPlugin, login, password }) {
 
 	const response = await database
 		.query(
-			sql.select('cookie').from('pluginConfig').where({ idPlugin }).toParams(),
+			sql
+				.select('cookie')
+				.from('pluginConfig')
+				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
+				.toParams(),
 		)
 		.then(({ rows }) => rows);
 
@@ -329,7 +333,10 @@ async function registerCredentials({ idPlugin, login, password }) {
 	};
 	if (response.length) {
 		await database.query(
-			sql.update('pluginConfig', data).where({ idPlugin }).toParams(),
+			sql
+				.update('pluginConfig', data)
+				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
+				.toParams(),
 		);
 		return;
 	}
