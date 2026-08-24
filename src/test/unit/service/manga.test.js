@@ -3,6 +3,7 @@ import Connector from '../../../connectors/Connector.js';
 import * as registry from '../../../connectors/registry.js';
 import database from '../../../infra/database.js';
 import MangaService from '../../../service/manga.js';
+import * as connectorQueue from '../../../service/queue/connectorQueue.js';
 import * as mangaCatalog from '../../../utils/mangaCatalog.js';
 
 vi.mock('../../../infra/database.js', () => ({
@@ -36,11 +37,15 @@ describe('MangaService', () => {
 			const saveCatalogSpy = vi
 				.spyOn(mangaCatalog, 'saveCatalog')
 				.mockResolvedValue();
+			const enqueueAndWaitSpy = vi
+				.spyOn(connectorQueue, 'enqueueAndWait')
+				.mockResolvedValue([{ id: '1', title: 'Black Clover' }]);
 			database.query.mockResolvedValue({ rows: [] });
 
 			const result = await MangaService.listMangas({ pluginId: 'fake' });
 
 			expect(result).toEqual([{ id: '1', title: 'Black Clover' }]);
+			expect(enqueueAndWaitSpy).toHaveBeenCalledWith('fake', 'listMangas', {});
 			expect(saveCatalogSpy).toHaveBeenCalledWith('fake', [
 				{ id: '1', title: 'Black Clover' },
 			]);
@@ -90,9 +95,14 @@ describe('MangaService', () => {
 	});
 
 	describe('listChapters', () => {
-		test('resolves the connector and calls _getChapters with the given manga id', async () => {
+		test('resolves the connector and routes the fetch through enqueueAndWait', async () => {
 			vi.spyOn(registry, 'hasConnector').mockReturnValue(true);
 			vi.spyOn(registry, 'getConnectorClass').mockReturnValue(FakeConnector);
+			const enqueueAndWaitSpy = vi
+				.spyOn(connectorQueue, 'enqueueAndWait')
+				.mockResolvedValue([
+					{ id: '7-1', title: 'Capítulo 01', language: 'pt' },
+				]);
 			database.query.mockResolvedValue({ rows: [] });
 
 			const result = await MangaService.listChapters({
@@ -100,6 +110,9 @@ describe('MangaService', () => {
 				mangaId: '7',
 			});
 
+			expect(enqueueAndWaitSpy).toHaveBeenCalledWith('fake', 'listChapters', {
+				manga: { id: '7' },
+			});
 			expect(result).toEqual([
 				{ id: '7-1', title: 'Capítulo 01', language: 'pt' },
 			]);

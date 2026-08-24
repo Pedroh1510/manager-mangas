@@ -30,7 +30,7 @@ describe('connectorQueue', () => {
 		vi.resetModules();
 	});
 
-	test('getConnectorQueue names the queue "connector:<id>" and reuses the same instance', async () => {
+	test('getConnectorQueue names the queue "connector-<id>" and reuses the same instance', async () => {
 		const { getConnectorQueue } = await import(
 			'../../../../service/queue/connectorQueue.js'
 		);
@@ -40,7 +40,7 @@ describe('connectorQueue', () => {
 
 		expect(QueueMock).toHaveBeenCalledTimes(1);
 		expect(QueueMock).toHaveBeenCalledWith(
-			'connector:mangeek',
+			'connector-mangeek',
 			expect.any(Object),
 		);
 		expect(first).toBe(second);
@@ -75,7 +75,7 @@ describe('connectorQueue', () => {
 
 		expect(WorkerMock).toHaveBeenCalledTimes(1);
 		expect(WorkerMock).toHaveBeenCalledWith(
-			'connector:mangeek',
+			'connector-mangeek',
 			expect.any(Function),
 			expect.objectContaining({ concurrency: 1 }),
 		);

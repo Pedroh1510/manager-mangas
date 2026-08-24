@@ -14,7 +14,7 @@ const queues = new Map();
 const queueEvents = new Map();
 
 function queueName(connectorId) {
-	return `connector:${connectorId}`;
+	return `connector-${connectorId}`;
 }
 
 export function getConnectorQueue(connectorId) {

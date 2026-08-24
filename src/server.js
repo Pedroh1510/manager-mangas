@@ -11,6 +11,7 @@ import logger from './infra/logger.js';
 import jobs from './jobs.js';
 import router from './routes.js';
 import MangaService from './service/manga.js';
+import { startConnectorWorkers } from './service/queue/connectorQueue.js';
 
 if (CONFIG_ENV.ENV === 'test') {
 	registerForTests('test-fixture', TestFixtureConnector);
@@ -49,6 +50,8 @@ server.use((error, _req, res, _next) => {
 	logger.error(`Error: ${error}\nStack: ${error.stack}\n`);
 	return res.status(500).send('Something broke!');
 });
+
+startConnectorWorkers();
 
 const serverInstance = server.listen(CONFIG_ENV.PORT, async () => {
 	logger.info(`Server running on port ${CONFIG_ENV.PORT}`);

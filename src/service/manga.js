@@ -7,6 +7,7 @@ import logger from '../infra/logger.js';
 import { formatChapters } from '../utils/chapterFormat.js';
 import * as mangaCatalog from '../utils/mangaCatalog.js';
 import Download from './download.js';
+import { enqueueAndWait } from './queue/connectorQueue.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let cookie = null;
@@ -119,7 +120,7 @@ async function getInstancePlugin(pluginId) {
 	return instance;
 }
 async function refreshCatalog(instance) {
-	const mangas = await instance._getMangas();
+	const mangas = await enqueueAndWait(instance.id, 'listMangas', {});
 	await mangaCatalog.saveCatalog(instance.id, mangas);
 	return mangas;
 }
@@ -156,12 +157,16 @@ async function listMangas({ pluginId, title }) {
  */
 async function listChapters({ pluginId, mangaId }) {
 	const instance = await getInstancePlugin(pluginId);
-	return instance._getChapters({ id: mangaId });
+	return enqueueAndWait(instance.id, 'listChapters', {
+		manga: { id: mangaId },
+	});
 }
 
 async function listPages({ pluginId, chapterId }) {
 	const instance = await getInstancePlugin(pluginId);
-	return instance._getPages({ id: chapterId });
+	return enqueueAndWait(instance.id, 'listPages', {
+		chapter: { id: chapterId },
+	});
 }
 
 /**
@@ -177,7 +182,9 @@ async function listPagesBatch({ pluginId, chapters, title }) {
 	for (const chapter of chapters) {
 		logger.info(`listPagesBatch ${title} -> ${chapter.volume}`);
 		try {
-			const pages = await instance._getPages({ id: chapter.id });
+			const pages = await enqueueAndWait(instance.id, 'listPages', {
+				chapter: { id: chapter.id },
+			});
 			chaptersNew.push({ ...chapter, pages });
 		} catch (error) {
 			logger.error(error);
@@ -237,7 +244,9 @@ async function listChaptersByTitle({ idPlugin, titleList = [] }) {
 	for (const title of titleList) {
 		const manga = mangas.find((item) => item.title === title.toLowerCase());
 		if (!manga) continue;
-		const chapters = await instance._getChapters(manga);
+		const chapters = await enqueueAndWait(instance.id, 'listChapters', {
+			manga,
+		});
 		if (!chapters?.length) continue;
 		chaptersByTitle[title] = formatChapters(chapters);
 		logger.info(`title: ${title} totalChapters: ${chapters.length}`);
