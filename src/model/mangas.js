@@ -75,6 +75,9 @@ async function initMangas() {
 			for (const aaa of item) {
 				try {
 					if (aaa.status === 'fulfilled') {
+						if (aaa.value === undefined) {
+							continue;
+						}
 						const { module, name } = aaa.value;
 						plugins[name] = {
 							module: module.default,

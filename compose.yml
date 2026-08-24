@@ -5,7 +5,7 @@ services:
     container_name: mangas
     command: npm run dev
     volumes:
-      - .:/app
+      - ./src:/app/src
     env_file:
       - .env.development
     environment:
