@@ -3,10 +3,11 @@ import path from 'node:path';
 import sql from 'sql-bricks';
 import database from '../infra/database.js';
 import { BadRequestError, ValidationError } from '../infra/errors.js';
-import jobs from '../jobs.js';
 import MangasRepository from '../repository/mangas.js';
 import Download from './download.js';
 import MangaService from './manga.js';
+import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
+import { enqueueDownload } from './queue/downloadQueue.js';
 
 async function listHistoryManga({ title }) {
 	return database
@@ -185,7 +186,7 @@ async function updateMangasBatch({ idPlugin }) {
 		if (!manga?.chapters) continue;
 		for (const chapter of manga.chapters) {
 			if (!chapter.idChapter) continue;
-			await jobs.queues.downloadQueue(
+			await enqueueDownload(
 				{
 					manga: manga.title,
 					chapter: chapter.volume,
@@ -236,7 +237,11 @@ async function updateMangas({ idPlugin }) {
 
 	let counterMangasUpdated = 0;
 	for (const { title } of mangas) {
-		await jobs.queues.updateMangaQueue({ title }, `updateMangaQueue-${title}`);
+		await enqueueBackgroundTask(
+			'updateMangaChapters',
+			{ title },
+			`updateMangaChapters-${title}`,
+		);
 		counterMangasUpdated++;
 	}
 
@@ -258,7 +263,7 @@ async function listPagesAndSend({
 		pluginId: pluginId,
 	});
 	if (!pages.length) return;
-	await jobs.queues.downloadQueue(
+	await enqueueDownload(
 		{
 			manga: title,
 			chapter: volume,
@@ -359,8 +364,18 @@ async function downloadMangasBatch(title) {
 	const chaptersBatch = chaptersMissingDownload;
 	let counterDownload = 0;
 	for (const chapter of chaptersBatch) {
-		const id = `listPagesQueue-${chapter.idChapterPlugin}, ${chapter.pluginId}, ${chapter.title}, ${chapter.volume}, ${chapter.idChapter}`;
-		await jobs.queues.listPagesQueue(chapter, id);
+		const id = `listPagesAndSend-${chapter.idChapterPlugin}-${chapter.pluginId}-${chapter.title}-${chapter.volume}-${chapter.idChapter}`;
+		await enqueueBackgroundTask(
+			'listPagesAndSend',
+			{
+				idChapterPlugin: chapter.idChapterPlugin,
+				pluginId: chapter.pluginId,
+				title: chapter.title,
+				volume: chapter.volume,
+				idChapter: chapter.idChapter,
+			},
+			id,
+		);
 		counterDownload++;
 	}
 	return { totalDownloaded: counterDownload };
@@ -423,9 +438,10 @@ async function updateMangaChapters({ title }) {
 			});
 	}
 	if (chaptersMissing.length) {
-		await jobs.queues.downloadBatchQueue(
+		await enqueueBackgroundTask(
+			'downloadMangasBatch',
 			{ title },
-			`downloadBatchQueue-${title}`,
+			`downloadMangasBatch-${title}`,
 		);
 	}
 	return chaptersMissing;

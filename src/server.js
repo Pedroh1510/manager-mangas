@@ -2,16 +2,30 @@ import 'express-async-errors';
 import express from 'express';
 import morgan from 'morgan';
 
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
+import { ExpressAdapter } from '@bull-board/express';
 import cors from 'cors';
-import { registerForTests } from './connectors/registry.js';
+import { listConnectorIds, registerForTests } from './connectors/registry.js';
 import TestFixtureConnector from './connectors/testFixture/TestFixtureConnector.js';
 import CONFIG_ENV from './infra/env.js';
 import { ValidationError } from './infra/errors.js';
 import logger from './infra/logger.js';
-import jobs from './jobs.js';
 import router from './routes.js';
 import MangaService from './service/manga.js';
-import { startConnectorWorkers } from './service/queue/connectorQueue.js';
+import {
+	getBackgroundQueue,
+	scheduleRecurringUpdate,
+	startBackgroundWorker,
+} from './service/queue/backgroundQueue.js';
+import {
+	getConnectorQueue,
+	startConnectorWorkers,
+} from './service/queue/connectorQueue.js';
+import {
+	getDownloadQueue,
+	startDownloadWorker,
+} from './service/queue/downloadQueue.js';
 
 if (CONFIG_ENV.ENV === 'test') {
 	registerForTests('test-fixture', TestFixtureConnector);
@@ -34,7 +48,17 @@ server.use(
 
 server.use(router);
 
-server.use('/queues', jobs.router);
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/queues');
+createBullBoard({
+	queues: [
+		...listConnectorIds().map((id) => new BullMQAdapter(getConnectorQueue(id))),
+		new BullMQAdapter(getBackgroundQueue()),
+		new BullMQAdapter(getDownloadQueue()),
+	],
+	serverAdapter,
+});
+server.use('/queues', serverAdapter.getRouter());
 
 server.use((error, _req, res, _next) => {
 	if (error.statusCode) {
@@ -55,7 +79,11 @@ startConnectorWorkers();
 
 const serverInstance = server.listen(CONFIG_ENV.PORT, async () => {
 	logger.info(`Server running on port ${CONFIG_ENV.PORT}`);
-	await jobs.init();
+	startDownloadWorker(CONFIG_ENV.CONCURRENCY);
+	if (CONFIG_ENV.ENABLE_JOB) {
+		startBackgroundWorker();
+		await scheduleRecurringUpdate();
+	}
 });
 
 function graceful(code) {
