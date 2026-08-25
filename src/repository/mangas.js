@@ -1,85 +1,68 @@
-import SqlBricks from 'sql-bricks-postgres';
+import sql from 'sql-bricks';
 import database from '../infra/database.js';
 
-/**
- *
- * @param {Object} param
- * @param {String[]} param.title
- * @returns {Promise<{titleList:String|null,title:string,name:string,volume:number}[]>}
- */
-async function listChapters({ title }) {
-	return database
-		.query(
-			SqlBricks.select('titlePlugin', 'title', 'name', 'volume')
-				.from('chapters')
-				.join('mangasPlugins')
-				.on({ '"mangasPlugins"."idPlugin"': 'chapters."pluginId"' })
-				.join('mangas')
-				.on({
-					'"mangasPlugins"."idManga"': 'mangas."idManga"',
-					'"chapters"."idManga"': 'mangas."idManga"',
-				})
-				.where(
-					SqlBricks.or(
-						SqlBricks.in('lower("title")', title),
-						SqlBricks.in('lower("titlePlugin")', title),
-					),
-				)
-				.toParams(),
-		)
-		.then((result) => result.rows);
-}
-/**
- *
- * @param {Object} param
- * @param {String[]} param.idPlugin
- * @returns {Promise<{idPlugin:String,titlePlugin:String,title:String,idManga:number}[]>}
- */
-async function listMangas({ idPlugin }) {
-	const where = {};
-	if (idPlugin) {
-		where['lower("idPlugin")'] = idPlugin.toLowerCase();
-	}
-	return database
-		.query(
-			SqlBricks.select(
-				'idPlugin',
-				'titlePlugin',
-				'"mangas"."idManga"',
-				'mangas.title',
-			)
-				.from('mangasPlugins')
-				.join('mangas')
-				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
-				.orderBy('idPlugin')
-				.where(where)
-				.toParams(),
-		)
-		.then(({ rows }) => rows);
+async function createManga({ title }) {
+	const { rows } = await database.query(
+		sql.insertInto('mangas', { title }).returning('idManga').toParams(),
+	);
+	return rows[0];
 }
 
-async function insertChapter({ id, title, volume, idPlugin, idManga }) {
-	const a = await database
-		.query(
-			SqlBricks.insertInto('chapters', {
-				idChapterPlugin: id,
-				name: title,
-				volume: volume,
-				pluginId: idPlugin,
-				idManga: idManga,
-			})
-				.returning('idChapter')
-				.toParams(),
-		)
-		.catch((error) => {
-			if (!error.message.includes('duplicate key')) {
-				throw error;
-			}
-		});
-	if (a?.rows) {
-		return a?.rows[0];
-	}
+async function findMangaByTitleIncludingDeleted({ title }) {
+	const { rows } = await database.query(
+		sql
+			.select('idManga', 'deletedAt')
+			.from('mangas')
+			.where({ title })
+			.toParams(),
+	);
+	return rows[0] ?? null;
 }
 
-const MangasRepository = { listChapters, listMangas, insertChapter };
+async function findMangaById({ idManga }) {
+	const { rows } = await database.query(
+		sql
+			.select('idManga', 'title', 'createdAt', 'updatedAt', 'deletedAt')
+			.from('mangas')
+			.where({ idManga })
+			.toParams(),
+	);
+	return rows[0] ?? null;
+}
+
+async function listMangas({ title } = {}) {
+	let where = { deletedAt: null };
+	if (title) {
+		where = sql.and(
+			{ deletedAt: null },
+			sql.like('lower("title")', `%${title.toLowerCase()}%`),
+		);
+	}
+	const { rows } = await database.query(
+		sql
+			.select('idManga', 'title', 'createdAt', 'updatedAt')
+			.from('mangas')
+			.where(where)
+			.orderBy('title')
+			.toParams(),
+	);
+	return rows;
+}
+
+async function softDeleteManga({ idManga }) {
+	await database.query(
+		sql
+			.update('mangas', { deletedAt: new Date() })
+			.where({ idManga })
+			.toParams(),
+	);
+}
+
+const MangasRepository = {
+	createManga,
+	findMangaByTitleIncludingDeleted,
+	findMangaById,
+	listMangas,
+	softDeleteManga,
+};
 export default MangasRepository;
