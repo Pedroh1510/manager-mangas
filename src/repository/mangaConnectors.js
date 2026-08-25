@@ -1,4 +1,4 @@
-import sql from 'sql-bricks';
+import sql from 'sql-bricks-postgres';
 import database from '../infra/database.js';
 
 async function linkConnector({ idManga, idPlugin, idMangaPlugin, titlePlugin }) {
