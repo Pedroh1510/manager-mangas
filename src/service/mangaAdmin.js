@@ -3,275 +3,89 @@ import path from 'node:path';
 import sql from 'sql-bricks';
 import database from '../infra/database.js';
 import { BadRequestError, ValidationError } from '../infra/errors.js';
+import ChaptersRepository from '../repository/chapters.js';
+import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 import MangasRepository from '../repository/mangas.js';
 import Download from './download.js';
 import MangaService from './manga.js';
 import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
 import { enqueueDownload } from './queue/downloadQueue.js';
 
-async function listHistoryManga({ title }) {
-	return database
-		.query(sql.select('title').from('historyManga').where({ title }).toParams())
-		.then(({ rows }) => rows.map(({ title }) => title));
+async function createManga({ title }) {
+	const existing = await MangasRepository.findMangaByTitleIncludingDeleted({ title });
+	if (existing) {
+		throw new BadRequestError({
+			message: existing.deletedAt
+				? 'This manga already exists in the database history'
+				: 'This manga already exists in the database',
+			action: existing.deletedAt ? 'Try another title' : 'Try another title or idPlugin',
+		});
+	}
+	const { idManga } = await MangasRepository.createManga({ title });
+	return { idManga };
 }
 
-async function registerManga({ title, idPlugin, titlePlugin }) {
+async function linkConnector({ idManga, idPlugin, idMangaPlugin, titlePlugin }) {
 	if (!MangaService.hasConnector(idPlugin)) {
 		throw new ValidationError({
 			message: `Plugin with id ${idPlugin} not found`,
 			action: 'Change plugin id',
 		});
 	}
-	const historyManga = await listHistoryManga({ title });
-	if (historyManga.includes(title)) {
-		throw new BadRequestError({
-			message: 'This manga already exists in the database history',
-			action: 'Try another title',
-		});
-	}
-	let idManga = await database
-		.query(
-			sql
-				.select('idManga')
-				.from('mangas')
-				.where({
-					title,
-				})
-				.toParams(),
-		)
-		.then(({ rows }) => {
-			return rows.length ? rows[0].idManga : null;
-		});
-
-	if (!idManga) {
-		const response = await database.query({
-			text: 'INSERT INTO "mangas" ("title") VALUES ($1) RETURNING "idManga"',
-			values: [title],
-		});
-		idManga = response.rows[0].idManga;
-	}
-
-	await database
-		.query(
-			sql
-				.insertInto('mangasPlugins', {
-					idManga,
-					idPlugin,
-					titlePlugin: titlePlugin ?? title,
-				})
-				.toParams(),
-		)
-		.catch((error) => {
-			if (error.message.includes('duplicate key')) {
-				throw new BadRequestError({
-					cause: error,
-					message: 'This manga already exists in the database',
-					action: 'Try another title or idPlugin',
-				});
-			}
-			throw error;
-		});
-
-	return {
+	const { idMangaConnector } = await MangaConnectorsRepository.linkConnector({
 		idManga,
 		idPlugin,
-	};
+		idMangaPlugin,
+		titlePlugin,
+	}).catch((error) => {
+		if (error.message.includes('duplicate key')) {
+			throw new BadRequestError({
+				cause: error,
+				message: 'This manga is already linked to this connector',
+				action: 'Try another idManga or idPlugin',
+			});
+		}
+		throw error;
+	});
+	return { idMangaConnector, idManga, idPlugin };
+}
+
+async function setConnectorActive({ idManga, idPlugin, isActive }) {
+	const updated = await MangaConnectorsRepository.setConnectorActive({
+		idManga,
+		idPlugin,
+		isActive,
+	});
+	if (!updated) {
+		throw new BadRequestError({
+			message: `No connector link found for manga ${idManga} and plugin ${idPlugin}`,
+			action: 'Check idManga and idPlugin',
+		});
+	}
+	return updated;
+}
+
+async function listConnectors({ idManga }) {
+	return MangaConnectorsRepository.listConnectorsByManga({ idManga });
 }
 
 async function listMangasRegistered({ title }) {
-	let where = {};
-	if (title) {
-		sql.like();
-		where = sql.like(['lower("mangas".title)'], `%${title?.toLowerCase()}%`);
-	}
-	return database
-		.query(
-			sql
-				.select(
-					'idPlugin',
-					'"mangasPlugins"."titlePlugin" as "title"',
-					'"mangas".title as "titleFolder"',
-					'"mangas"."idManga"',
-				)
-				.from('mangasPlugins')
-				.join('mangas')
-				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
-				.where(where)
-				.toParams(),
-		)
-		.then(({ rows }) => rows)
-		.then((rows) =>
-			rows.map((row) => ({ ...row, title: row.title ?? row.titleFolder })),
-		);
+	return MangasRepository.listMangas({ title });
 }
 
-async function getMangasByPlugin(idPlugin) {
-	const mangasInDatabase = await MangasRepository.listMangas({ idPlugin });
-
-	if (!mangasInDatabase.length) return { totalUpdated: 0 };
-	const titleList = mangasInDatabase.map(
-		(item) => item?.titlePlugin?.toLowerCase() || item?.title?.toLowerCase(),
-	);
-
-	const chapterGrouped = await MangaService.listChaptersByTitle({
-		idPlugin,
-		titleList,
-	});
-	const mangas = {};
-	for (const mangaInDatabase of mangasInDatabase) {
-		const key =
-			mangaInDatabase.titlePlugin?.toLowerCase() ||
-			mangaInDatabase.title?.toLowerCase();
-		const chapters = chapterGrouped[key];
-		if (!chapters) continue;
-		mangas[key] = {
-			...mangaInDatabase,
-			chapters: chapters,
-		};
-	}
-
-	return mangas;
-}
-
-async function updateMangasBatch({ idPlugin }) {
-	const mangas = await getMangasByPlugin(idPlugin);
-	const titleList = Object.keys(mangas);
-	const chapterGrouped = await chapterGroupedByTitle(titleList);
-
-	const mangasMissing = {};
-	for (const title of titleList) {
-		const manga = mangas[title];
-		const chapters = chapterGrouped[title];
-		if (!chapters) {
-			mangasMissing[title] = manga;
-			continue;
-		}
-		const chaptersInDatabase = {};
-		for (const chapter of chapters) {
-			chaptersInDatabase[chapter.volume] = chapter;
-		}
-		manga.chapters = manga.chapters.filter(
-			(item) => !chaptersInDatabase[Number.parseFloat(item.volume).toFixed(4)],
-		);
-		if (!manga.chapters.length) continue;
-		mangasMissing[title] = manga;
-	}
-	const totalUpdated = {};
-	for (const title of titleList) {
-		totalUpdated[title] = 0;
-		const manga = mangasMissing[title];
-		if (!manga?.chapters) continue;
-		manga.chapters = await MangaService.listPagesBatch({
-			pluginId: idPlugin,
-			chapters: manga.chapters.slice(0, 5),
-			title,
+async function deleteManga({ idManga }) {
+	const manga = await MangasRepository.findMangaById({ idManga });
+	if (!manga || manga.deletedAt) {
+		throw new BadRequestError({
+			message: `Manga ${idManga} not found`,
+			action: 'Check idManga',
 		});
-		if (!manga?.chapters) continue;
-		for (const chapter of manga.chapters) {
-			const result = await MangasRepository.insertChapter({
-				id: chapter.id,
-				idManga: manga.idManga,
-				idPlugin,
-				title: chapter.title,
-				volume: chapter.volume,
-			});
-			if (!result) continue;
-			chapter.idChapter = result.idChapter;
-		}
 	}
-
-	for (const title of titleList) {
-		totalUpdated[title] = 0;
-		const manga = mangasMissing[title];
-		if (!manga?.chapters) continue;
-		for (const chapter of manga.chapters) {
-			if (!chapter.idChapter) continue;
-			await enqueueDownload(
-				{
-					manga: manga.title,
-					chapter: chapter.volume,
-					pages: chapter.pages,
-					idChapter: chapter.idChapter,
-				},
-				`downloadQueue-${title}${chapter.volume}`,
-			);
-			totalUpdated[title]++;
-		}
-	}
-
-	return totalUpdated;
-}
-
-async function chapterGroupedByTitle(titleList) {
-	const chapters = await MangasRepository.listChapters({ title: titleList });
-	const chapterGroupedByTitle = {};
-	for (const chapter of chapters) {
-		const key = chapter.title.toLowerCase();
-		if (!chapterGroupedByTitle[key]) {
-			chapterGroupedByTitle[key] = [];
-		}
-		chapterGroupedByTitle[key].push(chapter);
-	}
-	return chapterGroupedByTitle;
-}
-
-async function updateMangas({ idPlugin }) {
-	const where = {};
-	if (idPlugin) {
-		where['lower("idPlugin")'] = idPlugin.toLowerCase();
-	}
-	const mangas = await database
-		.query(
-			sql
-				.select('idPlugin', 'title', '"mangas"."idManga"')
-				.from('mangasPlugins')
-				.join('mangas')
-				.on({ '"mangas"."idManga"': '"mangasPlugins"."idManga"' })
-				.orderBy('idPlugin')
-				.where(where)
-				.toParams(),
-		)
-		.then(({ rows }) => rows);
-
-	if (!mangas.length) return { totalUpdated: 0 };
-
-	let counterMangasUpdated = 0;
-	for (const { title } of mangas) {
-		await enqueueBackgroundTask(
-			'updateMangaChapters',
-			{ title },
-			`updateMangaChapters-${title}`,
-		);
-		counterMangasUpdated++;
-	}
-
-	return {
-		totalUpdated: counterMangasUpdated,
-	};
-}
-
-async function listPagesAndSend({
-	idChapterPlugin,
-	pluginId,
-	title,
-	volume,
-	idChapter,
-}) {
-	if (!idChapterPlugin || !pluginId || !title || !volume || !idChapter) return;
-	const pages = await MangaService.listPages({
-		chapterId: idChapterPlugin,
-		pluginId: pluginId,
-	});
-	if (!pages.length) return;
-	await enqueueDownload(
-		{
-			manga: title,
-			chapter: volume,
-			pages,
-			idChapter: idChapter,
-		},
-		`downloadQueue-${title}${volume}${idChapter}`,
-	);
+	await ChaptersRepository.deleteChaptersByManga({ idManga });
+	await MangaConnectorsRepository.deactivateAllForManga({ idManga });
+	await MangasRepository.softDeleteManga({ idManga });
+	const { mangaPath } = Download.getPathMangaAndChapter({ title: manga.title });
+	await rm(mangaPath, { recursive: true, force: true });
 }
 
 async function registerCookie({ cookie, idPlugin, userAgent = null }) {
@@ -344,186 +158,200 @@ async function registerCredentials({ idPlugin, login, password }) {
 	await database.query(sql.insertInto('pluginConfig', data).toParams());
 }
 
-async function downloadMangasBatch(title) {
-	const where = { wasDownloaded: false };
-	if (title) {
-		where.title = title;
+async function listChaptersMissing({ idManga }) {
+	const connectors = (
+		await MangaConnectorsRepository.listConnectorsByManga({ idManga })
+	).filter((connector) => connector.isActive);
+	if (!connectors.length) return [];
+
+	const knownChapters = await ChaptersRepository.listChaptersByManga({ idManga });
+	const knownVolumes = new Set(knownChapters.map((chapter) => `${chapter.volume}`));
+
+	const chaptersMissing = [];
+	for (const connector of connectors) {
+		const chapters = await MangaService.listChaptersByManga({
+			idPlugin: connector.idPlugin,
+			mangaId: connector.idMangaPlugin,
+		});
+		for (const chapter of chapters) {
+			if (knownVolumes.has(`${chapter.volume}`)) continue;
+			knownVolumes.add(`${chapter.volume}`);
+			chaptersMissing.push({ ...chapter, idMangaConnector: connector.idMangaConnector });
+		}
 	}
-	const chaptersMissingDownload = await database
-		.query(
-			sql
-				.select(
-					'idChapter',
-					'pluginId',
-					'idChapterPlugin',
-					'volume',
-					'"mangas"."title"',
-				)
-				.from('chapters')
-				.join('mangas')
-				.on({ '"mangas"."idManga"': '"chapters"."idManga"' })
-				.where(where)
-				.orderBy('volume')
-				.toParams(),
-		)
-		.then(({ rows }) => rows);
+	return chaptersMissing;
+}
+
+async function updateMangaChapters({ idManga }) {
+	const manga = await MangasRepository.findMangaById({ idManga });
+	if (!manga || manga.deletedAt) return [];
+	const pathFolder = path.resolve('downloads', manga.title);
+	await mkdir(pathFolder, { recursive: true }).catch(() => {});
+
+	const chaptersMissing = await listChaptersMissing({ idManga });
+	for (const chapter of chaptersMissing) {
+		await ChaptersRepository.insertChapter({
+			idManga,
+			idMangaConnector: chapter.idMangaConnector,
+			idChapterPlugin: chapter.id,
+			name: chapter.title,
+			volume: chapter.volume,
+		});
+	}
+	if (chaptersMissing.length) {
+		await enqueueBackgroundTask(
+			'downloadMangasBatch',
+			{ idManga },
+			`downloadMangasBatch-${idManga}`,
+		);
+	}
+	return chaptersMissing;
+}
+
+async function updateMangas({ idPlugin }) {
+	const connectors = await MangaConnectorsRepository.listActiveConnectors({ idPlugin });
+	let counterMangasUpdated = 0;
+	for (const connector of connectors) {
+		await enqueueBackgroundTask(
+			'updateMangaChapters',
+			{ idManga: connector.idManga },
+			`updateMangaChapters-${connector.idManga}`,
+		);
+		counterMangasUpdated++;
+	}
+	return { totalUpdated: counterMangasUpdated };
+}
+
+async function updateMangasBatch({ idPlugin }) {
+	const connectors = await MangaConnectorsRepository.listActiveConnectors({ idPlugin });
+	const totalUpdated = {};
+	for (const connector of connectors) {
+		totalUpdated[connector.idManga] = 0;
+		const knownChapters = await ChaptersRepository.listChaptersByManga({
+			idManga: connector.idManga,
+		});
+		const knownVolumes = new Set(knownChapters.map((chapter) => `${chapter.volume}`));
+
+		const chapters = await MangaService.listChaptersByManga({
+			idPlugin: connector.idPlugin,
+			mangaId: connector.idMangaPlugin,
+		});
+		const missing = chapters.filter((chapter) => !knownVolumes.has(`${chapter.volume}`));
+		if (!missing.length) continue;
+
+		const chaptersWithPages = await MangaService.listPagesBatch({
+			pluginId: connector.idPlugin,
+			chapters: missing.slice(0, 5),
+			title: connector.title,
+		});
+
+		for (const chapter of chaptersWithPages) {
+			const inserted = await ChaptersRepository.insertChapter({
+				idManga: connector.idManga,
+				idMangaConnector: connector.idMangaConnector,
+				idChapterPlugin: chapter.id,
+				name: chapter.title,
+				volume: chapter.volume,
+			});
+			if (!inserted) continue;
+			await enqueueDownload(
+				{
+					manga: connector.title,
+					chapter: chapter.volume,
+					pages: chapter.pages,
+					idChapter: inserted.idChapter,
+				},
+				`downloadQueue-${connector.idManga}-${chapter.volume}`,
+			);
+			totalUpdated[connector.idManga]++;
+		}
+	}
+	return totalUpdated;
+}
+
+async function listChapters({ idManga }) {
+	return ChaptersRepository.listChaptersByManga({ idManga });
+}
+
+async function deleteChapter({ idManga, idChapter }) {
+	const chapter = await ChaptersRepository.findChapterById({ idChapter });
+	if (!chapter || chapter.idManga !== idManga) {
+		throw new BadRequestError({
+			message: `Chapter ${idChapter} not found for manga ${idManga}`,
+			action: 'Check idManga and idChapter',
+		});
+	}
+	await ChaptersRepository.deleteChapter({ idChapter });
+	const { chapterPath } = Download.getPathMangaAndChapter({
+		title: chapter.title,
+		volume: chapter.volume,
+	});
+	await rm(chapterPath, { force: true });
+}
+
+async function listPagesAndSend({ idChapter }) {
+	const chapter = await ChaptersRepository.findChapterById({ idChapter });
+	if (!chapter) return;
+	const pages = await MangaService.listPages({
+		chapterId: chapter.idChapterPlugin,
+		pluginId: chapter.idPlugin,
+	});
+	if (!pages.length) return;
+	await enqueueDownload(
+		{
+			manga: chapter.title,
+			chapter: chapter.volume,
+			pages,
+			idChapter,
+		},
+		`downloadQueue-${idChapter}`,
+	);
+}
+
+async function downloadMangasBatch({ idManga } = {}) {
+	const chaptersMissingDownload = await ChaptersRepository.listMissingDownloads({ idManga });
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };
-	const chaptersBatch = chaptersMissingDownload;
 	let counterDownload = 0;
-	for (const chapter of chaptersBatch) {
-		const id = `listPagesAndSend-${chapter.idChapterPlugin}-${chapter.pluginId}-${chapter.title}-${chapter.volume}-${chapter.idChapter}`;
+	for (const chapter of chaptersMissingDownload) {
 		await enqueueBackgroundTask(
 			'listPagesAndSend',
-			{
-				idChapterPlugin: chapter.idChapterPlugin,
-				pluginId: chapter.pluginId,
-				title: chapter.title,
-				volume: chapter.volume,
-				idChapter: chapter.idChapter,
-			},
-			id,
+			{ idChapter: chapter.idChapter },
+			`listPagesAndSend-${chapter.idChapter}`,
 		);
 		counterDownload++;
 	}
 	return { totalDownloaded: counterDownload };
 }
 
-async function listChaptersMissing({ mangaByPlugin }) {
-	const chaptersInDatabase = await database
-		.query(
-			sql
-				.select('name', 'pluginId', 'idChapterPlugin', 'volume')
-				.from('chapters')
-				.where({ idManga: mangaByPlugin[0].idManga })
-				.toParams(),
-		)
-		.then(({ rows }) => rows);
-	const chaptersInDatabaseFormatted = {};
-	for (const chapter of chaptersInDatabase) {
-		chaptersInDatabaseFormatted[chapter.volume] = chapter;
-	}
-	const chaptersMissing = [];
-	for (const { idPlugin, title } of mangaByPlugin) {
-		const manga = await MangaService.getMangaFromPlugin({ idPlugin, title });
-		if (!manga) continue;
-		const chapters = await MangaService.listChaptersByManga({
-			idPlugin,
-			mangaId: manga.id,
+async function downloadManga({ idManga, volume }) {
+	const manga = await MangasRepository.findMangaById({ idManga });
+	if (!manga) {
+		throw new BadRequestError({
+			message: `Manga ${idManga} not found`,
+			action: 'Check idManga',
 		});
-		for (const chapter of chapters) {
-			if (chaptersInDatabaseFormatted[chapter.volume]) continue;
-			chaptersInDatabaseFormatted[chapter.volume] = chapter;
-			chaptersMissing.push({ ...chapter, idPlugin });
-		}
 	}
-	return chaptersMissing;
-}
-
-async function updateMangaChapters({ title }) {
-	const mangaByPlugin = await listMangasRegistered({ title });
-	const pathFolder = path.resolve('downloads', title);
-	await mkdir(pathFolder, { recursive: true }).catch(() => {});
-	if (!mangaByPlugin.length) return;
-	const chaptersMissing = await listChaptersMissing({ title, mangaByPlugin });
-	for (const chapter of chaptersMissing) {
-		await database
-			.query(
-				sql
-					.insertInto('chapters', {
-						idChapterPlugin: chapter.id,
-						name: chapter.title,
-						volume: chapter.volume,
-						pluginId: chapter.idPlugin,
-						idManga: mangaByPlugin[0].idManga,
-					})
-					.toParams(),
-			)
-			.catch((error) => {
-				if (!error.message.includes('duplicate key')) {
-					throw error;
-				}
-			});
-	}
-	if (chaptersMissing.length) {
-		await enqueueBackgroundTask(
-			'downloadMangasBatch',
-			{ title },
-			`downloadMangasBatch-${title}`,
-		);
-	}
-	return chaptersMissing;
-}
-
-async function deleteMangaChapters({ title, volume }) {
-	const mangaByPlugin = await listMangasRegistered({ title });
-	if (!mangaByPlugin.length) return;
-	for (const manga of mangaByPlugin) {
-		const hasChapter = await database
-			.query(
-				sql
-					.select('1')
-					.from('chapters')
-					.where({ idManga: manga.idManga, volume })
-					.toParams(),
-			)
-			.then((response) => response.rows.length);
-		if (!hasChapter) continue;
-		await database.query(
-			sql
-				.delete()
-				.from('chapters')
-				.where({ idManga: manga.idManga, volume })
-				.toParams(),
-		);
-		const { chapterPath } = Download.getPathMangaAndChapter({
-			title,
-			volume,
-		});
-		await rm(chapterPath);
-	}
-}
-
-async function deleteManga({ title }) {
-	const mangas = await listMangasRegistered({ title });
-	for (const item of mangas) {
-		const { mangaPath } = Download.getPathMangaAndChapter({
-			title,
-		});
-		await database.query(
-			sql.deleteFrom('chapters').where({ idManga: item.idManga }).toParams(),
-		);
-		await database.query(
-			sql
-				.deleteFrom('mangasPlugins')
-				.where({ idManga: item.idManga })
-				.toParams(),
-		);
-		await database.query(
-			sql.deleteFrom('mangas').where({ idManga: item.idManga }).toParams(),
-		);
-		await rm(mangaPath, { recursive: true, force: true });
-		await database.query(sql.insertInto('historyManga', { title }).toParams());
-	}
-}
-
-async function downloadManga({ title, volume }) {
-	return Download.downloadMangaFromDisk({ title, volume });
+	return Download.downloadMangaFromDisk({ title: manga.title, volume });
 }
 
 const MangaAdminService = {
-	registerManga,
+	createManga,
+	linkConnector,
+	setConnectorActive,
+	listConnectors,
 	listMangasRegistered,
-	updateMangas,
-	listPagesAndSend,
-	registerCookie,
-	downloadMangasBatch,
-	updateMangaChapters,
-	registerCredentials,
-	deleteMangaChapters,
 	deleteManga,
+	registerCookie,
+	registerCredentials,
 	listChaptersMissing,
-	downloadManga,
+	updateMangaChapters,
+	updateMangas,
 	updateMangasBatch,
+	listChapters,
+	deleteChapter,
+	listPagesAndSend,
+	downloadMangasBatch,
+	downloadManga,
 };
 
 export default MangaAdminService;
