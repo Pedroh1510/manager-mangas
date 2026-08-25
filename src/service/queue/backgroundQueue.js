@@ -13,8 +13,7 @@ const queue = new Queue(QUEUE_NAME, {
 const operations = {
 	updateAllMangas: () => MangaAdminService.updateMangas({}),
 	updateMangaChapters: (data) => MangaAdminService.updateMangaChapters(data),
-	downloadMangasBatch: (data) =>
-		MangaAdminService.downloadMangasBatch(data.title),
+	downloadMangasBatch: (data) => MangaAdminService.downloadMangasBatch(data),
 	listPagesAndSend: (data) => MangaAdminService.listPagesAndSend(data),
 };
 
