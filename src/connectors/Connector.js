@@ -22,7 +22,7 @@ export default class Connector {
 			return response.json();
 		}
 		throw new Error(
-			`Failed to receive content from "${request.url}" (status: ${response.status}) - ${response.statusText}`,
+			`Failed to receive content from "${request.url}" (status: ${response.status}) - ${response.statusText}`
 		);
 	}
 
@@ -32,7 +32,7 @@ export default class Connector {
 
 	async _getChapters(manga) {
 		throw new Error(
-			`${this.constructor.name} does not implement _getChapters()`,
+			`${this.constructor.name} does not implement _getChapters()`
 		);
 	}
 

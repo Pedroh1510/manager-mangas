@@ -7,7 +7,7 @@ export default class Mangeek extends Connector {
 			id: 'mangeek',
 			label: 'Mangeek',
 			tags: ['manga', 'portuguese'],
-			url: 'http://geekstations.com.br',
+			url: 'http://geekstations.com.br'
 		});
 	}
 
@@ -29,18 +29,25 @@ export default class Mangeek extends Connector {
 		const key = this._keyGen(nonce);
 		const request = new Request(
 			new URL(`/api/v2/pt/home/${nonce}/${key}`, this.url),
-			this.requestOptions,
+			this.requestOptions
 		);
-		const data = await this.fetchJSON(request);
-		return data?.tags ?? [];
+		try {
+			const data = await this.fetchJSON(request);
+			return data?.tags ?? [];
+		} catch (error) {
+			const data = await this.fetchJSON(request);
+			return data?.tags ?? [];
+		}
 	}
 
 	async _getMangas() {
 		this.init();
+		console.log('Fetching all mangas...');
 		const tags = await this._getAllTags();
 		const seen = new Map();
 
 		for (const tag of tags) {
+			console.log(`Fetching mangas for tag: ${tag}`);
 			let ignore = [];
 			let morePages = true;
 			while (morePages) {
@@ -52,11 +59,14 @@ export default class Mangeek extends Connector {
 						{
 							...this.requestOptions,
 							method: 'POST',
-							body: JSON.stringify({ tags: [tag], ignore }),
-						},
+							body: JSON.stringify({ tags: [tag], ignore })
+						}
 					);
 					request.headers.set('content-type', 'application/json');
-					const page = await this.fetchJSON(request);
+					const page = await this.fetchJSON(request).catch((error) => {
+						console.error(`Error fetching mangas for tag ${tag}:`, error);
+						return [];
+					});
 					if (!page?.length) {
 						morePages = false;
 						break;
@@ -64,7 +74,7 @@ export default class Mangeek extends Connector {
 					for (const manga of page) {
 						seen.set(String(manga.id), {
 							id: String(manga.id),
-							title: manga.title,
+							title: manga.title
 						});
 					}
 					ignore = ignore.concat(page.map((manga) => manga.id));
@@ -74,6 +84,7 @@ export default class Mangeek extends Connector {
 						await this.wait(500);
 					}
 				} catch (error) {
+					console.error(`Error fetching mangas for tag ${tag}:`, error);
 					morePages = false;
 				}
 			}
@@ -87,13 +98,13 @@ export default class Mangeek extends Connector {
 		const key = this._keyGen(manga.id);
 		const request = new Request(
 			new URL(`/api/v2/pt/manga/${nonce}/${manga.id}/${key}`, this.url),
-			this.requestOptions,
+			this.requestOptions
 		);
 		const data = await this.fetchJSON(request);
 		return (data.chapters ?? []).map((chapter) => ({
 			id: String(chapter.id),
 			title: chapter.title,
-			language: 'pt',
+			language: 'pt'
 		}));
 	}
 
@@ -103,7 +114,7 @@ export default class Mangeek extends Connector {
 		const key = this._keyGen(chapter.id);
 		const request = new Request(
 			new URL(`/api/v2/pt/chapter/${nonce}/${chapter.id}/${key}`, this.url),
-			this.requestOptions,
+			this.requestOptions
 		);
 		const data = await this.fetchJSON(request);
 		return data?.pages ?? [];
