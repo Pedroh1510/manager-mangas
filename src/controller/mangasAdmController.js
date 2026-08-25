@@ -11,6 +11,25 @@ export default mangasAdmController;
  *   description: MangaAdm
  */
 
+/**
+ * @swagger
+ * /mangas/adm:
+ *   post:
+ *     tags: [MangaAdm]
+ *     description: Register a new canonical manga (no connector link yet)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ */
 mangasAdmController.post(
 	'/',
 	MangasAdmValidator.createManga,
@@ -21,6 +40,21 @@ mangasAdmController.post(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: List registered (non-deleted) mangas
+ *     parameters:
+ *       - name: title
+ *         in: query
+ *         required: false
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Returns a list of mangas
+ */
 mangasAdmController.get(
 	'/',
 	MangasAdmValidator.listMangasRegistered,
@@ -31,6 +65,21 @@ mangasAdmController.get(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/{idManga}:
+ *   delete:
+ *     tags: [MangaAdm]
+ *     description: Soft-delete a manga, deactivate its connector links, delete its chapters, and remove its downloaded files
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 mangasAdmController.delete(
 	'/:idManga',
 	MangasAdmValidator.idMangaParam,
@@ -41,6 +90,34 @@ mangasAdmController.delete(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/{idManga}/connectors:
+ *   post:
+ *     tags: [MangaAdm]
+ *     description: Link a connector to a manga. idMangaPlugin and titlePlugin come from a prior GET /mangas/{idPlugin}?title= search
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idPlugin:
+ *                 type: string
+ *               idMangaPlugin:
+ *                 type: string
+ *               titlePlugin:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ */
 mangasAdmController.post(
 	'/:idManga/connectors',
 	MangasAdmValidator.linkConnector,
@@ -57,6 +134,21 @@ mangasAdmController.post(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/{idManga}/connectors:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: List all connector links for a manga, including isActive and titlePlugin per connector
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: Returns a list of connector links
+ */
 mangasAdmController.get(
 	'/:idManga/connectors',
 	MangasAdmValidator.idMangaParam,
@@ -67,6 +159,34 @@ mangasAdmController.get(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/{idManga}/connectors/{idPlugin}:
+ *   patch:
+ *     tags: [MangaAdm]
+ *     description: Enable or disable a manga's connector link (reversible). Disabling stops batch auto-update, manual update-mangas, and discovery of new chapters for this connector
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *       - name: idPlugin
+ *         in: path
+ *         required: true
+ *         type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Returns the updated connector link
+ */
 mangasAdmController.patch(
 	'/:idManga/connectors/:idPlugin',
 	MangasAdmValidator.setConnectorActive,
@@ -83,6 +203,29 @@ mangasAdmController.patch(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/cookie:
+ *   post:
+ *     tags: [MangaAdm]
+ *     description: Set the cookie (and optionally user agent) used for every manga fetched through a connector
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cookie:
+ *                 type: string
+ *               userAgent:
+ *                 type: string
+ *               idPlugin:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ */
 mangasAdmController.post(
 	'/cookie',
 	MangasAdmValidator.registerCookie,
@@ -97,6 +240,29 @@ mangasAdmController.post(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/credentials:
+ *   post:
+ *     tags: [MangaAdm]
+ *     description: Set the login credentials used for every manga fetched through a connector
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               login:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               idPlugin:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ */
 mangasAdmController.post(
 	'/credentials',
 	MangasAdmValidator.registerCredentials,
@@ -111,12 +277,46 @@ mangasAdmController.post(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/download-batch:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: Enqueue background downloads for every chapter not yet downloaded, optionally scoped to one manga
+ *     parameters:
+ *       - name: idManga
+ *         in: query
+ *         required: false
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: Returns the total number of chapters enqueued
+ */
 mangasAdmController.get('/download-batch', async (req, res) => {
 	const idManga = req.query.idManga ? Number(req.query.idManga) : undefined;
 	const response = await MangaAdminService.downloadMangasBatch({ idManga });
 	res.status(200).send(response);
 });
 
+/**
+ * @swagger
+ * /mangas/adm/{idManga}/download:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: Download a manga's files from disk as a zip, optionally scoped to one volume
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *       - name: volume
+ *         in: query
+ *         required: false
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Returns a zip file
+ */
 mangasAdmController.get(
 	'/:idManga/download',
 	MangasAdmValidator.downloadManga,
@@ -132,6 +332,21 @@ mangasAdmController.get(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/update-mangas/batch:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: Synchronously fetch and enqueue downloads for up to 5 missing chapters per active connector link, optionally scoped to one connector
+ *     parameters:
+ *       - name: idPlugin
+ *         in: query
+ *         required: false
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Returns the number of chapters enqueued per idManga
+ */
 mangasAdmController.get('/update-mangas/batch', async (req, res) => {
 	const response = await MangaAdminService.updateMangasBatch({
 		idPlugin: req.query.idPlugin,
@@ -139,6 +354,21 @@ mangasAdmController.get('/update-mangas/batch', async (req, res) => {
 	res.status(200).send(response);
 });
 
+/**
+ * @swagger
+ * /mangas/adm/update-mangas:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: Enqueue a background chapter-update job for every active connector link, optionally scoped to one connector
+ *     parameters:
+ *       - name: idPlugin
+ *         in: query
+ *         required: false
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Returns the total number of mangas enqueued
+ */
 mangasAdmController.get('/update-mangas', async (req, res) => {
 	const response = await MangaAdminService.updateMangas({
 		idPlugin: req.query.idPlugin,
@@ -146,6 +376,21 @@ mangasAdmController.get('/update-mangas', async (req, res) => {
 	res.status(200).send(response);
 });
 
+/**
+ * @swagger
+ * /mangas/adm/{idManga}/chapters:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: List all known chapters for a manga, across every connector
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: Returns a list of chapters
+ */
 mangasAdmController.get(
 	'/:idManga/chapters',
 	MangasAdmValidator.idMangaParam,
@@ -156,6 +401,25 @@ mangasAdmController.get(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/{idManga}/chapters/{idChapter}:
+ *   delete:
+ *     tags: [MangaAdm]
+ *     description: Delete a chapter row and its downloaded file
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *       - name: idChapter
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 mangasAdmController.delete(
 	'/:idManga/chapters/:idChapter',
 	MangasAdmValidator.chapterParams,
@@ -167,6 +431,25 @@ mangasAdmController.delete(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/{idManga}/chapters/{idChapter}/pages:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: Fetch a known chapter's pages from its connector and enqueue it for download
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *       - name: idChapter
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 mangasAdmController.get(
 	'/:idManga/chapters/:idChapter/pages',
 	MangasAdmValidator.chapterParams,
@@ -177,6 +460,21 @@ mangasAdmController.get(
 	},
 );
 
+/**
+ * @swagger
+ * /mangas/adm/{idManga}/chapters/missing:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: List chapters known to the manga's active connectors but not yet registered in the database
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: Returns a list of missing chapters
+ */
 mangasAdmController.get(
 	'/:idManga/chapters/missing',
 	MangasAdmValidator.idMangaParam,
