@@ -9,6 +9,9 @@ import * as mangaCatalog from '../../../utils/mangaCatalog.js';
 vi.mock('../../../infra/database.js', () => ({
 	default: { query: vi.fn() },
 }));
+vi.mock('../../../service/download.js', () => ({
+	default: { downloadChapter: vi.fn() },
+}));
 
 class FakeConnector extends Connector {
 	constructor() {
@@ -116,6 +119,29 @@ describe('MangaService', () => {
 			expect(result).toEqual([
 				{ id: '7-1', title: 'Capítulo 01', language: 'pt' },
 			]);
+		});
+	});
+
+	describe('downloadMangas', () => {
+		test('looks up cookie/userAgent through mangaConnectors, not a chapters.pluginId column', async () => {
+			database.query
+				.mockResolvedValueOnce({
+					rows: [{ cookie: 'abc', userAgent: 'ua' }],
+				}) // cookie/userAgent lookup
+				.mockResolvedValueOnce({ rows: [] }); // downloadedAt update
+
+			await MangaService.downloadMangas({
+				manga: 'Black Clover',
+				chapter: '1',
+				pages: [],
+				idChapter: 42,
+			});
+
+			const [lookupCall, updateCall] = database.query.mock.calls;
+			expect(lookupCall[0].text).toContain('"mangaConnectors"');
+			expect(lookupCall[0].text).toContain('"pluginConfig"');
+			expect(lookupCall[0].text).not.toContain('"pluginId"');
+			expect(updateCall[0].text).toContain('"downloadedAt"');
 		});
 	});
 

@@ -16,11 +16,18 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 				sql
 					.select('cookie', 'userAgent')
 					.from('chapters')
+					.join('mangaConnectors')
+					.on({
+						'"mangaConnectors"."idMangaConnector"': 'chapters."idMangaConnector"',
+					})
 					.join('pluginConfig')
 					.on({
-						'lower("pluginConfig"."idPlugin")': 'lower(chapters."pluginId")',
+						'lower("pluginConfig"."idPlugin")': 'lower("mangaConnectors"."idPlugin")',
 					})
-					.where({ idChapter, wasDownloaded: false })
+					.where({
+						'"chapters"."idChapter"': idChapter,
+						'"chapters"."downloadedAt"': null,
+					})
 					.toParams(),
 			)
 			.then(({ rows }) => rows);
@@ -41,7 +48,7 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	if (idChapter) {
 		await database.query(
 			sql
-				.update('chapters', { wasDownloaded: true })
+				.update('chapters', { downloadedAt: new Date() })
 				.where({ idChapter })
 				.toParams(),
 		);
@@ -192,19 +199,6 @@ async function listPagesBatch({ pluginId, chapters, title }) {
 }
 
 /**
- *
- * @param {Object} params
- * @param {String} params.idPlugin
- * @param {String} params.title
- * @returns {Promise<{id:String}>}
- */
-async function getMangaFromPlugin({ idPlugin, title }) {
-	const response = await listMangas({ pluginId: idPlugin, title });
-
-	return response?.length !== 0 ? response[0] : {};
-}
-
-/**
  * @typedef {Object} Chapter
  * @prop {String} id
  * @prop {String} title
@@ -228,40 +222,14 @@ async function listChaptersByManga({ idPlugin, mangaId }) {
 	return Object.values(chaptersNotVolumeDuplicated);
 }
 
-/**
- * @returns {Promise<{[title]:{id:String,:title:String,volume:number}[]}>}
- */
-async function listChaptersByTitle({ idPlugin, titleList = [] }) {
-	const instance = await getInstancePlugin(idPlugin);
-	const catalog = await getCatalog(instance);
-	const mangas = catalog.map((manga) => ({
-		...manga,
-		title: manga.title.toLowerCase(),
-	}));
-	const chaptersByTitle = {};
-	for (const title of titleList) {
-		const manga = mangas.find((item) => item.title === title.toLowerCase());
-		if (!manga) continue;
-		const chapters = await enqueueAndWait(instance.id, 'listChapters', {
-			manga,
-		});
-		if (!chapters?.length) continue;
-		chaptersByTitle[title] = formatChapters(chapters);
-		logger.info(`title: ${title} totalChapters: ${chapters.length}`);
-	}
-	return chaptersByTitle;
-}
-
 const MangaService = {
 	downloadMangas,
 	listMangas,
 	listChapters,
 	listPages,
 	listChaptersByManga,
-	getMangaFromPlugin,
 	listPlugins,
 	hasConnector: (id) => registry.hasConnector(id),
-	listChaptersByTitle,
 	listPagesBatch,
 };
 
