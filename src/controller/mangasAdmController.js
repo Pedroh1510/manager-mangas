@@ -1,5 +1,4 @@
-import express, { response } from 'express';
-import MangaService from '../service/manga.js';
+import express from 'express';
 import MangaAdminService from '../service/mangaAdmin.js';
 import MangasAdmValidator from '../validators/mangasAdmValidator.js';
 
@@ -12,157 +11,72 @@ export default mangasAdmController;
  *   description: MangaAdm
  */
 
-/**
- * @swagger
- * /mangas/adm:
- *   post:
- *     tags: [MangaAdm]
- *     description: register manga
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               titlePlugin:
- *                 type: string
- *               idPlugin:
- *                 type: string
- *     responses:
- *       201:
- *         description: Created
- */
+mangasAdmController.post('/', MangasAdmValidator.createManga, async (req, res) => {
+	const { title } = req.body;
+	const response = await MangaAdminService.createManga({ title });
+	res.status(201).send(response);
+});
+
+mangasAdmController.get('/', MangasAdmValidator.listMangasRegistered, async (req, res) => {
+	const { title } = req.query;
+	const response = await MangaAdminService.listMangasRegistered({ title });
+	res.status(200).send(response);
+});
+
+mangasAdmController.delete('/:idManga', MangasAdmValidator.idMangaParam, async (req, res) => {
+	const idManga = Number(req.params.idManga);
+	await MangaAdminService.deleteManga({ idManga });
+	res.status(200).send();
+});
+
 mangasAdmController.post(
-	'/',
-	MangasAdmValidator.registerManga,
+	'/:idManga/connectors',
+	MangasAdmValidator.linkConnector,
 	async (req, res) => {
-		const { title, idPlugin, titlePlugin } = req.body;
-		const response = await MangaAdminService.registerManga({
-			title,
+		const idManga = Number(req.params.idManga);
+		const { idPlugin, idMangaPlugin, titlePlugin } = req.body;
+		const response = await MangaAdminService.linkConnector({
+			idManga,
 			idPlugin,
+			idMangaPlugin,
 			titlePlugin,
 		});
-
 		res.status(201).send(response);
 	},
 );
 
-/**
- * @swagger
- * /mangas/adm:
- *   get:
- *     tags: [MangaAdm]
- *     description: list mangas
- *     parameters:
- *       - name: title
- *         in: query
- *         required: false
- *         type: string
- *     responses:
- *       200:
- *         description: Returns a list mangas
- */
 mangasAdmController.get(
-	'/',
-	MangasAdmValidator.listMangasRegistered,
+	'/:idManga/connectors',
+	MangasAdmValidator.idMangaParam,
 	async (req, res) => {
-		const { title } = req.query;
-		const response = await MangaAdminService.listMangasRegistered({ title });
-
+		const idManga = Number(req.params.idManga);
+		const response = await MangaAdminService.listConnectors({ idManga });
 		res.status(200).send(response);
 	},
 );
 
-/**
- * @swagger
- * /mangas/adm:
- *   delete:
- *     tags: [MangaAdm]
- *     description: Delete manga
- *     parameters:
- *       - name: title
- *         in: query
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description:
- */
-mangasAdmController.delete(
-	'/',
-	MangasAdmValidator.listMangasRegistered,
+mangasAdmController.patch(
+	'/:idManga/connectors/:idPlugin',
+	MangasAdmValidator.setConnectorActive,
 	async (req, res) => {
-		const { title } = req.query;
-		await MangaAdminService.deleteManga({ title });
-
-		res.status(200).send();
-	},
-);
-
-/**
- * @swagger
- * /mangas/adm/cookie:
- *   post:
- *     tags: [MangaAdm]
- *     description: list mangas
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               cookie:
- *                 type: string
- *               userAgent:
- *                 type: string
- *               idPlugin:
- *                 type: string
- *     responses:
- *       201:
- *         description: Created
- */
-mangasAdmController.post(
-	'/cookie',
-	MangasAdmValidator.registerCookie,
-	async (req, res) => {
-		const { cookie, idPlugin, userAgent } = req.body;
-		const response = await MangaAdminService.registerCookie({
-			cookie,
+		const idManga = Number(req.params.idManga);
+		const { idPlugin } = req.params;
+		const { isActive } = req.body;
+		const response = await MangaAdminService.setConnectorActive({
+			idManga,
 			idPlugin,
-			userAgent,
+			isActive,
 		});
-
-		res.status(201).send(response);
+		res.status(200).send(response);
 	},
 );
 
-/**
- * @swagger
- * /mangas/adm/credentials:
- *   post:
- *     tags: [MangaAdm]
- *     description: list mangas
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               login:
- *                 type: string
- *               password:
- *                 type: string
- *               idPlugin:
- *                 type: string
- *     responses:
- *       201:
- *         description: Created
- */
+mangasAdmController.post('/cookie', MangasAdmValidator.registerCookie, async (req, res) => {
+	const { cookie, idPlugin, userAgent } = req.body;
+	const response = await MangaAdminService.registerCookie({ cookie, idPlugin, userAgent });
+	res.status(201).send(response);
+});
+
 mangasAdmController.post(
 	'/credentials',
 	MangasAdmValidator.registerCredentials,
@@ -173,230 +87,78 @@ mangasAdmController.post(
 			password,
 			idPlugin,
 		});
-
 		res.status(201).send(response);
 	},
 );
 
-/**
- * @swagger
- * /mangas/adm/download-batch:
- *   get:
- *     tags: [MangaAdm]
- *     description: Start downloads
- *     responses:
- *       200:
- *         description: OK
- */
 mangasAdmController.get('/download-batch', async (req, res) => {
-	const response = await MangaAdminService.downloadMangasBatch(req.query.title);
-
+	const idManga = req.query.idManga ? Number(req.query.idManga) : undefined;
+	const response = await MangaAdminService.downloadMangasBatch({ idManga });
 	res.status(200).send(response);
 });
 
-/**
- * @swagger
- * /mangas/adm/download:
- *   get:
- *     tags: [MangaAdm]
- *     description: download
- *     responses:
- *       200:
- *         description: OK
- */
-mangasAdmController.get('/download', async (req, res) => {
-	const response = await MangaAdminService.downloadManga({
-		title: req.query.title,
-		volume: req.query.volume,
-	});
-
-	// res.status(200).attachment(`${Date.UTC()}.zip`).
-	res.writeHead(200, {
-		'Content-Type': 'application/zip',
-		'Content-disposition': `attachment; filename=${Date.UTC()}.zip`,
-	});
-	response.pipe(res);
-});
-
-/**
- * @swagger
- * /mangas/adm/update-mangas/batch:
- *   get:
- *     tags: [MangaAdm]
- *     description: Start update mandas
- *     parameters:
- *       - name: idPlugin
- *         in: query
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description: OK
- */
-mangasAdmController.get('/update-mangas/batch', async (req, res) => {
-	const response = await MangaAdminService.updateMangasBatch(req.query);
-
-	res.status(200).send(response);
-});
-
-/**
- * @swagger
- * /mangas/adm/update-mangas:
- *   get:
- *     tags: [MangaAdm]
- *     description: Start update mandas
- *     parameters:
- *       - name: idPlugin
- *         in: query
- *         required: false
- *         type: string
- *     responses:
- *       200:
- *         description: OK
- */
-mangasAdmController.get('/update-mangas', async (req, res) => {
-	const response = await MangaAdminService.updateMangas(req.query);
-
-	res.status(200).send(response);
-});
-
-/**
- * @swagger
- * /mangas/adm/chapters:
- *   get:
- *     tags: [MangaAdm]
- *     description: list pages mangas and send to queue download
- *     parameters:
- *       - name: title
- *         in: query
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description: Returns a list pages
- */
 mangasAdmController.get(
-	'/chapters',
-	MangasAdmValidator.updateMangaChapters,
+	'/:idManga/download',
+	MangasAdmValidator.downloadManga,
 	async (req, res) => {
-		const { title } = req.query;
-		const response = await MangaAdminService.updateMangaChapters({
-			title: Array.isArray(title) ? title[0] : title,
+		const idManga = Number(req.params.idManga);
+		const { volume } = req.query;
+		const response = await MangaAdminService.downloadManga({ idManga, volume });
+		res.writeHead(200, {
+			'Content-Type': 'application/zip',
+			'Content-disposition': `attachment; filename=${Date.UTC()}.zip`,
 		});
+		response.pipe(res);
+	},
+);
 
+mangasAdmController.get('/update-mangas/batch', async (req, res) => {
+	const response = await MangaAdminService.updateMangasBatch({ idPlugin: req.query.idPlugin });
+	res.status(200).send(response);
+});
+
+mangasAdmController.get('/update-mangas', async (req, res) => {
+	const response = await MangaAdminService.updateMangas({ idPlugin: req.query.idPlugin });
+	res.status(200).send(response);
+});
+
+mangasAdmController.get(
+	'/:idManga/chapters',
+	MangasAdmValidator.idMangaParam,
+	async (req, res) => {
+		const idManga = Number(req.params.idManga);
+		const response = await MangaAdminService.listChapters({ idManga });
 		res.status(200).send(response);
 	},
 );
 
-/**
- * @swagger
- * /mangas/adm/chapters:
- *   delete:
- *     tags: [MangaAdm]
- *     description: list delete chapter
- *     parameters:
- *       - name: title
- *         in: query
- *         required: true
- *         type: string
- *       - name: volume
- *         in: query
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description:
- */
 mangasAdmController.delete(
-	'/chapters',
-	MangasAdmValidator.deleteMangaChapters,
+	'/:idManga/chapters/:idChapter',
+	MangasAdmValidator.chapterParams,
 	async (req, res) => {
-		const { title, volume } = req.query;
-		await MangaAdminService.deleteMangaChapters({
-			title,
-			volume,
-		});
-
+		const idManga = Number(req.params.idManga);
+		const idChapter = Number(req.params.idChapter);
+		await MangaAdminService.deleteChapter({ idManga, idChapter });
 		res.status(200).send();
 	},
 );
 
-/**
- * @swagger
- * /mangas/adm/chapters/pages:
- *   get:
- *     tags: [MangaAdm]
- *     description: list pages mandas and send to queue download
- *     parameters:
- *       - name: idChapterPlugin
- *         in: query
- *         required: true
- *         type: string
- *       - name: pluginId
- *         in: query
- *         required: true
- *         type: string
- *       - name: title
- *         in: query
- *         required: true
- *         type: string
- *       - name: volume
- *         in: query
- *         required: true
- *         type: string
- *       - name: idChapter
- *         in: query
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description: Returns a list pages
- */
 mangasAdmController.get(
-	'/chapters/pages',
-	MangasAdmValidator.listPagesAndSend,
+	'/:idManga/chapters/:idChapter/pages',
+	MangasAdmValidator.chapterParams,
 	async (req, res) => {
-		const { idChapterPlugin, pluginId, title, volume, idChapter } = req.query;
-		const response = await MangaAdminService.listPagesAndSend({
-			idChapterPlugin,
-			pluginId,
-			title,
-			volume,
-			idChapter,
-		});
-
+		const idChapter = Number(req.params.idChapter);
+		const response = await MangaAdminService.listPagesAndSend({ idChapter });
 		res.status(200).send(response);
 	},
 );
 
-/**
- * @swagger
- * /mangas/adm/chapters/missing:
- *   get:
- *     tags: [MangaAdm]
- *     description: list pages mandas and send to queue download
- *     parameters:
- *       - name: pluginId
- *         in: query
- *         required: true
- *         type: string
- *       - name: title
- *         in: query
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description: Returns a list pages
- */
-mangasAdmController.get('/chapters/missing', async (req, res) => {
-	const { title, pluginId } = req.query;
-	const manga = await MangaService.getMangaFromPlugin({
-		idPlugin: pluginId,
-		title,
-	});
-	const response = await MangaAdminService.listChaptersMissing({
-		mangaByPlugin: [{ title, idPlugin: pluginId, idManga: manga.id }],
-	});
-
-	res.status(200).send(response);
-});
+mangasAdmController.get(
+	'/:idManga/chapters/missing',
+	MangasAdmValidator.idMangaParam,
+	async (req, res) => {
+		const idManga = Number(req.params.idManga);
+		const response = await MangaAdminService.listChaptersMissing({ idManga });
+		res.status(200).send(response);
+	},
+);

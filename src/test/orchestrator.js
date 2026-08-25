@@ -47,7 +47,7 @@ async function seedDatabase() {
 	await MangaAdminService.linkConnector({
 		idManga: algo.idManga,
 		idPlugin: 'test-fixture',
-		idMangaPlugin: '1',
+		idMangaPlugin: '2',
 		titlePlugin: 'algo',
 	});
 

@@ -6,12 +6,11 @@ beforeAll(async () => {
 	await orchestrator.waitForAllServices();
 	await orchestrator.clearDatabase();
 	await orchestrator.runMigrations();
-	await orchestrator.seedDatabase();
 });
 
 describe('POST /mangas/adm/cookie', () => {
 	describe('OK', () => {
-		test('Set  cookie', async () => {
+		test('Set cookie', async () => {
 			const response = await api.post('/mangas/adm/cookie', {
 				cookie: 'algo',
 				idPlugin: 'test-fixture',
@@ -19,7 +18,7 @@ describe('POST /mangas/adm/cookie', () => {
 
 			expect(response.status).toEqual(201);
 		});
-		test('Set  cookie and agent', async () => {
+		test('Set cookie and agent', async () => {
 			const response = await api.post('/mangas/adm/cookie', {
 				cookie: 'algo',
 				userAgent: 'test',
@@ -32,17 +31,13 @@ describe('POST /mangas/adm/cookie', () => {
 	describe('error', () => {
 		test('missing', async () => {
 			const response = await api
-				.post('/mangas/adm/cookie', {
-					title: 'Black Clover',
-					idPlugin: 'invalid-plugin',
-				})
+				.post('/mangas/adm/cookie', { idPlugin: 'invalid-plugin' })
 				.catch((error) => ({
 					status: error.status,
 					data: error.response?.data,
 				}));
 
 			expect(response.status).toEqual(400);
-
 			expect(response.data).toEqual({
 				name: 'ValidationError',
 				message: '"body.cookie" is required',

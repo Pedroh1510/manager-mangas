@@ -13,9 +13,6 @@ describe('GET /mangas/adm/update-mangas', () => {
 	test('OK', async () => {
 		const response = await api.get('/mangas/adm/update-mangas');
 		expect(response.status).toBe(200);
-
-		expect(response.data).toStrictEqual({
-			totalUpdated: 2,
-		});
+		expect(response.data).toStrictEqual({ totalUpdated: 2 });
 	});
 });

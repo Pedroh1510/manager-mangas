@@ -2,28 +2,22 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import api from '../../../../../infra/api.js';
 import orchestrator from '../../../../orchestrator.js';
 
+let blackClover;
+
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
 	await orchestrator.clearDatabase();
 	await orchestrator.runMigrations();
-	await orchestrator.seedDatabase();
+	({ blackClover } = await orchestrator.seedDatabase());
 });
 
-describe('GET /mangas/adm/chapters', () => {
-	test('Should return status code 200.', async () => {
-		const title = 'Black Clover';
-		const response = await api.get(
-			`${orchestrator.webServiceAddress}/mangas/adm/chapters`,
-			{
-				params: {
-					title,
-				},
-			},
-		);
+describe('GET /mangas/adm/:idManga/chapters', () => {
+	test('Should return status code 200 with the seeded chapters.', async () => {
+		const response = await api.get(`/mangas/adm/${blackClover.idManga}/chapters`);
 		expect(response.status).toBe(200);
-		// TestFixtureConnector's catalog only exposes 2 chapters (ch-376,
-		// ch-375) for this manga — deterministic, unlike the old real-site
-		// scrape this test used to depend on.
-		expect(response.data.length).toBe(2);
+		expect(response.data).toHaveLength(3);
+		expect(
+			response.data.map((chapter) => Number(chapter.volume)).sort((a, b) => a - b),
+		).toEqual([374, 375, 376]);
 	});
 });

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import api from '../../../../infra/api.js';
-import MangaAdminService from '../../../../service/mangaAdmin.js';
 import orchestrator from '../../../orchestrator.js';
+import AdmUtils from './utils.js';
 
 beforeAll(async () => {
 	await orchestrator.waitForAllServices();
@@ -9,56 +9,21 @@ beforeAll(async () => {
 	await orchestrator.runMigrations();
 });
 
+const admUtils = new AdmUtils();
+
 describe('POST /mangas/adm', () => {
 	test('OK', async () => {
-		const response = await api
-			.post('/mangas/adm', {
-				title: 'teste',
-				idPlugin: 'test-fixture',
-			})
-			.catch((error) => ({
-				status: error.status,
-				data: error.response?.data,
-			}));
+		const response = await admUtils.createManga({ title: 'teste' });
 
 		expect(response.status).toEqual(201);
-		expect(response.data).toEqual({
-			idManga: 1,
-			idPlugin: 'test-fixture',
-		});
+		expect(response.data).toEqual({ idManga: expect.any(Number) });
 	});
+
 	describe('Error', () => {
-		test('idPlugin invalid', async () => {
-			const response = await api
-				.post('/mangas/adm', {
-					title: 'teste',
-					idPlugin: 'algo',
-				})
-				.catch((error) => ({
-					status: error.status,
-					data: error.response?.data,
-				}));
-			expect(response.status).toEqual(400);
-			expect(response.data).toEqual({
-				action: 'Change plugin id',
-				message: 'Plugin with id algo not found',
-				name: 'ValidationError',
-				statusCode: 400,
-			});
-		});
-		test('duplicated', async () => {
-			const consulta = () =>
-				api
-					.post('/mangas/adm', {
-						title: 'duplicado',
-						idPlugin: 'test-fixture',
-					})
-					.catch((error) => ({
-						status: error.status,
-						data: error.response?.data,
-					}));
-			await consulta();
-			const response = await consulta();
+		test('duplicated title', async () => {
+			await admUtils.createManga({ title: 'duplicado' });
+			const response = await admUtils.createManga({ title: 'duplicado' });
+
 			expect(response.status).toEqual(400);
 			expect(response.data).toEqual({
 				action: 'Try another title or idPlugin',
@@ -68,22 +33,12 @@ describe('POST /mangas/adm', () => {
 			});
 		});
 
-		test('ja foi deletado', async () => {
-			const consulta = () =>
-				api
-					.post('/mangas/adm', {
-						title: 'Black Clover',
-						idPlugin: 'test-fixture',
-					})
-					.catch((error) => ({
-						status: error.status,
-						data: error.response?.data,
-					}));
-			await consulta();
-			await MangaAdminService.deleteManga({
-				title: 'Black Clover',
-			});
-			const response = await consulta();
+		test('title of a soft-deleted manga', async () => {
+			const { data: manga } = await admUtils.createManga({ title: 'Black Clover' });
+			await api.delete(`/mangas/adm/${manga.idManga}`);
+
+			const response = await admUtils.createManga({ title: 'Black Clover' });
+
 			expect(response.status).toEqual(400);
 			expect(response.data).toEqual({
 				action: 'Try another title',
@@ -91,6 +46,58 @@ describe('POST /mangas/adm', () => {
 				name: 'BadRequestError',
 				statusCode: 400,
 			});
+		});
+	});
+});
+
+describe('POST /mangas/adm/:idManga/connectors', () => {
+	test('OK', async () => {
+		const { data: manga } = await admUtils.createManga({ title: 'One Piece' });
+
+		const response = await admUtils.linkConnector({
+			idManga: manga.idManga,
+			idPlugin: 'test-fixture',
+			idMangaPlugin: '1',
+			titlePlugin: 'One Piece',
+		});
+
+		expect(response.status).toEqual(201);
+		expect(response.data).toEqual({
+			idMangaConnector: expect.any(Number),
+			idManga: manga.idManga,
+			idPlugin: 'test-fixture',
+		});
+	});
+
+	test('idPlugin invalid', async () => {
+		const { data: manga } = await admUtils.createManga({ title: 'invalid plugin case' });
+
+		const response = await admUtils.linkConnector({
+			idManga: manga.idManga,
+			idPlugin: 'algo',
+		});
+
+		expect(response.status).toEqual(400);
+		expect(response.data).toEqual({
+			action: 'Change plugin id',
+			message: 'Plugin with id algo not found',
+			name: 'ValidationError',
+			statusCode: 400,
+		});
+	});
+
+	test('duplicated link', async () => {
+		const { data: manga } = await admUtils.createManga({ title: 'dup link' });
+		await admUtils.linkConnector({ idManga: manga.idManga });
+
+		const response = await admUtils.linkConnector({ idManga: manga.idManga });
+
+		expect(response.status).toEqual(400);
+		expect(response.data).toEqual({
+			action: 'Try another idManga or idPlugin',
+			message: 'This manga is already linked to this connector',
+			name: 'BadRequestError',
+			statusCode: 400,
 		});
 	});
 });
