@@ -34,7 +34,9 @@ describe('POST /mangas/adm', () => {
 		});
 
 		test('title of a soft-deleted manga', async () => {
-			const { data: manga } = await admUtils.createManga({ title: 'Black Clover' });
+			const { data: manga } = await admUtils.createManga({
+				title: 'Black Clover',
+			});
 			await api.delete(`/mangas/adm/${manga.idManga}`);
 
 			const response = await admUtils.createManga({ title: 'Black Clover' });
@@ -70,7 +72,9 @@ describe('POST /mangas/adm/:idManga/connectors', () => {
 	});
 
 	test('idPlugin invalid', async () => {
-		const { data: manga } = await admUtils.createManga({ title: 'invalid plugin case' });
+		const { data: manga } = await admUtils.createManga({
+			title: 'invalid plugin case',
+		});
 
 		const response = await admUtils.linkConnector({
 			idManga: manga.idManga,

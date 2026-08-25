@@ -13,7 +13,9 @@ const admUtils = new AdmUtils();
 
 describe('GET /mangas/adm/:idManga/chapters/missing', () => {
 	test('returns chapters known to the connector but not yet in the database', async () => {
-		const { data: manga } = await admUtils.createManga({ title: 'Black Clover' });
+		const { data: manga } = await admUtils.createManga({
+			title: 'Black Clover',
+		});
 		await admUtils.linkConnector({
 			idManga: manga.idManga,
 			idPlugin: 'test-fixture',
@@ -21,11 +23,15 @@ describe('GET /mangas/adm/:idManga/chapters/missing', () => {
 			titlePlugin: 'Black Clover',
 		});
 
-		const response = await api.get(`/mangas/adm/${manga.idManga}/chapters/missing`);
+		const response = await api.get(
+			`/mangas/adm/${manga.idManga}/chapters/missing`,
+		);
 
 		expect(response.status).toBe(200);
 		expect(response.data).toHaveLength(2);
-		expect(response.data.map((chapter) => chapter.volume).sort()).toEqual([375, 376]);
+		expect(response.data.map((chapter) => chapter.volume).sort()).toEqual([
+			375, 376,
+		]);
 	});
 
 	test('ignores inactive connector links', async () => {
@@ -40,7 +46,9 @@ describe('GET /mangas/adm/:idManga/chapters/missing', () => {
 			isActive: false,
 		});
 
-		const response = await api.get(`/mangas/adm/${manga.idManga}/chapters/missing`);
+		const response = await api.get(
+			`/mangas/adm/${manga.idManga}/chapters/missing`,
+		);
 
 		expect(response.status).toBe(200);
 		expect(response.data).toEqual([]);

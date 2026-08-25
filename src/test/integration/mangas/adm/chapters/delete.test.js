@@ -14,8 +14,12 @@ beforeAll(async () => {
 
 describe('DELETE /mangas/adm/:idManga/chapters/:idChapter', () => {
 	test('OK', async () => {
-		const { data: chapters } = await api.get(`/mangas/adm/${blackClover.idManga}/chapters`);
-		const chapter376 = chapters.find((chapter) => Number(chapter.volume) === 376);
+		const { data: chapters } = await api.get(
+			`/mangas/adm/${blackClover.idManga}/chapters`,
+		);
+		const chapter376 = chapters.find(
+			(chapter) => Number(chapter.volume) === 376,
+		);
 
 		const response = await api.delete(
 			`/mangas/adm/${blackClover.idManga}/chapters/${chapter376.idChapter}`,

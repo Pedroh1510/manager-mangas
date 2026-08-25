@@ -12,20 +12,29 @@ import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
 import { enqueueDownload } from './queue/downloadQueue.js';
 
 async function createManga({ title }) {
-	const existing = await MangasRepository.findMangaByTitleIncludingDeleted({ title });
+	const existing = await MangasRepository.findMangaByTitleIncludingDeleted({
+		title,
+	});
 	if (existing) {
 		throw new BadRequestError({
 			message: existing.deletedAt
 				? 'This manga already exists in the database history'
 				: 'This manga already exists in the database',
-			action: existing.deletedAt ? 'Try another title' : 'Try another title or idPlugin',
+			action: existing.deletedAt
+				? 'Try another title'
+				: 'Try another title or idPlugin',
 		});
 	}
 	const { idManga } = await MangasRepository.createManga({ title });
 	return { idManga };
 }
 
-async function linkConnector({ idManga, idPlugin, idMangaPlugin, titlePlugin }) {
+async function linkConnector({
+	idManga,
+	idPlugin,
+	idMangaPlugin,
+	titlePlugin,
+}) {
 	if (!MangaService.hasConnector(idPlugin)) {
 		throw new ValidationError({
 			message: `Plugin with id ${idPlugin} not found`,
@@ -164,8 +173,12 @@ async function listChaptersMissing({ idManga }) {
 	).filter((connector) => connector.isActive);
 	if (!connectors.length) return [];
 
-	const knownChapters = await ChaptersRepository.listChaptersByManga({ idManga });
-	const knownVolumes = new Set(knownChapters.map((chapter) => `${chapter.volume}`));
+	const knownChapters = await ChaptersRepository.listChaptersByManga({
+		idManga,
+	});
+	const knownVolumes = new Set(
+		knownChapters.map((chapter) => `${chapter.volume}`),
+	);
 
 	const chaptersMissing = [];
 	for (const connector of connectors) {
@@ -176,7 +189,10 @@ async function listChaptersMissing({ idManga }) {
 		for (const chapter of chapters) {
 			if (knownVolumes.has(`${chapter.volume}`)) continue;
 			knownVolumes.add(`${chapter.volume}`);
-			chaptersMissing.push({ ...chapter, idMangaConnector: connector.idMangaConnector });
+			chaptersMissing.push({
+				...chapter,
+				idMangaConnector: connector.idMangaConnector,
+			});
 		}
 	}
 	return chaptersMissing;
@@ -209,7 +225,9 @@ async function updateMangaChapters({ idManga }) {
 }
 
 async function updateMangas({ idPlugin }) {
-	const connectors = await MangaConnectorsRepository.listActiveConnectors({ idPlugin });
+	const connectors = await MangaConnectorsRepository.listActiveConnectors({
+		idPlugin,
+	});
 	let counterMangasUpdated = 0;
 	for (const connector of connectors) {
 		await enqueueBackgroundTask(
@@ -223,20 +241,26 @@ async function updateMangas({ idPlugin }) {
 }
 
 async function updateMangasBatch({ idPlugin }) {
-	const connectors = await MangaConnectorsRepository.listActiveConnectors({ idPlugin });
+	const connectors = await MangaConnectorsRepository.listActiveConnectors({
+		idPlugin,
+	});
 	const totalUpdated = {};
 	for (const connector of connectors) {
 		totalUpdated[connector.idManga] = 0;
 		const knownChapters = await ChaptersRepository.listChaptersByManga({
 			idManga: connector.idManga,
 		});
-		const knownVolumes = new Set(knownChapters.map((chapter) => `${chapter.volume}`));
+		const knownVolumes = new Set(
+			knownChapters.map((chapter) => `${chapter.volume}`),
+		);
 
 		const chapters = await MangaService.listChaptersByManga({
 			idPlugin: connector.idPlugin,
 			mangaId: connector.idMangaPlugin,
 		});
-		const missing = chapters.filter((chapter) => !knownVolumes.has(`${chapter.volume}`));
+		const missing = chapters.filter(
+			(chapter) => !knownVolumes.has(`${chapter.volume}`),
+		);
 		if (!missing.length) continue;
 
 		const chaptersWithPages = await MangaService.listPagesBatch({
@@ -309,7 +333,9 @@ async function listPagesAndSend({ idChapter }) {
 }
 
 async function downloadMangasBatch({ idManga } = {}) {
-	const chaptersMissingDownload = await ChaptersRepository.listMissingDownloads({ idManga });
+	const chaptersMissingDownload = await ChaptersRepository.listMissingDownloads(
+		{ idManga },
+	);
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };
 	let counterDownload = 0;
 	for (const chapter of chaptersMissingDownload) {

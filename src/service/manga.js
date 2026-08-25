@@ -18,11 +18,13 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 					.from('chapters')
 					.join('mangaConnectors')
 					.on({
-						'"mangaConnectors"."idMangaConnector"': 'chapters."idMangaConnector"',
+						'"mangaConnectors"."idMangaConnector"':
+							'chapters."idMangaConnector"',
 					})
 					.join('pluginConfig')
 					.on({
-						'lower("pluginConfig"."idPlugin")': 'lower("mangaConnectors"."idPlugin")',
+						'lower("pluginConfig"."idPlugin")':
+							'lower("mangaConnectors"."idPlugin")',
 					})
 					.where({
 						'"chapters"."idChapter"': idChapter,

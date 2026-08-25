@@ -36,7 +36,9 @@ async function runMigrations() {
 async function seedDatabase() {
 	registerForTests('test-fixture', TestFixtureConnector);
 
-	const blackClover = await MangaAdminService.createManga({ title: 'Black Clover' });
+	const blackClover = await MangaAdminService.createManga({
+		title: 'Black Clover',
+	});
 	await MangaAdminService.linkConnector({
 		idManga: blackClover.idManga,
 		idPlugin: 'test-fixture',

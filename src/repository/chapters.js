@@ -1,7 +1,13 @@
 import sql from 'sql-bricks-postgres';
 import database from '../infra/database.js';
 
-async function insertChapter({ idManga, idMangaConnector, idChapterPlugin, name, volume }) {
+async function insertChapter({
+	idManga,
+	idMangaConnector,
+	idChapterPlugin,
+	name,
+	volume,
+}) {
 	const result = await database
 		.query(
 			sql
@@ -57,7 +63,9 @@ async function findChapterById({ idChapter }) {
 			)
 			.from('chapters')
 			.join('mangaConnectors')
-			.on({ '"mangaConnectors"."idMangaConnector"': '"chapters"."idMangaConnector"' })
+			.on({
+				'"mangaConnectors"."idMangaConnector"': '"chapters"."idMangaConnector"',
+			})
 			.join('mangas')
 			.on({ '"mangas"."idManga"': '"chapters"."idManga"' })
 			.where({ '"chapters"."idChapter"': idChapter })
@@ -67,16 +75,23 @@ async function findChapterById({ idChapter }) {
 }
 
 async function deleteChapter({ idChapter }) {
-	await database.query(sql.deleteFrom('chapters').where({ idChapter }).toParams());
+	await database.query(
+		sql.deleteFrom('chapters').where({ idChapter }).toParams(),
+	);
 }
 
 async function deleteChaptersByManga({ idManga }) {
-	await database.query(sql.deleteFrom('chapters').where({ idManga }).toParams());
+	await database.query(
+		sql.deleteFrom('chapters').where({ idManga }).toParams(),
+	);
 }
 
 async function markDownloaded({ idChapter }) {
 	await database.query(
-		sql.update('chapters', { downloadedAt: new Date() }).where({ idChapter }).toParams(),
+		sql
+			.update('chapters', { downloadedAt: new Date() })
+			.where({ idChapter })
+			.toParams(),
 	);
 }
 
@@ -96,7 +111,9 @@ async function listMissingDownloads({ idManga } = {}) {
 			)
 			.from('chapters')
 			.join('mangaConnectors')
-			.on({ '"mangaConnectors"."idMangaConnector"': '"chapters"."idMangaConnector"' })
+			.on({
+				'"mangaConnectors"."idMangaConnector"': '"chapters"."idMangaConnector"',
+			})
 			.join('mangas')
 			.on({ '"mangas"."idManga"': '"chapters"."idManga"' })
 			.where(where)

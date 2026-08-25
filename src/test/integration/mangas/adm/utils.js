@@ -2,10 +2,12 @@ import api from '../../../../infra/api.js';
 
 export default class AdmUtils {
 	async createManga({ title }) {
-		return api.post('/mangas/adm', { title: title ?? 'teste' }).catch((error) => ({
-			status: error.status,
-			data: error.response?.data,
-		}));
+		return api
+			.post('/mangas/adm', { title: title ?? 'teste' })
+			.catch((error) => ({
+				status: error.status,
+				data: error.response?.data,
+			}));
 	}
 
 	async linkConnector({ idManga, idPlugin, idMangaPlugin, titlePlugin }) {

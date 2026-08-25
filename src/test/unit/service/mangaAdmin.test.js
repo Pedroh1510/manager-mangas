@@ -42,7 +42,9 @@ describe('MangaAdminService', () => {
 				.mockResolvedValueOnce({ rows: [] }) // findMangaByTitleIncludingDeleted
 				.mockResolvedValueOnce({ rows: [{ idManga: 42 }] }); // insert
 
-			const result = await MangaAdminService.createManga({ title: 'Black Clover' });
+			const result = await MangaAdminService.createManga({
+				title: 'Black Clover',
+			});
 
 			expect(result).toEqual({ idManga: 42 });
 		});
@@ -50,7 +52,9 @@ describe('MangaAdminService', () => {
 
 	describe('linkConnector', () => {
 		test('throws a ValidationError when the connector is not registered', async () => {
-			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(false);
+			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(
+				false,
+			);
 
 			await expect(
 				MangaAdminService.linkConnector({
@@ -63,7 +67,9 @@ describe('MangaAdminService', () => {
 		});
 
 		test('inserts the link when everything is valid', async () => {
-			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(true);
+			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(
+				true,
+			);
 			database.query.mockResolvedValueOnce({ rows: [{ idMangaConnector: 7 }] });
 
 			const result = await MangaAdminService.linkConnector({
@@ -73,7 +79,11 @@ describe('MangaAdminService', () => {
 				titlePlugin: 'Black Clover',
 			});
 
-			expect(result).toEqual({ idMangaConnector: 7, idManga: 1, idPlugin: 'fake' });
+			expect(result).toEqual({
+				idMangaConnector: 7,
+				idManga: 1,
+				idPlugin: 'fake',
+			});
 		});
 	});
 
@@ -107,7 +117,9 @@ describe('MangaAdminService', () => {
 
 	describe('registerCookie', () => {
 		test('throws a ValidationError when the connector is not registered', async () => {
-			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(false);
+			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(
+				false,
+			);
 
 			await expect(
 				MangaAdminService.registerCookie({
@@ -118,7 +130,9 @@ describe('MangaAdminService', () => {
 		});
 
 		test('inserts a new pluginConfig row when none exists yet', async () => {
-			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(true);
+			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(
+				true,
+			);
 			database.query
 				.mockResolvedValueOnce({ rows: [] }) // existing cookie lookup: none
 				.mockResolvedValueOnce({ rows: [] }); // insert

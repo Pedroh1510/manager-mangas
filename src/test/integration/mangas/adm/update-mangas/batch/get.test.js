@@ -15,8 +15,14 @@ const admUtils = new AdmUtils();
 describe(`GET ${url}`, () => {
 	test('OK', async () => {
 		const idPlugin = 'test-fixture';
-		const { data: manga } = await admUtils.createManga({ title: 'Black Clover' });
-		await admUtils.linkConnector({ idManga: manga.idManga, idPlugin, idMangaPlugin: '1' });
+		const { data: manga } = await admUtils.createManga({
+			title: 'Black Clover',
+		});
+		await admUtils.linkConnector({
+			idManga: manga.idManga,
+			idPlugin,
+			idMangaPlugin: '1',
+		});
 
 		const response = await api.get(url, { params: { idPlugin } });
 		expect(response.status).toBe(200);

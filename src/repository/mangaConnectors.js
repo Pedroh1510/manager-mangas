@@ -1,7 +1,12 @@
 import sql from 'sql-bricks-postgres';
 import database from '../infra/database.js';
 
-async function linkConnector({ idManga, idPlugin, idMangaPlugin, titlePlugin }) {
+async function linkConnector({
+	idManga,
+	idPlugin,
+	idMangaPlugin,
+	titlePlugin,
+}) {
 	const { rows } = await database.query(
 		sql
 			.insertInto('mangaConnectors', {

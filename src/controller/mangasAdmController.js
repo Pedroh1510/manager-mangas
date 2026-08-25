@@ -11,23 +11,35 @@ export default mangasAdmController;
  *   description: MangaAdm
  */
 
-mangasAdmController.post('/', MangasAdmValidator.createManga, async (req, res) => {
-	const { title } = req.body;
-	const response = await MangaAdminService.createManga({ title });
-	res.status(201).send(response);
-});
+mangasAdmController.post(
+	'/',
+	MangasAdmValidator.createManga,
+	async (req, res) => {
+		const { title } = req.body;
+		const response = await MangaAdminService.createManga({ title });
+		res.status(201).send(response);
+	},
+);
 
-mangasAdmController.get('/', MangasAdmValidator.listMangasRegistered, async (req, res) => {
-	const { title } = req.query;
-	const response = await MangaAdminService.listMangasRegistered({ title });
-	res.status(200).send(response);
-});
+mangasAdmController.get(
+	'/',
+	MangasAdmValidator.listMangasRegistered,
+	async (req, res) => {
+		const { title } = req.query;
+		const response = await MangaAdminService.listMangasRegistered({ title });
+		res.status(200).send(response);
+	},
+);
 
-mangasAdmController.delete('/:idManga', MangasAdmValidator.idMangaParam, async (req, res) => {
-	const idManga = Number(req.params.idManga);
-	await MangaAdminService.deleteManga({ idManga });
-	res.status(200).send();
-});
+mangasAdmController.delete(
+	'/:idManga',
+	MangasAdmValidator.idMangaParam,
+	async (req, res) => {
+		const idManga = Number(req.params.idManga);
+		await MangaAdminService.deleteManga({ idManga });
+		res.status(200).send();
+	},
+);
 
 mangasAdmController.post(
 	'/:idManga/connectors',
@@ -71,11 +83,19 @@ mangasAdmController.patch(
 	},
 );
 
-mangasAdmController.post('/cookie', MangasAdmValidator.registerCookie, async (req, res) => {
-	const { cookie, idPlugin, userAgent } = req.body;
-	const response = await MangaAdminService.registerCookie({ cookie, idPlugin, userAgent });
-	res.status(201).send(response);
-});
+mangasAdmController.post(
+	'/cookie',
+	MangasAdmValidator.registerCookie,
+	async (req, res) => {
+		const { cookie, idPlugin, userAgent } = req.body;
+		const response = await MangaAdminService.registerCookie({
+			cookie,
+			idPlugin,
+			userAgent,
+		});
+		res.status(201).send(response);
+	},
+);
 
 mangasAdmController.post(
 	'/credentials',
@@ -113,12 +133,16 @@ mangasAdmController.get(
 );
 
 mangasAdmController.get('/update-mangas/batch', async (req, res) => {
-	const response = await MangaAdminService.updateMangasBatch({ idPlugin: req.query.idPlugin });
+	const response = await MangaAdminService.updateMangasBatch({
+		idPlugin: req.query.idPlugin,
+	});
 	res.status(200).send(response);
 });
 
 mangasAdmController.get('/update-mangas', async (req, res) => {
-	const response = await MangaAdminService.updateMangas({ idPlugin: req.query.idPlugin });
+	const response = await MangaAdminService.updateMangas({
+		idPlugin: req.query.idPlugin,
+	});
 	res.status(200).send(response);
 });
 
