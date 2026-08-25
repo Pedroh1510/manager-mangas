@@ -35,21 +35,35 @@ async function runMigrations() {
 
 async function seedDatabase() {
 	registerForTests('test-fixture', TestFixtureConnector);
-	await MangaAdminService.registerManga({
+
+	const blackClover = await MangaAdminService.createManga({ title: 'Black Clover' });
+	await MangaAdminService.linkConnector({
+		idManga: blackClover.idManga,
 		idPlugin: 'test-fixture',
-		title: 'Black Clover',
+		idMangaPlugin: '1',
+		titlePlugin: 'Black Clover',
 	});
-	await MangaAdminService.registerManga({
+	const algo = await MangaAdminService.createManga({ title: 'algo' });
+	await MangaAdminService.linkConnector({
+		idManga: algo.idManga,
 		idPlugin: 'test-fixture',
-		title: 'algo',
+		idMangaPlugin: '1',
+		titlePlugin: 'algo',
 	});
 
+	const connectors = await MangaAdminService.listConnectors({
+		idManga: blackClover.idManga,
+	});
+	const idMangaConnector = connectors[0].idMangaConnector;
+
 	await database.query(
-		`INSERT INTO chapters("idChapterPlugin","pluginId","idManga","name","volume") VALUES
-('ch-376','test-fixture',1,'Chapter capitulo-376','376'),
-('ch-375','test-fixture',1,'Chapter capitulo-375','375'),
-('ch-374','test-fixture',1,'Chapter capitulo-374','374');`,
+		`INSERT INTO chapters("idChapterPlugin","idMangaConnector","idManga","name","volume") VALUES
+('ch-376','${idMangaConnector}',${blackClover.idManga},'Chapter capitulo-376','376'),
+('ch-375','${idMangaConnector}',${blackClover.idManga},'Chapter capitulo-375','375'),
+('ch-374','${idMangaConnector}',${blackClover.idManga},'Chapter capitulo-374','374');`,
 	);
+
+	return { blackClover, algo };
 }
 
 async function seedDownload() {
