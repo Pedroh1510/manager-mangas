@@ -5,7 +5,7 @@ function getPathMangaAndChapter({ title, volume = 0 }) {
 	const mangaPath = resolve('downloads', title);
 	return {
 		mangaPath,
-		chapterPath: join(mangaPath, `${volume}.cbz`),
+		chapterPath: join(mangaPath, `${volume}.cbz`)
 	};
 }
 
@@ -43,14 +43,14 @@ async function waitToDownload(url) {
 		return;
 	}
 	if (activeDownloadByDomain[origin] >= maxDownload) {
-		await setTimeout(1000);
+		await setTimeout(100);
 		return waitToDownload(url);
 	}
 	return 1;
 }
 function getMaxConcurrency(url) {
 	const fromTo = {
-		mangadex: 1,
+		mangadex: 1
 	};
 	const plugins = Object.keys(fromTo);
 	const currentPlugin = plugins.find((plugin) => url.includes(plugin));
@@ -65,7 +65,7 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 	await mkdir(pathFolder, { recursive: true });
 	const pathFile = paths.chapterPath;
 	await rm(pathFile, {
-		recursive: true,
+		recursive: true
 	}).catch(() => {});
 	logger.info({ manga, chapter, status: 'inicio' });
 	const zip = new AdmZip();
@@ -75,6 +75,7 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 		await addActiveDownloads(pages[0]);
 	}
 	for (const page of pages) {
+		logger.info({ manga, chapter, page, status: 'baixando' });
 		const start = performance.now();
 		const image = await downloadImage({ url: page, cookie, userAgent });
 		if (page.endsWith('.zip')) {
@@ -94,6 +95,7 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 		}
 		counter++;
 		const totalTime = performance.now() - start;
+		logger.info({ manga, chapter, page, status: 'processando', totalTime });
 		if (1000 > totalTime && page.includes('mangadex')) {
 			const missing = 1000 - totalTime;
 			await setTimeout(missing);
@@ -123,8 +125,9 @@ export async function downloadImage({ url, cookie, userAgent }) {
 			cookie,
 			'User-Agent':
 				userAgent ??
-				'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0',
+				'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0'
 		},
+		timeout: 20000
 	}).then(({ data }) => Buffer.from(data, 'base64'));
 }
 
@@ -135,7 +138,7 @@ async function processImage(image) {
 			const result = await sharp(image)
 				.toFormat(imageFormat)
 				.webp({
-					quality: 80,
+					quality: 80
 				})
 				.toBuffer();
 			return { imageFormatted: result, type: imageFormat };
@@ -157,13 +160,13 @@ async function downloadMangaFromDisk({ title, volume }) {
 		const files = await readdir(mangaPath);
 		for (const file of files) {
 			zip.append(createReadStream(path.join(mangaPath, file)), {
-				name: file,
+				name: file
 			});
 		}
 		// zip.directory(mangaPath, true);
 	} else {
 		zip.append(createReadStream(chapterPath), {
-			name: chapterPath.split('/').pop(),
+			name: chapterPath.split('/').pop()
 		});
 	}
 	const output = new PassThrough();
@@ -175,7 +178,7 @@ async function downloadMangaFromDisk({ title, volume }) {
 const Download = {
 	downloadChapter,
 	getPathMangaAndChapter,
-	downloadMangaFromDisk,
+	downloadMangaFromDisk
 };
 
 export default Download;
