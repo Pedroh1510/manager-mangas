@@ -57,6 +57,10 @@ class Logger {
 		this.logger.error(message);
 	}
 
+	warn(message) {
+		this.logger.warn(message);
+	}
+
 	debug(message) {
 		const messageFormatted =
 			typeof message === 'object' ? JSON.stringify(message, null, 2) : message;

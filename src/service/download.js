@@ -1,154 +1,166 @@
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, readdir, rm } from 'node:fs/promises';
+import path, { join, resolve } from 'node:path';
+import { PassThrough } from 'node:stream';
 import AdmZip from 'adm-zip';
+import archiver from 'archiver';
 import logger from '../infra/logger.js';
+import { withDomainSlot } from './domainConcurrency.js';
+import { PageNotFoundError, downloadImage } from './imageDownloader.js';
+import { convertImage } from './imageProcessor.js';
+
+const ZIP_COMPRESSION_LEVEL = 9;
+const IMAGE_EXTENSIONS = ['png', 'jpeg', 'jpg', 'avif'];
 
 function getPathMangaAndChapter({ title, volume = 0 }) {
 	const mangaPath = resolve('downloads', title);
 	return {
 		mangaPath,
-		chapterPath: join(mangaPath, `${volume}.cbz`)
+		chapterPath: join(mangaPath, `${volume}.cbz`),
 	};
 }
 
-const activeDownloadByDomain = {};
-
-async function addActiveDownloads(url) {
-	await waitToDownload(url);
-	const { origin } = new URL(url);
-	if (activeDownloadByDomain[origin]) {
-		activeDownloadByDomain[origin]++;
-	} else {
-		activeDownloadByDomain[origin] = 1;
-	}
-	if (activeDownloadByDomain[origin] < 0) {
-		activeDownloadByDomain[origin] = 0;
-	}
-}
-function removeActiveDownloads(url) {
-	const { origin } = new URL(url);
-	if (activeDownloadByDomain[origin]) {
-		activeDownloadByDomain[origin]--;
-	} else {
-		activeDownloadByDomain[origin] = 0;
-	}
-	if (activeDownloadByDomain[origin] < 0) {
-		activeDownloadByDomain[origin] = 0;
-	}
+function downloadPage({ page, cookie, userAgent }) {
+	return withDomainSlot(page, () =>
+		downloadImage({ url: page, cookie, userAgent }),
+	);
 }
 
-async function waitToDownload(url) {
-	const { origin } = new URL(url);
-	const maxDownload = getMaxConcurrency(origin);
-	if (!activeDownloadByDomain[origin] || activeDownloadByDomain[origin] < 0) {
-		activeDownloadByDomain[origin] = 0;
-		return;
-	}
-	if (activeDownloadByDomain[origin] >= maxDownload) {
-		await setTimeout(100);
-		return waitToDownload(url);
-	}
-	return 1;
+function stripExtension(fileName) {
+	return fileName.split('.').slice(0, -1).join('.');
 }
-function getMaxConcurrency(url) {
-	const fromTo = {
-		mangadex: 1
-	};
-	const plugins = Object.keys(fromTo);
-	const currentPlugin = plugins.find((plugin) => url.includes(plugin));
-	if (currentPlugin) {
-		return fromTo[currentPlugin];
-	}
-	return CONFIG_ENV.CONCURRENCY;
+
+async function appendZipBundlePages(archive, imageZipBuffer, state) {
+	const imageZip = new AdmZip(imageZipBuffer);
+	const entries = imageZip
+		.getEntries()
+		.filter((entry) =>
+			IMAGE_EXTENSIONS.some((ext) => entry.name.endsWith(ext)),
+		);
+
+	await Promise.all(
+		entries.map(async (entry) => {
+			const { imageFormatted, type } = await convertImage(entry.getData());
+			if (state.aborted) return;
+			archive.append(imageFormatted, {
+				name: `${stripExtension(entry.name)}.${type}`,
+			});
+		}),
+	);
 }
+
+async function appendPageToArchive({
+	archive,
+	page,
+	cookie,
+	userAgent,
+	index,
+	manga,
+	chapter,
+	state,
+}) {
+	logger.info({ manga, chapter, page, status: 'baixando' });
+	const start = performance.now();
+	const image = await downloadPage({ page, cookie, userAgent });
+	if (state.aborted) return;
+
+	if (page.endsWith('.zip')) {
+		await appendZipBundlePages(archive, image, state);
+	} else {
+		const { imageFormatted, type } = await convertImage(image);
+		if (state.aborted) return;
+		archive.append(imageFormatted, { name: `${index + 1}.${type}` });
+	}
+
+	logger.info({
+		manga,
+		chapter,
+		page,
+		status: 'processando',
+		totalTime: performance.now() - start,
+	});
+}
+
+function createChapterArchive(chapterPath) {
+	const archive = archiver('zip', { zlib: { level: ZIP_COMPRESSION_LEVEL } });
+	const output = createWriteStream(chapterPath);
+	const finished = new Promise((resolvePromise, reject) => {
+		output.on('close', resolvePromise);
+		archive.on('error', reject);
+		output.on('error', reject);
+	});
+	archive.pipe(output);
+	return { archive, output, finished };
+}
+
+async function abortChapterDownload({
+	archive,
+	output,
+	chapterPath,
+	manga,
+	chapter,
+	error,
+}) {
+	if (error instanceof PageNotFoundError) {
+		logger.warn({
+			manga,
+			chapter,
+			page: error.url,
+			status: 'capitulo_ignorado_404',
+		});
+	}
+	archive.abort();
+	output.destroy();
+	await rm(chapterPath, { recursive: true }).catch(() => {});
+}
+
 async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
-	const paths = getPathMangaAndChapter({ title: manga, volume: chapter });
-	const pathFolder = paths.mangaPath;
-	await mkdir(pathFolder, { recursive: true });
-	const pathFile = paths.chapterPath;
-	await rm(pathFile, {
-		recursive: true
-	}).catch(() => {});
+	const { mangaPath, chapterPath } = getPathMangaAndChapter({
+		title: manga,
+		volume: chapter,
+	});
+	await mkdir(mangaPath, { recursive: true });
+	await rm(chapterPath, { recursive: true }).catch(() => {});
 	logger.info({ manga, chapter, status: 'inicio' });
-	const zip = new AdmZip();
-	const imagesType = ['png', 'jpeg', 'jpg', 'avif'];
-	let counter = 1;
-	if (pages.length) {
-		await addActiveDownloads(pages[0]);
-	}
-	for (const page of pages) {
-		logger.info({ manga, chapter, page, status: 'baixando' });
-		const start = performance.now();
-		const image = await downloadImage({ url: page, cookie, userAgent });
-		if (page.endsWith('.zip')) {
-			const imageZip = new AdmZip(image);
-			const zipEntries = imageZip.getEntries();
-			for (const entry of zipEntries) {
-				if (imagesType.some((item) => entry.name.endsWith(item))) {
-					const name = entry.name.split('.');
-					name.pop();
-					const { imageFormatted, type } = await processImage(entry.getData());
-					zip.addFile(`${name.join('.')}.${type}`, imageFormatted);
-				}
-			}
-		} else {
-			const { imageFormatted, type } = await processImage(image);
-			zip.addFile(`${counter}.${type}`, imageFormatted);
-		}
-		counter++;
-		const totalTime = performance.now() - start;
-		logger.info({ manga, chapter, page, status: 'processando', totalTime });
-		if (1000 > totalTime && page.includes('mangadex')) {
-			const missing = 1000 - totalTime;
-			await setTimeout(missing);
-		}
-	}
-	if (pages.length) {
-		removeActiveDownloads(pages[0]);
-	}
 
-	await zip.writeZipPromise(pathFile);
-}
-
-import { mkdir, readdir, rm } from 'node:fs/promises';
-import path, { join, resolve } from 'node:path';
-import { setTimeout } from 'node:timers/promises';
-import axios from 'axios';
-import sharp from 'sharp';
-import CONFIG_ENV from '../infra/env.js';
-
-export async function downloadImage({ url, cookie, userAgent }) {
-	return axios({
-		url,
-		method: 'GET',
-		responseType: 'arraybuffer',
-		headers: {
-			referer: new URL(url).origin,
+	const { archive, output, finished } = createChapterArchive(chapterPath);
+	const state = { aborted: false };
+	const tasks = pages.map((page, index) =>
+		appendPageToArchive({
+			archive,
+			page,
 			cookie,
-			'User-Agent':
-				userAgent ??
-				'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0'
-		},
-		timeout: 20000
-	}).then(({ data }) => Buffer.from(data, 'base64'));
+			userAgent,
+			index,
+			manga,
+			chapter,
+			state,
+		}),
+	);
+
+	try {
+		await Promise.all(tasks);
+	} catch (error) {
+		state.aborted = true;
+		for (const task of tasks) {
+			task.catch(() => {});
+		}
+		finished.catch(() => {});
+		await abortChapterDownload({
+			archive,
+			output,
+			chapterPath,
+			manga,
+			chapter,
+			error,
+		});
+		throw error;
+	}
+
+	await archive.finalize();
+	await finished;
 }
 
-async function processImage(image) {
-	const options = ['webp', 'png'];
-	for (const imageFormat of options) {
-		try {
-			const result = await sharp(image)
-				.toFormat(imageFormat)
-				.webp({
-					quality: 80
-				})
-				.toBuffer();
-			return { imageFormatted: result, type: imageFormat };
-		} catch (error) {}
-	}
-	return { imageFormatted: image, type: 'png' };
-}
-import { createReadStream } from 'node:fs';
-import { PassThrough } from 'node:stream';
-import archiver from 'archiver';
 async function downloadMangaFromDisk({ title, volume }) {
 	if (volume !== undefined) {
 		volume = Number.parseFloat(volume).toFixed(4);
@@ -160,13 +172,12 @@ async function downloadMangaFromDisk({ title, volume }) {
 		const files = await readdir(mangaPath);
 		for (const file of files) {
 			zip.append(createReadStream(path.join(mangaPath, file)), {
-				name: file
+				name: file,
 			});
 		}
-		// zip.directory(mangaPath, true);
 	} else {
 		zip.append(createReadStream(chapterPath), {
-			name: chapterPath.split('/').pop()
+			name: chapterPath.split('/').pop(),
 		});
 	}
 	const output = new PassThrough();
@@ -178,7 +189,7 @@ async function downloadMangaFromDisk({ title, volume }) {
 const Download = {
 	downloadChapter,
 	getPathMangaAndChapter,
-	downloadMangaFromDisk
+	downloadMangaFromDisk,
 };
 
 export default Download;
