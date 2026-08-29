@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "engines": {
+    "node": ">=24",
+    "npm": ">=11.0.0"
+  },
   "scripts": {
+    "rebuild:approved": "npm rebuild @biomejs/biome esbuild msgpackr-extract sharp --foreground-scripts --ignore-scripts=false",
     "test": "vitest ",
     "dev": "nodemon --inspect=0.0.0.0:9229 --ignore 'appdata' --ignore 'downloads' --ignore **/*.test.js \"src/server.js\"",
     "migrations": "node-pg-migrate -m src/infra/migrations --env-path .env",

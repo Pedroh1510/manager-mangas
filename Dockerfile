@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim
+FROM node:24-bookworm-slim
 
 WORKDIR /app
 
@@ -13,6 +13,7 @@ RUN apt-get update \
 
 COPY package* .
 RUN npm ci
+RUN npm run rebuild:approved
 USER root
 
 
