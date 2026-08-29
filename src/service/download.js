@@ -142,7 +142,9 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 		await Promise.all(tasks);
 	} catch (error) {
 		state.aborted = true;
-		tasks.forEach((task) => task.catch(() => {}));
+		for (const task of tasks) {
+			task.catch(() => {});
+		}
 		finished.catch(() => {});
 		await abortChapterDownload({
 			archive,
