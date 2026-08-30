@@ -16,9 +16,10 @@ describe('KavitaClient', () => {
 		axiosMock.mockReset();
 	});
 
-	test('axios instance is created with the configured baseURL', () => {
+	test('axios instance is created with the configured baseURL and a timeout', () => {
 		expect(axiosCreateMock).toHaveBeenCalledWith({
 			baseURL: 'http://kavita.test',
+			timeout: 10000,
 		});
 	});
 

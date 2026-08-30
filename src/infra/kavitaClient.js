@@ -1,7 +1,10 @@
 import axios from 'axios';
 import CONFIG_ENV from './env.js';
 
-const http = axios.create({ baseURL: CONFIG_ENV.KAVITA_URL });
+// 10s covers health/auth/search/volumes/scan — all small, fast calls against
+// a self-hosted server. Without a timeout, a hung Kavita server would block
+// the manual cleanup endpoint and the background job worker indefinitely.
+const http = axios.create({ baseURL: CONFIG_ENV.KAVITA_URL, timeout: 10000 });
 
 async function checkHealth() {
 	try {
