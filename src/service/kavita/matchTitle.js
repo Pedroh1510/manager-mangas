@@ -1,7 +1,7 @@
 export function normalizeTitle(title) {
 	return title
 		.normalize('NFD')
-		.replace(/[̀-ͯ]/g, '')
+		.replace(/\p{M}/gu, '')
 		.toLowerCase()
 		.trim()
 		.replace(/\s+/g, ' ');
