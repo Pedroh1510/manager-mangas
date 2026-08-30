@@ -308,11 +308,7 @@ async function deleteChapter({ idManga, idChapter }) {
 		});
 	}
 	await ChaptersRepository.deleteChapter({ idChapter });
-	const { chapterPath } = Download.getPathMangaAndChapter({
-		title: chapter.title,
-		volume: chapter.volume
-	});
-	await rm(chapterPath, { force: true });
+	await Download.deleteChapterFile({ title: chapter.title, volume: chapter.volume });
 }
 
 async function listPagesAndSend({ idChapter }) {
