@@ -49,7 +49,9 @@ describe('selectChaptersToDelete', () => {
 		const localChapters = [{ idChapter: 1, volume: '1.0000', downloadedAt }];
 		const kavitaChapters = [{ minNumber: 1, pages: 20, pagesRead: 20 }];
 
-		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual([]);
+		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual(
+			[],
+		);
 	});
 
 	test('never deletes a partially-read chapter', () => {
@@ -62,7 +64,9 @@ describe('selectChaptersToDelete', () => {
 			{ minNumber: 2, pages: 20, pagesRead: 20 },
 		];
 
-		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual([]);
+		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual(
+			[],
+		);
 	});
 
 	test('never deletes a chapter not yet downloaded', () => {
@@ -75,7 +79,9 @@ describe('selectChaptersToDelete', () => {
 			{ minNumber: 2, pages: 20, pagesRead: 20 },
 		];
 
-		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual([]);
+		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual(
+			[],
+		);
 	});
 
 	test('never deletes a chapter with no matching Kavita chapter', () => {
@@ -85,7 +91,9 @@ describe('selectChaptersToDelete', () => {
 		];
 		const kavitaChapters = [{ minNumber: 1, pages: 20, pagesRead: 20 }];
 
-		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual([]);
+		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual(
+			[],
+		);
 	});
 
 	test('never treats a zero-page Kavita chapter as read', () => {
@@ -98,7 +106,9 @@ describe('selectChaptersToDelete', () => {
 			{ minNumber: 2, pages: 20, pagesRead: 20 },
 		];
 
-		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual([]);
+		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual(
+			[],
+		);
 	});
 
 	test('matches chapter numbers despite NUMERIC(14,4) zero-padding vs plain float', () => {
@@ -120,5 +130,25 @@ describe('selectChaptersToDelete', () => {
 		expect(
 			selectChaptersToDelete({ localChapters: [], kavitaChapters: [] }),
 		).toEqual([]);
+	});
+
+	test('keeps the highest-volume chapter among the eligible (fully-read), not among all local chapters', () => {
+		// Regression test: chapter 2 is highest among eligible chapters (1, 2 are fully read)
+		// Chapter 3 is ineligible (partially read) so it doesn't affect the keep-highest rule.
+		// Expected: only chapter 1 deleted; chapter 2 kept (highest eligible); chapter 3 never eligible.
+		const localChapters = [
+			{ idChapter: 1, volume: '1.0000', downloadedAt },
+			{ idChapter: 2, volume: '2.0000', downloadedAt },
+			{ idChapter: 3, volume: '3.0000', downloadedAt }, // partially read, not eligible
+		];
+		const kavitaChapters = [
+			{ minNumber: 1, pages: 20, pagesRead: 20 },
+			{ minNumber: 2, pages: 20, pagesRead: 20 },
+			{ minNumber: 3, pages: 20, pagesRead: 10 }, // not fully read
+		];
+
+		const result = selectChaptersToDelete({ localChapters, kavitaChapters });
+
+		expect(result).toEqual([{ idChapter: 1, volume: '1.0000', downloadedAt }]);
 	});
 });
