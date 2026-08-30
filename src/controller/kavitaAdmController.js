@@ -8,7 +8,7 @@ export default kavitaAdmController;
 /**
  * @swagger
  * /mangas/adm/kavita/cleanup:
- *   get:
+ *   post:
  *     tags: [MangaAdm]
  *     description: Delete on-disk chapters fully read in Kavita (never partial), always keeping each manga's highest-numbered chapter. Only runs if the Kavita connection (health + auth) succeeds; never writes to any database.
  *     parameters:
@@ -20,7 +20,7 @@ export default kavitaAdmController;
  *       200:
  *         description: Returns totalDeleted and mangasProcessed
  */
-kavitaAdmController.get(
+kavitaAdmController.post(
 	'/cleanup',
 	MangasAdmValidator.cleanupQuery,
 	async (req, res) => {

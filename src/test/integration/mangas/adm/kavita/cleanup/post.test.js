@@ -9,9 +9,9 @@ beforeAll(async () => {
 	await orchestrator.seedDatabase();
 });
 
-describe('GET /mangas/adm/kavita/cleanup', () => {
+describe('POST /mangas/adm/kavita/cleanup', () => {
 	test('returns zero deletions when the Kavita connection is not usable', async () => {
-		const response = await api.get('/mangas/adm/kavita/cleanup');
+		const response = await api.post('/mangas/adm/kavita/cleanup');
 
 		expect(response.status).toBe(200);
 		expect(response.data).toStrictEqual({
@@ -21,7 +21,7 @@ describe('GET /mangas/adm/kavita/cleanup', () => {
 	});
 
 	test('accepts an optional idManga query param', async () => {
-		const response = await api.get('/mangas/adm/kavita/cleanup?idManga=1');
+		const response = await api.post('/mangas/adm/kavita/cleanup?idManga=1');
 
 		expect(response.status).toBe(200);
 		expect(response.data).toStrictEqual({
@@ -32,7 +32,7 @@ describe('GET /mangas/adm/kavita/cleanup', () => {
 
 	test('rejects a non-numeric idManga', async () => {
 		await expect(
-			api.get('/mangas/adm/kavita/cleanup?idManga=not-a-number'),
+			api.post('/mangas/adm/kavita/cleanup?idManga=not-a-number'),
 		).rejects.toMatchObject({ response: { status: 400 } });
 	});
 });
