@@ -62,6 +62,10 @@ async function cleanupMangaChapters({ manga, token }) {
 		idManga: manga.idManga,
 	});
 	if (!localChapters.some((chapter) => chapter.downloadedAt)) {
+		logger.info({
+			idManga: manga.idManga,
+			status: 'kavita_cleanup_no_downloaded_chapters',
+		});
 		return { deleted: 0 };
 	}
 
@@ -85,6 +89,13 @@ async function cleanupMangaChapters({ manga, token }) {
 		kavitaChapters,
 	});
 	if (chaptersToDelete.length === 0) {
+		logger.info({
+			idManga: manga.idManga,
+			seriesId: series.seriesId,
+			localChaptersCount: localChapters.length,
+			kavitaChaptersCount: kavitaChapters.length,
+			status: 'kavita_cleanup_no_eligible_chapters',
+		});
 		return { deleted: 0 };
 	}
 
