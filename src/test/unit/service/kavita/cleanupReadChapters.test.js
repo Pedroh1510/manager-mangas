@@ -9,11 +9,28 @@ vi.mock('../../../../infra/kavitaClient.js', () => ({
 		scanSeries: vi.fn(),
 	},
 }));
+// Mock the FULL repository surface (not just the read methods this job
+// actually calls) so a future write call added here would fail loudly with
+// "is not a function" instead of silently succeeding as an unmocked vi.fn().
 vi.mock('../../../../repository/mangas.js', () => ({
-	default: { listMangas: vi.fn(), findMangaById: vi.fn() },
+	default: {
+		listMangas: vi.fn(),
+		findMangaById: vi.fn(),
+		createManga: vi.fn(),
+		findMangaByTitleIncludingDeleted: vi.fn(),
+		softDeleteManga: vi.fn(),
+	},
 }));
 vi.mock('../../../../repository/chapters.js', () => ({
-	default: { listChaptersByManga: vi.fn() },
+	default: {
+		listChaptersByManga: vi.fn(),
+		insertChapter: vi.fn(),
+		findChapterById: vi.fn(),
+		deleteChapter: vi.fn(),
+		deleteChaptersByManga: vi.fn(),
+		markDownloaded: vi.fn(),
+		listMissingDownloads: vi.fn(),
+	},
 }));
 vi.mock('../../../../service/download.js', () => ({
 	default: { deleteChapterFile: vi.fn() },
@@ -238,5 +255,39 @@ describe('KavitaCleanupService.cleanupReadChapters', () => {
 		expect(result).toEqual({ totalDeleted: 1, mangasProcessed: 1 });
 		expect(Download.deleteChapterFile).toHaveBeenCalledTimes(1);
 		expect(KavitaClient.scanSeries).toHaveBeenCalledTimes(1);
+	});
+
+	test('never writes to the database, even during a run that deletes files', async () => {
+		// Global constraint #1: this job only ever deletes on-disk chapter
+		// files; it must never mutate the chapters/mangas tables. A run that
+		// actually triggers deletions is the strongest case to prove this.
+		KavitaClient.checkHealth.mockResolvedValue(true);
+		KavitaClient.authenticate.mockResolvedValue('jwt-123');
+		MangasRepository.listMangas.mockResolvedValue([manga]);
+		ChaptersRepository.listChaptersByManga.mockResolvedValue([
+			{ idChapter: 1, volume: '1.0000', downloadedAt },
+			{ idChapter: 2, volume: '2.0000', downloadedAt },
+		]);
+		KavitaClient.searchSeries.mockResolvedValue([
+			{ seriesId: 7, name: 'Black Clover', libraryId: 10 },
+		]);
+		KavitaClient.getSeriesVolumes.mockResolvedValue([
+			{
+				chapters: [
+					{ minNumber: 1, pages: 20, pagesRead: 20 },
+					{ minNumber: 2, pages: 20, pagesRead: 20 },
+				],
+			},
+		]);
+
+		const result = await KavitaCleanupService.cleanupReadChapters({});
+
+		expect(result).toEqual({ totalDeleted: 1, mangasProcessed: 1 });
+		expect(ChaptersRepository.deleteChapter).not.toHaveBeenCalled();
+		expect(ChaptersRepository.deleteChaptersByManga).not.toHaveBeenCalled();
+		expect(ChaptersRepository.markDownloaded).not.toHaveBeenCalled();
+		expect(ChaptersRepository.insertChapter).not.toHaveBeenCalled();
+		expect(MangasRepository.createManga).not.toHaveBeenCalled();
+		expect(MangasRepository.softDeleteManga).not.toHaveBeenCalled();
 	});
 });
