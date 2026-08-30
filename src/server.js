@@ -14,6 +14,7 @@ import logger from './infra/logger.js';
 import router from './routes.js';
 import {
 	getBackgroundQueue,
+	scheduleRecurringCleanup,
 	scheduleRecurringUpdate,
 	startBackgroundWorker,
 } from './service/queue/backgroundQueue.js';
@@ -82,6 +83,7 @@ const serverInstance = server.listen(CONFIG_ENV.PORT, async () => {
 	if (CONFIG_ENV.ENABLE_JOB) {
 		startBackgroundWorker();
 		await scheduleRecurringUpdate();
+		await scheduleRecurringCleanup();
 	}
 });
 
