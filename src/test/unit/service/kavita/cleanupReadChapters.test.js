@@ -22,8 +22,10 @@ vi.mock('../../../../infra/logger.js', () => ({
 	default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const KavitaClient = (await import('../../../../infra/kavitaClient.js')).default;
-const MangasRepository = (await import('../../../../repository/mangas.js')).default;
+const KavitaClient = (await import('../../../../infra/kavitaClient.js'))
+	.default;
+const MangasRepository = (await import('../../../../repository/mangas.js'))
+	.default;
 const ChaptersRepository = (await import('../../../../repository/chapters.js'))
 	.default;
 const Download = (await import('../../../../service/download.js')).default;
@@ -182,7 +184,9 @@ describe('KavitaCleanupService.cleanupReadChapters', () => {
 		MangasRepository.listMangas.mockResolvedValue([manga, mangaTwo]);
 		ChaptersRepository.listChaptersByManga
 			.mockRejectedValueOnce(new Error('db exploded'))
-			.mockResolvedValueOnce([{ idChapter: 3, volume: '1.0000', downloadedAt }]);
+			.mockResolvedValueOnce([
+				{ idChapter: 3, volume: '1.0000', downloadedAt },
+			]);
 		KavitaClient.searchSeries.mockResolvedValue([]);
 
 		const result = await KavitaCleanupService.cleanupReadChapters({});
@@ -198,10 +202,41 @@ describe('KavitaCleanupService.cleanupReadChapters', () => {
 			{ idChapter: 1, volume: '1.0000', downloadedAt: null },
 		]);
 
-		const result = await KavitaCleanupService.cleanupReadChapters({ idManga: 1 });
+		const result = await KavitaCleanupService.cleanupReadChapters({
+			idManga: 1,
+		});
 
 		expect(MangasRepository.listMangas).not.toHaveBeenCalled();
 		expect(MangasRepository.findMangaById).toHaveBeenCalledWith({ idManga: 1 });
 		expect(result).toEqual({ totalDeleted: 0, mangasProcessed: 1 });
+	});
+
+	test('returns correct deletion count when scanSeries fails after deletions', async () => {
+		KavitaClient.checkHealth.mockResolvedValue(true);
+		KavitaClient.authenticate.mockResolvedValue('jwt-123');
+		MangasRepository.listMangas.mockResolvedValue([manga]);
+		ChaptersRepository.listChaptersByManga.mockResolvedValue([
+			{ idChapter: 1, volume: '1.0000', downloadedAt },
+			{ idChapter: 2, volume: '2.0000', downloadedAt },
+		]);
+		KavitaClient.searchSeries.mockResolvedValue([
+			{ seriesId: 7, name: 'Black Clover', libraryId: 10 },
+		]);
+		KavitaClient.getSeriesVolumes.mockResolvedValue([
+			{
+				chapters: [
+					{ minNumber: 1, pages: 20, pagesRead: 20 },
+					{ minNumber: 2, pages: 20, pagesRead: 20 },
+				],
+			},
+		]);
+		Download.deleteChapterFile.mockResolvedValue(undefined);
+		KavitaClient.scanSeries.mockRejectedValue(new Error('Network timeout'));
+
+		const result = await KavitaCleanupService.cleanupReadChapters({});
+
+		expect(result).toEqual({ totalDeleted: 1, mangasProcessed: 1 });
+		expect(Download.deleteChapterFile).toHaveBeenCalledTimes(1);
+		expect(KavitaClient.scanSeries).toHaveBeenCalledTimes(1);
 	});
 });

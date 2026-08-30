@@ -1,20 +1,29 @@
-import logger from '../../infra/logger.js';
 import KavitaClient from '../../infra/kavitaClient.js';
+import logger from '../../infra/logger.js';
 import ChaptersRepository from '../../repository/chapters.js';
 import MangasRepository from '../../repository/mangas.js';
 import Download from '../download.js';
-import { flattenKavitaChapters, selectChaptersToDelete } from './chapterEligibility.js';
+import {
+	flattenKavitaChapters,
+	selectChaptersToDelete,
+} from './chapterEligibility.js';
 import { findMatchingSeries } from './matchTitle.js';
 
 async function ensureKavitaConnection() {
 	const healthy = await KavitaClient.checkHealth();
 	if (!healthy) {
-		logger.warn({ status: 'kavita_cleanup_aborted', reason: 'health_check_failed' });
+		logger.warn({
+			status: 'kavita_cleanup_aborted',
+			reason: 'health_check_failed',
+		});
 		return null;
 	}
 	const token = await KavitaClient.authenticate();
 	if (!token) {
-		logger.warn({ status: 'kavita_cleanup_aborted', reason: 'authenticate_failed' });
+		logger.warn({
+			status: 'kavita_cleanup_aborted',
+			reason: 'authenticate_failed',
+		});
 		return null;
 	}
 	return token;
@@ -56,7 +65,10 @@ async function cleanupMangaChapters({ manga, token }) {
 		return { deleted: 0 };
 	}
 
-	const seriesList = await KavitaClient.searchSeries({ title: manga.title, token });
+	const seriesList = await KavitaClient.searchSeries({
+		title: manga.title,
+		token,
+	});
 	const series = findMatchingSeries({ title: manga.title, seriesList });
 	if (!series) {
 		logger.info({ idManga: manga.idManga, status: 'kavita_series_not_found' });
@@ -68,18 +80,31 @@ async function cleanupMangaChapters({ manga, token }) {
 		token,
 	});
 	const kavitaChapters = flattenKavitaChapters(volumes);
-	const chaptersToDelete = selectChaptersToDelete({ localChapters, kavitaChapters });
+	const chaptersToDelete = selectChaptersToDelete({
+		localChapters,
+		kavitaChapters,
+	});
 	if (chaptersToDelete.length === 0) {
 		return { deleted: 0 };
 	}
 
 	const deleted = await deleteChapters({ manga, chapters: chaptersToDelete });
 	if (deleted > 0) {
-		await KavitaClient.scanSeries({
-			libraryId: series.libraryId,
-			seriesId: series.seriesId,
-			token,
-		});
+		try {
+			await KavitaClient.scanSeries({
+				libraryId: series.libraryId,
+				seriesId: series.seriesId,
+				token,
+			});
+		} catch (error) {
+			logger.warn({
+				idManga: manga.idManga,
+				seriesId: series.seriesId,
+				libraryId: series.libraryId,
+				status: 'kavita_cleanup_scan_failed',
+				error: error.message,
+			});
+		}
 	}
 
 	return { deleted };
