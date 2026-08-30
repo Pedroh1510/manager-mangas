@@ -25,11 +25,14 @@ function isFullyRead(kavitaChapter) {
 }
 
 function findKavitaChapter({ volume, kavitaChapters }) {
-	return (
-		kavitaChapters.find((chapter) =>
-			sameChapterNumber(volume, chapter.minNumber),
-		) ?? null
+	const matches = kavitaChapters.filter((chapter) =>
+		sameChapterNumber(volume, chapter.minNumber),
 	);
+	// An ambiguous match (more than one Kavita chapter sharing the same
+	// number, e.g. multiple specials at minNumber: 0) is treated the same
+	// as no match: never delete based on another chapter's read state.
+	if (matches.length !== 1) return null;
+	return matches[0];
 }
 
 /**

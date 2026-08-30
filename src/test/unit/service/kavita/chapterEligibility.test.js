@@ -132,6 +132,25 @@ describe('selectChaptersToDelete', () => {
 		).toEqual([]);
 	});
 
+	test('never deletes a chapter whose volume ambiguously matches more than one Kavita chapter', () => {
+		// Regression test: Kavita can assign minNumber: 0 to multiple specials/unparseable
+		// chapters. If two Kavita chapters share the same minNumber, picking either one
+		// arbitrarily would delete a local file based on a DIFFERENT chapter's read state.
+		// An ambiguous match must be treated like no match at all: never delete.
+		const localChapters = [
+			{ idChapter: 1, volume: '0.0000', downloadedAt },
+			{ idChapter: 2, volume: '1.0000', downloadedAt },
+		];
+		const kavitaChapters = [
+			{ minNumber: 0, pages: 20, pagesRead: 20 }, // fully read
+			{ minNumber: 0, pages: 20, pagesRead: 5 }, // not fully read
+		];
+
+		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual(
+			[],
+		);
+	});
+
 	test('keeps the highest-volume chapter among the eligible (fully-read), not among all local chapters', () => {
 		// Regression test: chapter 2 is highest among eligible chapters (1, 2 are fully read)
 		// Chapter 3 is ineligible (partially read) so it doesn't affect the keep-highest rule.
