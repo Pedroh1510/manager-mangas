@@ -17,7 +17,10 @@ async function authenticate() {
 		const response = await http({
 			method: 'post',
 			url: '/api/plugin/authenticate',
-			params: { apiKey: CONFIG_ENV.KAVITA_API_KEY, pluginName: 'manager-mangas' },
+			params: {
+				apiKey: CONFIG_ENV.KAVITA_API_KEY,
+				pluginName: 'manager-mangas',
+			},
 		});
 		return response.data?.token ?? null;
 	} catch {

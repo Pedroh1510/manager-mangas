@@ -17,7 +17,9 @@ describe('KavitaClient', () => {
 	});
 
 	test('axios instance is created with the configured baseURL', () => {
-		expect(axiosCreateMock).toHaveBeenCalledWith({ baseURL: 'http://kavita.test' });
+		expect(axiosCreateMock).toHaveBeenCalledWith({
+			baseURL: 'http://kavita.test',
+		});
 	});
 
 	describe('checkHealth', () => {
@@ -69,12 +71,17 @@ describe('KavitaClient', () => {
 				token: 'jwt-123',
 			});
 
-			expect(result).toEqual([{ seriesId: 7, name: 'Black Clover', libraryId: 1 }]);
+			expect(result).toEqual([
+				{ seriesId: 7, name: 'Black Clover', libraryId: 1 },
+			]);
 			expect(axiosMock).toHaveBeenCalledWith(
 				expect.objectContaining({
 					method: 'get',
 					url: '/api/search/search',
-					params: { queryString: 'Black Clover', includeChapterAndFiles: false },
+					params: {
+						queryString: 'Black Clover',
+						includeChapterAndFiles: false,
+					},
 					headers: { Authorization: 'Bearer jwt-123' },
 				}),
 			);
@@ -83,7 +90,10 @@ describe('KavitaClient', () => {
 		test('returns an empty array when the response has no series field', async () => {
 			axiosMock.mockResolvedValueOnce({ data: {} });
 
-			const result = await KavitaClient.searchSeries({ title: 'X', token: 't' });
+			const result = await KavitaClient.searchSeries({
+				title: 'X',
+				token: 't',
+			});
 
 			expect(result).toEqual([]);
 		});
@@ -91,7 +101,9 @@ describe('KavitaClient', () => {
 
 	describe('getSeriesVolumes', () => {
 		test('returns the volumes array as-is', async () => {
-			const volumes = [{ chapters: [{ minNumber: 1, pages: 20, pagesRead: 20 }] }];
+			const volumes = [
+				{ chapters: [{ minNumber: 1, pages: 20, pagesRead: 20 }] },
+			];
 			axiosMock.mockResolvedValueOnce({ data: volumes });
 
 			const result = await KavitaClient.getSeriesVolumes({
@@ -115,7 +127,11 @@ describe('KavitaClient', () => {
 		test('posts libraryId and seriesId', async () => {
 			axiosMock.mockResolvedValueOnce({ status: 200 });
 
-			await KavitaClient.scanSeries({ libraryId: 1, seriesId: 7, token: 'jwt-123' });
+			await KavitaClient.scanSeries({
+				libraryId: 1,
+				seriesId: 7,
+				token: 'jwt-123',
+			});
 
 			expect(axiosMock).toHaveBeenCalledWith(
 				expect.objectContaining({

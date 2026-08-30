@@ -7,3 +7,4 @@ appdata
 .env*
 .superpowers/
 .worktrees/
+graphify-out

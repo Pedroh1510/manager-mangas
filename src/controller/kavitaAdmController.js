@@ -25,7 +25,9 @@ kavitaAdmController.get(
 	MangasAdmValidator.cleanupQuery,
 	async (req, res) => {
 		const idManga = req.query.idManga ? Number(req.query.idManga) : undefined;
-		const response = await KavitaCleanupService.cleanupReadChapters({ idManga });
+		const response = await KavitaCleanupService.cleanupReadChapters({
+			idManga,
+		});
 		res.status(200).send(response);
 	},
 );

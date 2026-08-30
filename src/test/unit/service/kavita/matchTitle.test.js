@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { findMatchingSeries, normalizeTitle } from '../../../../service/kavita/matchTitle.js';
+import {
+	findMatchingSeries,
+	normalizeTitle,
+} from '../../../../service/kavita/matchTitle.js';
 
 describe('normalizeTitle', () => {
 	test('lowercases the title', () => {
@@ -22,11 +25,13 @@ describe('findMatchingSeries', () => {
 	];
 
 	test('returns the series whose normalized name matches the normalized title', () => {
-		expect(findMatchingSeries({ title: 'black   clover', seriesList })).toEqual({
-			seriesId: 1,
-			name: 'Black Clover',
-			libraryId: 10,
-		});
+		expect(findMatchingSeries({ title: 'black   clover', seriesList })).toEqual(
+			{
+				seriesId: 1,
+				name: 'Black Clover',
+				libraryId: 10,
+			},
+		);
 	});
 
 	test('returns null when no series matches', () => {
@@ -36,6 +41,8 @@ describe('findMatchingSeries', () => {
 	});
 
 	test('returns null for an empty series list', () => {
-		expect(findMatchingSeries({ title: 'Black Clover', seriesList: [] })).toBeNull();
+		expect(
+			findMatchingSeries({ title: 'Black Clover', seriesList: [] }),
+		).toBeNull();
 	});
 });

@@ -142,7 +142,10 @@ describe('Download.deleteChapterFile', () => {
 	test('removes both the padded and normalized filename candidates', async () => {
 		fsPromises.rm.mockResolvedValue(undefined);
 
-		await Download.deleteChapterFile({ title: 'Black Clover', volume: '1.0000' });
+		await Download.deleteChapterFile({
+			title: 'Black Clover',
+			volume: '1.0000',
+		});
 
 		expect(fsPromises.rm).toHaveBeenCalledWith(
 			expect.stringContaining('1.0000.cbz'),

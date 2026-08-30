@@ -1,7 +1,7 @@
 // src/service/queue/backgroundQueue.js
 import { Queue, Worker } from 'bullmq';
-import MangaAdminService from '../mangaAdmin.js';
 import KavitaCleanupService from '../kavita/cleanupReadChapters.js';
+import MangaAdminService from '../mangaAdmin.js';
 import connection from './connection.js';
 
 const QUEUE_NAME = 'background-tasks';

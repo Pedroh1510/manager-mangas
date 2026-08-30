@@ -22,10 +22,9 @@ vi.mock('../../../../service/kavita/cleanupReadChapters.js', () => ({
 }));
 vi.mock('../../../../service/queue/connection.js', () => ({ default: {} }));
 
-const {
-	enqueueBackgroundTask,
-	scheduleRecurringCleanup,
-} = await import('../../../../service/queue/backgroundQueue.js');
+const { enqueueBackgroundTask, scheduleRecurringCleanup } = await import(
+	'../../../../service/queue/backgroundQueue.js'
+);
 
 describe('backgroundQueue Kavita cleanup wiring', () => {
 	afterEach(() => {
