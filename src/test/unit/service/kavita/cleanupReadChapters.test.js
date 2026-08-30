@@ -180,18 +180,81 @@ describe('KavitaCleanupService.cleanupReadChapters', () => {
 		expect(KavitaClient.scanSeries).not.toHaveBeenCalled();
 	});
 
-	test('skips a manga with no downloaded chapters without calling Kavita search', async () => {
+	test('finds no eligible chapters when nothing is downloaded and Kavita has no orphans', async () => {
 		KavitaClient.checkHealth.mockResolvedValue(true);
 		KavitaClient.authenticate.mockResolvedValue('jwt-123');
 		MangasRepository.listMangas.mockResolvedValue([manga]);
 		ChaptersRepository.listChaptersByManga.mockResolvedValue([
 			{ idChapter: 1, volume: '1.0000', downloadedAt: null },
 		]);
+		KavitaClient.searchSeries.mockResolvedValue([
+			{ seriesId: 7, name: 'Black Clover', libraryId: 10 },
+		]);
+		KavitaClient.getSeriesVolumes.mockResolvedValue([
+			{ chapters: [{ minNumber: 1, pages: 20, pagesRead: 20 }] },
+		]);
 
 		const result = await KavitaCleanupService.cleanupReadChapters({});
 
 		expect(result).toEqual({ totalDeleted: 0, mangasProcessed: 1 });
-		expect(KavitaClient.searchSeries).not.toHaveBeenCalled();
+		expect(Download.deleteChapterFile).not.toHaveBeenCalled();
+	});
+
+	test('deletes an orphan Kavita chapter with no local database row', async () => {
+		KavitaClient.checkHealth.mockResolvedValue(true);
+		KavitaClient.authenticate.mockResolvedValue('jwt-123');
+		MangasRepository.listMangas.mockResolvedValue([manga]);
+		ChaptersRepository.listChaptersByManga.mockResolvedValue([
+			{ idChapter: 1, volume: '2.0000', downloadedAt },
+		]);
+		KavitaClient.searchSeries.mockResolvedValue([
+			{ seriesId: 7, name: 'Black Clover', libraryId: 10 },
+		]);
+		KavitaClient.getSeriesVolumes.mockResolvedValue([
+			{
+				chapters: [
+					{ minNumber: 1, pages: 20, pagesRead: 20 }, // orphan
+					{ minNumber: 2, pages: 20, pagesRead: 20 }, // local, highest
+				],
+			},
+		]);
+
+		const result = await KavitaCleanupService.cleanupReadChapters({});
+
+		expect(result).toEqual({ totalDeleted: 1, mangasProcessed: 1 });
+		expect(Download.deleteChapterFile).toHaveBeenCalledWith({
+			title: 'Black Clover',
+			volume: 1,
+		});
+	});
+
+	test('cleans up by title alone, without a matching manga row in the database', async () => {
+		KavitaClient.checkHealth.mockResolvedValue(true);
+		KavitaClient.authenticate.mockResolvedValue('jwt-123');
+		KavitaClient.searchSeries.mockResolvedValue([
+			{ seriesId: 7, name: 'Black Clover', libraryId: 10 },
+		]);
+		KavitaClient.getSeriesVolumes.mockResolvedValue([
+			{
+				chapters: [
+					{ minNumber: 1, pages: 20, pagesRead: 20 },
+					{ minNumber: 2, pages: 20, pagesRead: 20 },
+				],
+			},
+		]);
+
+		const result = await KavitaCleanupService.cleanupReadChapters({
+			title: 'Black Clover',
+		});
+
+		expect(MangasRepository.listMangas).not.toHaveBeenCalled();
+		expect(MangasRepository.findMangaById).not.toHaveBeenCalled();
+		expect(ChaptersRepository.listChaptersByManga).not.toHaveBeenCalled();
+		expect(result).toEqual({ totalDeleted: 1, mangasProcessed: 1 });
+		expect(Download.deleteChapterFile).toHaveBeenCalledWith({
+			title: 'Black Clover',
+			volume: 1,
+		});
 	});
 
 	test('continues processing other mangas when one manga fails', async () => {

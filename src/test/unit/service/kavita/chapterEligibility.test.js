@@ -170,4 +170,71 @@ describe('selectChaptersToDelete', () => {
 
 		expect(result).toEqual([{ idChapter: 1, volume: '1.0000', downloadedAt }]);
 	});
+
+	test('deletes a fully-read Kavita chapter with no local row, when not the highest volume', () => {
+		const localChapters = [{ idChapter: 1, volume: '2.0000', downloadedAt }];
+		const kavitaChapters = [
+			{ minNumber: 1, pages: 20, pagesRead: 20 }, // orphan: no local row
+			{ minNumber: 2, pages: 20, pagesRead: 20 },
+		];
+
+		const result = selectChaptersToDelete({ localChapters, kavitaChapters });
+
+		expect(result).toEqual([{ idChapter: null, volume: 1 }]);
+	});
+
+	test('never deletes an orphan Kavita chapter that is the highest volume overall', () => {
+		const localChapters = [{ idChapter: 1, volume: '1.0000', downloadedAt }];
+		const kavitaChapters = [
+			{ minNumber: 1, pages: 20, pagesRead: 20 },
+			{ minNumber: 2, pages: 20, pagesRead: 20 }, // orphan, but highest overall
+		];
+
+		const result = selectChaptersToDelete({ localChapters, kavitaChapters });
+
+		// The local chapter (volume 1) is deleted; the orphan (volume 2) is
+		// the highest overall and is kept.
+		expect(result).toEqual([{ idChapter: 1, volume: '1.0000', downloadedAt }]);
+	});
+
+	test('never deletes a partially-read orphan Kavita chapter', () => {
+		const localChapters = [{ idChapter: 1, volume: '2.0000', downloadedAt }];
+		const kavitaChapters = [
+			{ minNumber: 1, pages: 20, pagesRead: 10 },
+			{ minNumber: 2, pages: 20, pagesRead: 20 },
+		];
+
+		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual(
+			[],
+		);
+	});
+
+	test('never deletes an orphan Kavita chapter with an ambiguous chapter number', () => {
+		const localChapters = [{ idChapter: 1, volume: '1.0000', downloadedAt }];
+		const kavitaChapters = [
+			{ minNumber: 1, pages: 20, pagesRead: 20 },
+			{ minNumber: 0, pages: 20, pagesRead: 20 }, // orphan, ambiguous
+			{ minNumber: 0, pages: 20, pagesRead: 5 },
+		];
+
+		expect(selectChaptersToDelete({ localChapters, kavitaChapters })).toEqual(
+			[],
+		);
+	});
+
+	test('deletes multiple eligible orphans and keeps the overall highest, mixing local and orphan sources', () => {
+		const localChapters = [{ idChapter: 1, volume: '2.0000', downloadedAt }];
+		const kavitaChapters = [
+			{ minNumber: 1, pages: 20, pagesRead: 20 }, // orphan
+			{ minNumber: 2, pages: 20, pagesRead: 20 }, // local
+			{ minNumber: 3, pages: 20, pagesRead: 20 }, // orphan, highest overall
+		];
+
+		const result = selectChaptersToDelete({ localChapters, kavitaChapters });
+
+		expect(result).toEqual([
+			{ idChapter: 1, volume: '2.0000', downloadedAt },
+			{ idChapter: null, volume: 1 },
+		]);
+	});
 });

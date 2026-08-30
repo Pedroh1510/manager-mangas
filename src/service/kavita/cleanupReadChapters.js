@@ -29,9 +29,21 @@ async function ensureKavitaConnection() {
 	return token;
 }
 
+function deleteStatus({ isOrphan, failed }) {
+	if (isOrphan) {
+		return failed
+			? 'kavita_cleanup_orphan_chapter_delete_failed'
+			: 'kavita_cleanup_orphan_chapter_deleted';
+	}
+	return failed
+		? 'kavita_cleanup_chapter_delete_failed'
+		: 'kavita_cleanup_chapter_deleted';
+}
+
 async function deleteChapters({ manga, chapters }) {
 	let deleted = 0;
 	for (const chapter of chapters) {
+		const isOrphan = chapter.idChapter === null;
 		try {
 			await Download.deleteChapterFile({
 				title: manga.title,
@@ -39,17 +51,19 @@ async function deleteChapters({ manga, chapters }) {
 			});
 			logger.info({
 				idManga: manga.idManga,
+				title: manga.title,
 				idChapter: chapter.idChapter,
 				volume: chapter.volume,
-				status: 'kavita_cleanup_chapter_deleted',
+				status: deleteStatus({ isOrphan, failed: false }),
 			});
 			deleted++;
 		} catch (error) {
 			logger.warn({
 				idManga: manga.idManga,
+				title: manga.title,
 				idChapter: chapter.idChapter,
 				volume: chapter.volume,
-				status: 'kavita_cleanup_chapter_delete_failed',
+				status: deleteStatus({ isOrphan, failed: true }),
 				error: error.message,
 			});
 		}
@@ -58,16 +72,9 @@ async function deleteChapters({ manga, chapters }) {
 }
 
 async function cleanupMangaChapters({ manga, token }) {
-	const localChapters = await ChaptersRepository.listChaptersByManga({
-		idManga: manga.idManga,
-	});
-	if (!localChapters.some((chapter) => chapter.downloadedAt)) {
-		logger.info({
-			idManga: manga.idManga,
-			status: 'kavita_cleanup_no_downloaded_chapters',
-		});
-		return { deleted: 0 };
-	}
+	const localChapters = manga.idManga
+		? await ChaptersRepository.listChaptersByManga({ idManga: manga.idManga })
+		: [];
 
 	const seriesList = await KavitaClient.searchSeries({
 		title: manga.title,
@@ -75,7 +82,11 @@ async function cleanupMangaChapters({ manga, token }) {
 	});
 	const series = findMatchingSeries({ title: manga.title, seriesList });
 	if (!series) {
-		logger.info({ idManga: manga.idManga, status: 'kavita_series_not_found' });
+		logger.info({
+			idManga: manga.idManga,
+			title: manga.title,
+			status: 'kavita_series_not_found',
+		});
 		return { deleted: 0 };
 	}
 
@@ -91,6 +102,7 @@ async function cleanupMangaChapters({ manga, token }) {
 	if (chaptersToDelete.length === 0) {
 		logger.info({
 			idManga: manga.idManga,
+			title: manga.title,
 			seriesId: series.seriesId,
 			localChaptersCount: localChapters.length,
 			kavitaChaptersCount: kavitaChapters.length,
@@ -121,19 +133,22 @@ async function cleanupMangaChapters({ manga, token }) {
 	return { deleted };
 }
 
-async function listTargetMangas({ idManga }) {
-	if (!idManga) return MangasRepository.listMangas({});
-	const manga = await MangasRepository.findMangaById({ idManga });
-	return manga ? [manga] : [];
+async function listTargetMangas({ idManga, title }) {
+	if (idManga) {
+		const manga = await MangasRepository.findMangaById({ idManga });
+		return manga ? [manga] : [];
+	}
+	if (title) return [{ idManga: null, title }];
+	return MangasRepository.listMangas({});
 }
 
-async function cleanupReadChapters({ idManga } = {}) {
+async function cleanupReadChapters({ idManga, title } = {}) {
 	const token = await ensureKavitaConnection();
 	if (!token) {
 		return { totalDeleted: 0, mangasProcessed: 0 };
 	}
 
-	const mangas = await listTargetMangas({ idManga });
+	const mangas = await listTargetMangas({ idManga, title });
 
 	let totalDeleted = 0;
 	for (const manga of mangas) {
@@ -141,6 +156,7 @@ async function cleanupReadChapters({ idManga } = {}) {
 			(error) => {
 				logger.error({
 					idManga: manga.idManga,
+					title: manga.title,
 					status: 'kavita_cleanup_manga_failed',
 					error: error.message,
 				});

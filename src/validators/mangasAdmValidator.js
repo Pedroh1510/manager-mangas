@@ -99,9 +99,12 @@ async function registerCredentials(req, _, next) {
 }
 
 async function cleanupQuery({ query }, _, next) {
-	const schema = Joi.object().keys({
-		idManga: Joi.number().integer().optional(),
-	});
+	const schema = Joi.object()
+		.keys({
+			idManga: Joi.number().integer().optional(),
+			title: Joi.string().trim().min(1).optional(),
+		})
+		.oxor('idManga', 'title');
 	await schema.validateAsync(query);
 	return next();
 }
