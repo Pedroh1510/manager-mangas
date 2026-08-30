@@ -19,6 +19,17 @@ services:
     command: redis-server --save 20 1 --loglevel warning
     networks:
       - mangas
+  kavita:
+    image: jvmilazz0/kavita:latest
+    container_name: kavita-dev-mangas
+    restart: unless-stopped
+    volumes:
+      - ../../downloads:/manga
+      - ../../appdata/kavita:/kavita/config
+    ports:
+      - '5000:5000'
+    networks:
+      - mangas
 
 networks:
   mangas:
