@@ -30,6 +30,8 @@ services:
       - REDIS_PORT=${REDIS_PORT}
       - PORT=${PORT}
       - TZ=${TZ}
+      - KAVITA_URL=http://kavita:5000
+      - KAVITA_API_KEY=${KAVITA_API_KEY}
     ports:
       - ${PORT}:${PORT}
     labels:

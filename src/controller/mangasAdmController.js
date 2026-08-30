@@ -1,9 +1,13 @@
 import express from 'express';
 import MangaAdminService from '../service/mangaAdmin.js';
 import MangasAdmValidator from '../validators/mangasAdmValidator.js';
+import kavitaAdmController from './kavitaAdmController.js';
 
 const mangasAdmController = express();
 export default mangasAdmController;
+
+mangasAdmController.use('/kavita', kavitaAdmController);
+
 /**
  * @swagger
  * tags:

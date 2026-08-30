@@ -133,3 +133,40 @@ describe('Download.downloadChapter', () => {
 		);
 	});
 });
+
+describe('Download.deleteChapterFile', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	test('removes both the padded and normalized filename candidates', async () => {
+		fsPromises.rm.mockResolvedValue(undefined);
+
+		await Download.deleteChapterFile({
+			title: 'Black Clover',
+			volume: '1.0000',
+		});
+
+		expect(fsPromises.rm).toHaveBeenCalledWith(
+			expect.stringContaining('1.0000.cbz'),
+			{ force: true },
+		);
+		expect(fsPromises.rm).toHaveBeenCalledWith(
+			expect.stringContaining('/1.cbz'),
+			{ force: true },
+		);
+		expect(fsPromises.rm).toHaveBeenCalledTimes(2);
+	});
+
+	test('only calls rm once when the padded and normalized paths are identical', async () => {
+		fsPromises.rm.mockResolvedValue(undefined);
+
+		await Download.deleteChapterFile({ title: 'Black Clover', volume: 375.5 });
+
+		expect(fsPromises.rm).toHaveBeenCalledWith(
+			expect.stringContaining('375.5.cbz'),
+			{ force: true },
+		);
+		expect(fsPromises.rm).toHaveBeenCalledTimes(1);
+	});
+});

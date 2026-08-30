@@ -20,6 +20,15 @@ function getPathMangaAndChapter({ title, volume = 0 }) {
 	};
 }
 
+async function deleteChapterFile({ title, volume }) {
+	const { mangaPath, chapterPath } = getPathMangaAndChapter({ title, volume });
+	const normalizedPath = join(mangaPath, `${Number(volume)}.cbz`);
+	await rm(chapterPath, { force: true });
+	if (normalizedPath !== chapterPath) {
+		await rm(normalizedPath, { force: true });
+	}
+}
+
 function downloadPage({ page, cookie, userAgent }) {
 	return withDomainSlot(page, () =>
 		downloadImage({ url: page, cookie, userAgent }),
@@ -190,6 +199,7 @@ const Download = {
 	downloadChapter,
 	getPathMangaAndChapter,
 	downloadMangaFromDisk,
+	deleteChapterFile,
 };
 
 export default Download;

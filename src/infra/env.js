@@ -25,3 +25,6 @@ CONFIG_ENV.URL_DOC =
 CONFIG_ENV.ENABLE_JOB = !!process.env.URL_DOC ?? false;
 const concurrency = Number.parseInt(process.env.CONCURRENCY);
 CONFIG_ENV.CONCURRENCY = Number.isNaN(concurrency) ? 1 : concurrency;
+
+CONFIG_ENV.KAVITA_URL = process.env.KAVITA_URL;
+CONFIG_ENV.KAVITA_API_KEY = process.env.KAVITA_API_KEY;

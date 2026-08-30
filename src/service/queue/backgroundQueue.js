@@ -1,5 +1,6 @@
 // src/service/queue/backgroundQueue.js
 import { Queue, Worker } from 'bullmq';
+import KavitaCleanupService from '../kavita/cleanupReadChapters.js';
 import MangaAdminService from '../mangaAdmin.js';
 import connection from './connection.js';
 
@@ -15,6 +16,7 @@ const operations = {
 	updateMangaChapters: (data) => MangaAdminService.updateMangaChapters(data),
 	downloadMangasBatch: (data) => MangaAdminService.downloadMangasBatch(data),
 	listPagesAndSend: (data) => MangaAdminService.listPagesAndSend(data),
+	cleanupReadChapters: (data) => KavitaCleanupService.cleanupReadChapters(data),
 };
 
 export async function enqueueBackgroundTask(operation, data, jobId) {
@@ -33,6 +35,14 @@ export async function scheduleRecurringUpdate() {
 		'every-12h',
 		{ pattern: '0 11,19 * * *' },
 		{ name: 'updateAllMangas' },
+	);
+}
+
+export async function scheduleRecurringCleanup() {
+	await queue.upsertJobScheduler(
+		'kavita-cleanup-every-6h',
+		{ pattern: '0 2,8,14,20 * * *' },
+		{ name: 'cleanupReadChapters' },
 	);
 }
 

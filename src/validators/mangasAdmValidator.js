@@ -98,6 +98,14 @@ async function registerCredentials(req, _, next) {
 	return next();
 }
 
+async function cleanupQuery({ query }, _, next) {
+	const schema = Joi.object().keys({
+		idManga: Joi.number().integer().optional(),
+	});
+	await schema.validateAsync(query);
+	return next();
+}
+
 const MangasAdmValidator = {
 	createManga,
 	linkConnector,
@@ -108,5 +116,6 @@ const MangasAdmValidator = {
 	listMangasRegistered,
 	registerCookie,
 	registerCredentials,
+	cleanupQuery,
 };
 export default MangasAdmValidator;

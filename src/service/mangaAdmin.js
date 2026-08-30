@@ -3,6 +3,7 @@ import path from 'node:path';
 import sql from 'sql-bricks';
 import database from '../infra/database.js';
 import { BadRequestError, ValidationError } from '../infra/errors.js';
+import logger from '../infra/logger.js';
 import ChaptersRepository from '../repository/chapters.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 import MangasRepository from '../repository/mangas.js';
@@ -10,11 +11,10 @@ import Download from './download.js';
 import MangaService from './manga.js';
 import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
 import { enqueueDownload } from './queue/downloadQueue.js';
-import logger from '../infra/logger.js';
 
 async function createManga({ title }) {
 	const existing = await MangasRepository.findMangaByTitleIncludingDeleted({
-		title
+		title,
 	});
 	if (existing) {
 		throw new BadRequestError({
@@ -23,7 +23,7 @@ async function createManga({ title }) {
 				: 'This manga already exists in the database',
 			action: existing.deletedAt
 				? 'Try another title'
-				: 'Try another title or idPlugin'
+				: 'Try another title or idPlugin',
 		});
 	}
 	const { idManga } = await MangasRepository.createManga({ title });
@@ -34,25 +34,25 @@ async function linkConnector({
 	idManga,
 	idPlugin,
 	idMangaPlugin,
-	titlePlugin
+	titlePlugin,
 }) {
 	if (!MangaService.hasConnector(idPlugin)) {
 		throw new ValidationError({
 			message: `Plugin with id ${idPlugin} not found`,
-			action: 'Change plugin id'
+			action: 'Change plugin id',
 		});
 	}
 	const { idMangaConnector } = await MangaConnectorsRepository.linkConnector({
 		idManga,
 		idPlugin,
 		idMangaPlugin,
-		titlePlugin
+		titlePlugin,
 	}).catch((error) => {
 		if (error.message.includes('duplicate key')) {
 			throw new BadRequestError({
 				cause: error,
 				message: 'This manga is already linked to this connector',
-				action: 'Try another idManga or idPlugin'
+				action: 'Try another idManga or idPlugin',
 			});
 		}
 		throw error;
@@ -64,12 +64,12 @@ async function setConnectorActive({ idManga, idPlugin, isActive }) {
 	const updated = await MangaConnectorsRepository.setConnectorActive({
 		idManga,
 		idPlugin,
-		isActive
+		isActive,
 	});
 	if (!updated) {
 		throw new BadRequestError({
 			message: `No connector link found for manga ${idManga} and plugin ${idPlugin}`,
-			action: 'Check idManga and idPlugin'
+			action: 'Check idManga and idPlugin',
 		});
 	}
 	return updated;
@@ -88,7 +88,7 @@ async function deleteManga({ idManga }) {
 	if (!manga || manga.deletedAt) {
 		throw new BadRequestError({
 			message: `Manga ${idManga} not found`,
-			action: 'Check idManga'
+			action: 'Check idManga',
 		});
 	}
 	await ChaptersRepository.deleteChaptersByManga({ idManga });
@@ -101,7 +101,7 @@ async function deleteManga({ idManga }) {
 async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 	if (!MangaService.hasConnector(idPlugin)) {
 		throw new ValidationError({
-			message: `Plugin with id ${idPlugin} not found`
+			message: `Plugin with id ${idPlugin} not found`,
 		});
 	}
 	const response = await database
@@ -110,12 +110,12 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 				.select('cookie')
 				.from('pluginConfig')
 				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => rows);
 	const data = {
 		cookie,
-		cookieUpdatedAt: new Date()
+		cookieUpdatedAt: new Date(),
 	};
 
 	if (userAgent) {
@@ -126,7 +126,7 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 			sql
 				.update('pluginConfig', data)
 				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
-				.toParams()
+				.toParams(),
 		);
 		return;
 	}
@@ -137,7 +137,7 @@ async function registerCookie({ cookie, idPlugin, userAgent = null }) {
 async function registerCredentials({ idPlugin, login, password }) {
 	if (!MangaService.hasConnector(idPlugin)) {
 		throw new ValidationError({
-			message: `Plugin with id ${idPlugin} not found`
+			message: `Plugin with id ${idPlugin} not found`,
 		});
 	}
 
@@ -147,20 +147,20 @@ async function registerCredentials({ idPlugin, login, password }) {
 				.select('cookie')
 				.from('pluginConfig')
 				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
-				.toParams()
+				.toParams(),
 		)
 		.then(({ rows }) => rows);
 
 	const data = {
 		login,
-		password
+		password,
 	};
 	if (response.length) {
 		await database.query(
 			sql
 				.update('pluginConfig', data)
 				.where({ 'lower("idPlugin")': idPlugin.toLowerCase() })
-				.toParams()
+				.toParams(),
 		);
 		return;
 	}
@@ -175,24 +175,24 @@ async function listChaptersMissing({ idManga }) {
 	if (!connectors.length) return [];
 
 	const knownChapters = await ChaptersRepository.listChaptersByManga({
-		idManga
+		idManga,
 	});
 	const knownVolumes = new Set(
-		knownChapters.map((chapter) => `${chapter.volume}`)
+		knownChapters.map((chapter) => `${chapter.volume}`),
 	);
 
 	const chaptersMissing = [];
 	for (const connector of connectors) {
 		const chapters = await MangaService.listChaptersByManga({
 			idPlugin: connector.idPlugin,
-			mangaId: connector.idMangaPlugin
+			mangaId: connector.idMangaPlugin,
 		});
 		for (const chapter of chapters) {
 			if (knownVolumes.has(`${chapter.volume}`)) continue;
 			knownVolumes.add(`${chapter.volume}`);
 			chaptersMissing.push({
 				...chapter,
-				idMangaConnector: connector.idMangaConnector
+				idMangaConnector: connector.idMangaConnector,
 			});
 		}
 	}
@@ -213,14 +213,14 @@ async function updateMangaChapters({ idManga }) {
 			idMangaConnector: chapter.idMangaConnector,
 			idChapterPlugin: chapter.id,
 			name: chapter.title,
-			volume: chapter.volume
+			volume: chapter.volume,
 		});
 	}
 	if (chaptersMissing.length) {
 		await enqueueBackgroundTask(
 			'downloadMangasBatch',
 			{ idManga },
-			`downloadMangasBatch-${idManga}`
+			`downloadMangasBatch-${idManga}`,
 		);
 	}
 	return chaptersMissing;
@@ -228,14 +228,14 @@ async function updateMangaChapters({ idManga }) {
 
 async function updateMangas({ idPlugin }) {
 	const connectors = await MangaConnectorsRepository.listActiveConnectors({
-		idPlugin
+		idPlugin,
 	});
 	let counterMangasUpdated = 0;
 	for (const connector of connectors) {
 		await enqueueBackgroundTask(
 			'updateMangaChapters',
 			{ idManga: connector.idManga },
-			`updateMangaChapters-${connector.idManga}`
+			`updateMangaChapters-${connector.idManga}`,
 		);
 		counterMangasUpdated++;
 	}
@@ -244,31 +244,31 @@ async function updateMangas({ idPlugin }) {
 
 async function updateMangasBatch({ idPlugin }) {
 	const connectors = await MangaConnectorsRepository.listActiveConnectors({
-		idPlugin
+		idPlugin,
 	});
 	const totalUpdated = {};
 	for (const connector of connectors) {
 		totalUpdated[connector.idManga] = 0;
 		const knownChapters = await ChaptersRepository.listChaptersByManga({
-			idManga: connector.idManga
+			idManga: connector.idManga,
 		});
 		const knownVolumes = new Set(
-			knownChapters.map((chapter) => `${chapter.volume}`)
+			knownChapters.map((chapter) => `${chapter.volume}`),
 		);
 
 		const chapters = await MangaService.listChaptersByManga({
 			idPlugin: connector.idPlugin,
-			mangaId: connector.idMangaPlugin
+			mangaId: connector.idMangaPlugin,
 		});
 		const missing = chapters.filter(
-			(chapter) => !knownVolumes.has(`${chapter.volume}`)
+			(chapter) => !knownVolumes.has(`${chapter.volume}`),
 		);
 		if (!missing.length) continue;
 
 		const chaptersWithPages = await MangaService.listPagesBatch({
 			pluginId: connector.idPlugin,
 			chapters: missing.slice(0, 5),
-			title: connector.title
+			title: connector.title,
 		});
 
 		for (const chapter of chaptersWithPages) {
@@ -277,7 +277,7 @@ async function updateMangasBatch({ idPlugin }) {
 				idMangaConnector: connector.idMangaConnector,
 				idChapterPlugin: chapter.id,
 				name: chapter.title,
-				volume: chapter.volume
+				volume: chapter.volume,
 			});
 			if (!inserted) continue;
 			await enqueueDownload(
@@ -285,9 +285,9 @@ async function updateMangasBatch({ idPlugin }) {
 					manga: connector.title,
 					chapter: chapter.volume,
 					pages: chapter.pages,
-					idChapter: inserted.idChapter
+					idChapter: inserted.idChapter,
 				},
-				`downloadQueue-${connector.idManga}-${chapter.volume}`
+				`downloadQueue-${connector.idManga}-${chapter.volume}`,
 			);
 			totalUpdated[connector.idManga]++;
 		}
@@ -304,15 +304,14 @@ async function deleteChapter({ idManga, idChapter }) {
 	if (!chapter || chapter.idManga !== idManga) {
 		throw new BadRequestError({
 			message: `Chapter ${idChapter} not found for manga ${idManga}`,
-			action: 'Check idManga and idChapter'
+			action: 'Check idManga and idChapter',
 		});
 	}
 	await ChaptersRepository.deleteChapter({ idChapter });
-	const { chapterPath } = Download.getPathMangaAndChapter({
+	await Download.deleteChapterFile({
 		title: chapter.title,
-		volume: chapter.volume
+		volume: chapter.volume,
 	});
-	await rm(chapterPath, { force: true });
 }
 
 async function listPagesAndSend({ idChapter }) {
@@ -320,7 +319,7 @@ async function listPagesAndSend({ idChapter }) {
 	if (!chapter) return;
 	const pages = await MangaService.listPages({
 		chapterId: chapter.idChapterPlugin,
-		pluginId: chapter.idPlugin
+		pluginId: chapter.idPlugin,
 	});
 	if (!pages.length) return;
 	await enqueueDownload(
@@ -328,15 +327,15 @@ async function listPagesAndSend({ idChapter }) {
 			manga: chapter.title,
 			chapter: chapter.volume,
 			pages,
-			idChapter
+			idChapter,
 		},
-		`downloadQueue-${idChapter}`
+		`downloadQueue-${idChapter}`,
 	);
 }
 
 async function downloadMangasBatch({ idManga } = {}) {
 	const chaptersMissingDownload = await ChaptersRepository.listMissingDownloads(
-		{ idManga }
+		{ idManga },
 	);
 	if (!chaptersMissingDownload.length) return { totalDownloaded: 0 };
 	let counterDownload = 0;
@@ -344,7 +343,7 @@ async function downloadMangasBatch({ idManga } = {}) {
 		await enqueueBackgroundTask(
 			'listPagesAndSend',
 			{ idChapter: chapter.idChapter },
-			`listPagesAndSend-${chapter.idChapter}`
+			`listPagesAndSend-${chapter.idChapter}`,
 		);
 		counterDownload++;
 	}
@@ -356,7 +355,7 @@ async function downloadManga({ idManga, volume }) {
 	if (!manga) {
 		throw new BadRequestError({
 			message: `Manga ${idManga} not found`,
-			action: 'Check idManga'
+			action: 'Check idManga',
 		});
 	}
 	return Download.downloadMangaFromDisk({ title: manga.title, volume });
@@ -379,7 +378,7 @@ const MangaAdminService = {
 	deleteChapter,
 	listPagesAndSend,
 	downloadMangasBatch,
-	downloadManga
+	downloadManga,
 };
 
 export default MangaAdminService;

@@ -13,6 +13,7 @@ services:
       - POSTGRES_HOST=database
       - POSTGRES_PORT=5432
       - REDIS_HOST=cache
+      - KAVITA_URL=http://kavita-dev-mangas:5000
     ports:
       - 9229:9229
       - 3001:3001
