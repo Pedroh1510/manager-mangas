@@ -10,12 +10,17 @@ export default kavitaAdmController;
  * /mangas/adm/kavita/cleanup:
  *   post:
  *     tags: [MangaAdm]
- *     description: Delete on-disk chapters fully read in Kavita (never partial), always keeping each manga's highest-numbered chapter. Only runs if the Kavita connection (health + auth) succeeds; never writes to any database.
+ *     description: Delete on-disk chapters fully read in Kavita (never partial), always keeping each manga's highest-numbered chapter. Also deletes fully-read Kavita chapters with no matching local database row (orphans). Only runs if the Kavita connection (health + auth) succeeds; never writes to any database.
  *     parameters:
  *       - name: idManga
  *         in: query
  *         required: false
  *         type: integer
+ *       - name: title
+ *         in: query
+ *         required: false
+ *         type: string
+ *         description: Look up the series in Kavita by title, without requiring a matching manga row in the database. Mutually exclusive with idManga.
  *     responses:
  *       200:
  *         description: Returns totalDeleted and mangasProcessed
@@ -25,8 +30,10 @@ kavitaAdmController.post(
 	MangasAdmValidator.cleanupQuery,
 	async (req, res) => {
 		const idManga = req.query.idManga ? Number(req.query.idManga) : undefined;
+		const title = req.query.title || undefined;
 		const response = await KavitaCleanupService.cleanupReadChapters({
 			idManga,
+			title,
 		});
 		res.status(200).send(response);
 	},
