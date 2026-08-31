@@ -14,8 +14,25 @@ export function flattenKavitaChapters(volumes) {
 	return volumes.flatMap((volume) => volume.chapters ?? []);
 }
 
-function sameChapterNumber(localVolume, kavitaMinNumber) {
-	return Number(localVolume).toFixed(4) === Number(kavitaMinNumber).toFixed(4);
+function sameChapterNumber(localVolume, kavitaChapterNumber) {
+	return (
+		Number(localVolume).toFixed(4) === Number(kavitaChapterNumber).toFixed(4)
+	);
+}
+
+// Kavita's sentinel for "couldn't parse a chapter number": every chapter it
+// treats as a loose special (no volume folder to infer numbering from) gets
+// this exact minNumber, even when its real number is obvious from the
+// filename. The real number then lives in `title`/`range` instead
+// (e.g. minNumber: -100000, title: "13.0000").
+const UNPARSED_NUMBER_SENTINEL = -100000;
+
+function effectiveChapterNumber(kavitaChapter) {
+	if (kavitaChapter.minNumber !== UNPARSED_NUMBER_SENTINEL) {
+		return kavitaChapter.minNumber;
+	}
+	const fromTitle = Number(kavitaChapter.title ?? kavitaChapter.range);
+	return Number.isFinite(fromTitle) ? fromTitle : kavitaChapter.minNumber;
 }
 
 function isFullyRead(kavitaChapter) {
@@ -24,20 +41,33 @@ function isFullyRead(kavitaChapter) {
 	);
 }
 
+// Kavita can list the same chapter number twice under a slightly different
+// title (e.g. "1" and "1.0000") after a rescan. Only collapse these into one
+// match when every copy agrees on pages/pagesRead - a real disagreement
+// (different read state) must still be treated as ambiguous.
+function isIdenticalDuplicateGroup(matches) {
+	const [first, ...rest] = matches;
+	return rest.every(
+		(chapter) =>
+			chapter.pages === first.pages && chapter.pagesRead === first.pagesRead,
+	);
+}
+
 function findKavitaChapter({ volume, kavitaChapters }) {
 	const matches = kavitaChapters.filter((chapter) =>
-		sameChapterNumber(volume, chapter.minNumber),
+		sameChapterNumber(volume, effectiveChapterNumber(chapter)),
 	);
-	// An ambiguous match (more than one Kavita chapter sharing the same
-	// number, e.g. multiple specials at minNumber: 0) is treated the same
-	// as no match: never delete based on another chapter's read state.
-	if (matches.length !== 1) return null;
-	return matches[0];
+	if (matches.length === 0) return null;
+	if (matches.length === 1) return matches[0];
+	// A genuinely ambiguous match (more than one Kavita chapter sharing the
+	// same number with different read state) is treated the same as no
+	// match: never delete based on another chapter's read state.
+	return isIdenticalDuplicateGroup(matches) ? matches[0] : null;
 }
 
 function hasLocalChapter({ kavitaChapter, localChapters }) {
 	return localChapters.some((chapter) =>
-		sameChapterNumber(chapter.volume, kavitaChapter.minNumber),
+		sameChapterNumber(chapter.volume, effectiveChapterNumber(kavitaChapter)),
 	);
 }
 
@@ -53,18 +83,16 @@ function selectOrphanChapters({ localChapters, kavitaChapters }) {
 	const orphans = [];
 	const seenNumbers = new Set();
 	for (const kavitaChapter of kavitaChapters) {
-		const key = Number(kavitaChapter.minNumber).toFixed(4);
+		const number = effectiveChapterNumber(kavitaChapter);
+		const key = Number(number).toFixed(4);
 		if (seenNumbers.has(key)) continue;
 		seenNumbers.add(key);
 
-		const match = findKavitaChapter({
-			volume: kavitaChapter.minNumber,
-			kavitaChapters,
-		});
+		const match = findKavitaChapter({ volume: number, kavitaChapters });
 		if (!match || !isFullyRead(match)) continue;
 		if (hasLocalChapter({ kavitaChapter: match, localChapters })) continue;
 
-		orphans.push({ idChapter: null, volume: match.minNumber });
+		orphans.push({ idChapter: null, volume: effectiveChapterNumber(match) });
 	}
 	return orphans;
 }

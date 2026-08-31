@@ -237,4 +237,89 @@ describe('selectChaptersToDelete', () => {
 			{ idChapter: null, volume: 1 },
 		]);
 	});
+
+	describe('Kavita specials with an unparsed minNumber sentinel (-100000)', () => {
+		test('matches by title when minNumber is the sentinel, deleting the fully-read non-highest chapter', () => {
+			const localChapters = [
+				{ idChapter: 1, volume: '1.0000', downloadedAt },
+				{ idChapter: 2, volume: '2.0000', downloadedAt },
+			];
+			const kavitaChapters = [
+				{ minNumber: -100000, title: '1.0000', pages: 20, pagesRead: 20 },
+				{ minNumber: -100000, title: '2.0000', pages: 20, pagesRead: 20 },
+			];
+
+			const result = selectChaptersToDelete({ localChapters, kavitaChapters });
+
+			expect(result).toEqual([
+				{ idChapter: 1, volume: '1.0000', downloadedAt },
+			]);
+		});
+
+		test('falls back to range when title is missing', () => {
+			const localChapters = [
+				{ idChapter: 1, volume: '1.0000', downloadedAt },
+				{ idChapter: 2, volume: '2.0000', downloadedAt },
+			];
+			const kavitaChapters = [
+				{ minNumber: -100000, range: '1.0000', pages: 20, pagesRead: 20 },
+				{ minNumber: -100000, range: '2.0000', pages: 20, pagesRead: 20 },
+			];
+
+			const result = selectChaptersToDelete({ localChapters, kavitaChapters });
+
+			expect(result).toEqual([
+				{ idChapter: 1, volume: '1.0000', downloadedAt },
+			]);
+		});
+
+		test('collapses an identical duplicate (same title number, same pages/pagesRead) into one match', () => {
+			// Regression: Kavita listed "1" and "1.0000" as two separate chapter
+			// entries after a rescan, both fully read with identical pages.
+			const localChapters = [
+				{ idChapter: 1, volume: '1.0000', downloadedAt },
+				{ idChapter: 2, volume: '2.0000', downloadedAt },
+			];
+			const kavitaChapters = [
+				{ minNumber: -100000, title: '1', pages: 12, pagesRead: 12 },
+				{ minNumber: -100000, title: '1.0000', pages: 12, pagesRead: 12 },
+				{ minNumber: -100000, title: '2.0000', pages: 20, pagesRead: 20 },
+			];
+
+			const result = selectChaptersToDelete({ localChapters, kavitaChapters });
+
+			expect(result).toEqual([
+				{ idChapter: 1, volume: '1.0000', downloadedAt },
+			]);
+		});
+
+		test('keeps treating a duplicate as ambiguous when read state actually disagrees', () => {
+			const localChapters = [
+				{ idChapter: 1, volume: '1.0000', downloadedAt },
+				{ idChapter: 2, volume: '2.0000', downloadedAt },
+			];
+			const kavitaChapters = [
+				{ minNumber: -100000, title: '1', pages: 12, pagesRead: 12 },
+				{ minNumber: -100000, title: '1.0000', pages: 12, pagesRead: 5 },
+				{ minNumber: -100000, title: '2.0000', pages: 20, pagesRead: 20 },
+			];
+
+			const result = selectChaptersToDelete({ localChapters, kavitaChapters });
+
+			expect(result).toEqual([]);
+		});
+
+		test('detects an orphan among sentinel specials by title, not by the shared minNumber', () => {
+			const localChapters = [{ idChapter: 1, volume: '2.0000', downloadedAt }];
+			const kavitaChapters = [
+				{ minNumber: -100000, title: '0.0000', pages: 2, pagesRead: 2 }, // orphan prologue
+				{ minNumber: -100000, title: '1.0000', pages: 12, pagesRead: 0 }, // not fully read
+				{ minNumber: -100000, title: '2.0000', pages: 20, pagesRead: 20 }, // local, highest
+			];
+
+			const result = selectChaptersToDelete({ localChapters, kavitaChapters });
+
+			expect(result).toEqual([{ idChapter: null, volume: 0 }]);
+		});
+	});
 });
