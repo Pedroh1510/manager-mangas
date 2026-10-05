@@ -188,10 +188,21 @@ describe('MangaService', () => {
 				process.on('unhandledRejection', unhandled);
 
 				const pending = MangaService.listMangas({ pluginId: 'fake' });
+				let settled = false;
+				pending.then(
+					() => {
+						settled = true;
+					},
+					() => {
+						settled = true;
+					},
+				);
 				const assertion = expect(pending).rejects.toThrow(
 					'catalog refresh enqueue timed out after 5000ms for fake',
 				);
-				await vi.advanceTimersByTimeAsync(5000);
+				await vi.advanceTimersByTimeAsync(4999);
+				expect(settled).toBe(false);
+				await vi.advanceTimersByTimeAsync(1);
 				await assertion;
 
 				rejectLateEnqueue(new Error('redis gave up'));

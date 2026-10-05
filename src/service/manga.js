@@ -159,9 +159,8 @@ function enqueueCatalogRefreshWithTimeout(connectorId) {
 			CATALOG_ENQUEUE_TIMEOUT_MS,
 		);
 	});
-	// The late outcome of an abandoned enqueue must not become an unhandled
-	// rejection that kills the process.
-	enqueue.catch(() => {});
+	// Promise.race subscribes to `enqueue`, so its late rejection after a
+	// timeout is handled and cannot crash the process (verified by C19).
 	return Promise.race([enqueue, timeout]).finally(() => clearTimeout(timer));
 }
 
