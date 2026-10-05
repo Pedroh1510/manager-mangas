@@ -61,6 +61,25 @@ describe('mangaCatalog', () => {
 				JSON.stringify([{ id: '1', title: 'Black Clover' }]),
 			);
 		});
+
+		test('writes the catalog to a temp file and renames it into place', async () => {
+			fs.mkdir.mockResolvedValue(undefined);
+			fs.writeFile.mockResolvedValue(undefined);
+			fs.rename.mockResolvedValue(undefined);
+
+			await saveCatalog('mangeek', [{ id: '1', title: 'Black Clover' }]);
+
+			const [writtenPath] = fs.writeFile.mock.calls[0];
+			expect(writtenPath).toMatch(/mangas\.mangeek\.json\.tmp$/);
+			expect(fs.writeFile).toHaveBeenCalledTimes(1);
+			expect(fs.rename).toHaveBeenCalledWith(
+				writtenPath,
+				expect.stringMatching(/mangas\.mangeek\.json$/),
+			);
+			expect(fs.writeFile.mock.invocationCallOrder[0]).toBeLessThan(
+				fs.rename.mock.invocationCallOrder[0],
+			);
+		});
 	});
 
 	describe('isStale', () => {
