@@ -23,6 +23,19 @@ async function linkConnector(req, _, next) {
 	return next();
 }
 
+async function setAllConnectorsActive(req, _, next) {
+	const schema = Joi.object().keys({
+		params: Joi.object().keys({
+			idManga: Joi.number().integer().required(),
+		}),
+		body: Joi.object().keys({
+			isActive: Joi.boolean().strict().required(),
+		}),
+	});
+	await schema.validateAsync(req, { allowUnknown: true });
+	return next();
+}
+
 async function setConnectorActive(req, _, next) {
 	const schema = Joi.object().keys({
 		params: Joi.object().keys({
@@ -113,6 +126,7 @@ const MangasAdmValidator = {
 	createManga,
 	linkConnector,
 	setConnectorActive,
+	setAllConnectorsActive,
 	idMangaParam,
 	chapterParams,
 	downloadManga,
