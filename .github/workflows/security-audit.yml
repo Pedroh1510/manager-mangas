@@ -15,5 +15,8 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci
-      - name: Audit (fails on high/critical)
-        run: npm audit --audit-level=high
+      # Production deps only: `braces` (all versions, no patched release) reaches
+      # the tree solely through dev tooling (nodemon/tailwindcss -> chokidar)
+      # and parses only the tool's own glob patterns.
+      - name: Audit production deps (fails on high/critical)
+        run: npm audit --omit=dev --audit-level=high
