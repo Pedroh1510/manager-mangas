@@ -2,12 +2,16 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import Connector from '../../../connectors/Connector.js';
 import * as registry from '../../../connectors/registry.js';
 import database from '../../../infra/database.js';
+import logger from '../../../infra/logger.js';
 import MangaService from '../../../service/manga.js';
 import * as connectorQueue from '../../../service/queue/connectorQueue.js';
 import * as mangaCatalog from '../../../utils/mangaCatalog.js';
 
 vi.mock('../../../infra/database.js', () => ({
 	default: { query: vi.fn() },
+}));
+vi.mock('../../../infra/logger.js', () => ({
+	default: { error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 vi.mock('../../../service/download.js', () => ({
 	default: { downloadChapter: vi.fn() },
@@ -33,41 +37,139 @@ describe('MangaService', () => {
 	});
 
 	describe('listMangas', () => {
-		test('fetches fresh from the connector and saves the catalog when the cache is stale', async () => {
+		function arrangeFakePlugin() {
 			vi.spyOn(registry, 'hasConnector').mockReturnValue(true);
 			vi.spyOn(registry, 'getConnectorClass').mockReturnValue(FakeConnector);
-			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(true);
-			const saveCatalogSpy = vi
-				.spyOn(mangaCatalog, 'saveCatalog')
-				.mockResolvedValue();
-			const enqueueAndWaitSpy = vi
-				.spyOn(connectorQueue, 'enqueueAndWait')
-				.mockResolvedValue([{ id: '1', title: 'Black Clover' }]);
 			database.query.mockResolvedValue({ rows: [] });
+		}
 
-			const result = await MangaService.listMangas({ pluginId: 'fake' });
-
-			expect(result).toEqual([{ id: '1', title: 'Black Clover' }]);
-			expect(enqueueAndWaitSpy).toHaveBeenCalledWith('fake', 'listMangas', {});
-			expect(saveCatalogSpy).toHaveBeenCalledWith('fake', [
-				{ id: '1', title: 'Black Clover' },
-			]);
-		});
-
-		test('reads from the cache without calling the connector when the cache is fresh', async () => {
-			vi.spyOn(registry, 'hasConnector').mockReturnValue(true);
-			vi.spyOn(registry, 'getConnectorClass').mockReturnValue(FakeConnector);
+		test('returns the fresh cached catalog without enqueueing a refresh', async () => {
+			arrangeFakePlugin();
 			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(false);
 			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue([
 				{ id: '9', title: 'Cached Manga' },
 			]);
-			const getMangasSpy = vi.spyOn(FakeConnector.prototype, '_getMangas');
-			database.query.mockResolvedValue({ rows: [] });
+			const enqueueSpy = vi
+				.spyOn(connectorQueue, 'enqueueCatalogRefresh')
+				.mockResolvedValue({});
+			const enqueueAndWaitSpy = vi.spyOn(connectorQueue, 'enqueueAndWait');
 
 			const result = await MangaService.listMangas({ pluginId: 'fake' });
 
 			expect(result).toEqual([{ id: '9', title: 'Cached Manga' }]);
-			expect(getMangasSpy).not.toHaveBeenCalled();
+			expect(enqueueSpy).not.toHaveBeenCalled();
+			expect(enqueueAndWaitSpy).not.toHaveBeenCalled();
+		});
+
+		test('returns the stale catalog without waiting for the refresh job', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(true);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue([
+				{ id: '9', title: 'Old Manga' },
+			]);
+			vi.spyOn(connectorQueue, 'enqueueCatalogRefresh').mockReturnValue(
+				new Promise(() => {}),
+			);
+
+			const result = await MangaService.listMangas({ pluginId: 'fake' });
+
+			expect(result).toEqual([{ id: '9', title: 'Old Manga' }]);
+		});
+
+		test('filters the stale catalog by title', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(true);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue([
+				{ id: '1', title: 'Black Clover' },
+				{ id: '2', title: 'One Piece' },
+			]);
+			vi.spyOn(connectorQueue, 'enqueueCatalogRefresh').mockResolvedValue({});
+
+			const result = await MangaService.listMangas({
+				pluginId: 'fake',
+				title: 'black',
+			});
+
+			expect(result).toEqual([{ id: '1', title: 'Black Clover' }]);
+		});
+
+		test('enqueues exactly one refreshCatalog job when the cache is stale', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(true);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue([
+				{ id: '9', title: 'Old Manga' },
+			]);
+			const enqueueSpy = vi
+				.spyOn(connectorQueue, 'enqueueCatalogRefresh')
+				.mockResolvedValue({});
+
+			await MangaService.listMangas({ pluginId: 'fake' });
+
+			expect(enqueueSpy).toHaveBeenCalledTimes(1);
+			expect(enqueueSpy).toHaveBeenCalledWith('fake');
+		});
+
+		test('serves the stale catalog and logs when enqueueing the refresh fails', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(true);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue([
+				{ id: '9', title: 'Old Manga' },
+			]);
+			vi.spyOn(connectorQueue, 'enqueueCatalogRefresh').mockRejectedValue(
+				new Error('redis down'),
+			);
+
+			const result = await MangaService.listMangas({ pluginId: 'fake' });
+
+			expect(result).toEqual([{ id: '9', title: 'Old Manga' }]);
+			await vi.waitFor(() =>
+				expect(logger.error).toHaveBeenCalledWith(
+					'catalog refresh enqueue failed',
+					{ connectorId: 'fake', error: 'redis down' },
+				),
+			);
+		});
+
+		test('enqueues a refresh and reports pending when there is no cached catalog', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(true);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue(null);
+			const enqueueSpy = vi
+				.spyOn(connectorQueue, 'enqueueCatalogRefresh')
+				.mockResolvedValue({});
+
+			const result = await MangaService.listMangas({ pluginId: 'fake' });
+
+			expect(result).toBeNull();
+			expect(enqueueSpy).toHaveBeenCalledTimes(1);
+			expect(enqueueSpy).toHaveBeenCalledWith('fake');
+		});
+
+		test('treats an unparseable cache file as missing', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(false);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue(null);
+			const enqueueSpy = vi
+				.spyOn(connectorQueue, 'enqueueCatalogRefresh')
+				.mockResolvedValue({});
+
+			const result = await MangaService.listMangas({ pluginId: 'fake' });
+
+			expect(result).toBeNull();
+			expect(enqueueSpy).toHaveBeenCalledTimes(1);
+		});
+
+		test('rejects when there is no cached catalog and enqueueing fails', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(true);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue(null);
+			vi.spyOn(connectorQueue, 'enqueueCatalogRefresh').mockRejectedValue(
+				new Error('redis down'),
+			);
+
+			await expect(
+				MangaService.listMangas({ pluginId: 'fake' }),
+			).rejects.toThrow('redis down');
 		});
 
 		test('filters the catalog by title, case-insensitively, substring match', async () => {

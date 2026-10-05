@@ -15,6 +15,10 @@ vi.mock('bullmq', () => ({
 	Worker: WorkerMock,
 }));
 
+vi.mock('../../../../utils/mangaCatalog.js', () => ({
+	saveCatalog: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../../../../connectors/registry.js', () => ({
 	getConnectorClass: vi.fn().mockReturnValue(
 		class MockConnector {
@@ -80,5 +84,66 @@ describe('connectorQueue', () => {
 			expect.objectContaining({ concurrency: 1 }),
 		);
 		expect(workers).toHaveLength(1);
+	});
+
+	describe('refreshCatalog operation', () => {
+		class FakeCatalogConnector {
+			constructor() {
+				this.id = 'mangeek';
+			}
+
+			async initialize() {}
+
+			async _getMangas() {
+				return FakeCatalogConnector.mangas;
+			}
+		}
+
+		async function runRefreshCatalogJob() {
+			const registry = await import('../../../../connectors/registry.js');
+			vi.mocked(registry.getConnectorClass).mockReturnValue(
+				FakeCatalogConnector,
+			);
+			const { startConnectorWorkers } = await import(
+				'../../../../service/queue/connectorQueue.js'
+			);
+			startConnectorWorkers();
+			const processJob = WorkerMock.mock.calls[0][1];
+			return processJob({ name: 'refreshCatalog', data: {} });
+		}
+
+		test("refreshCatalog saves the connector's list to the catalog", async () => {
+			FakeCatalogConnector.mangas = [{ id: '1', title: 'Black Clover' }];
+			const { saveCatalog } = await import('../../../../utils/mangaCatalog.js');
+
+			await runRefreshCatalogJob();
+
+			expect(saveCatalog).toHaveBeenCalledWith('mangeek', [
+				{ id: '1', title: 'Black Clover' },
+			]);
+		});
+
+		test('refreshCatalog rejects an empty list and keeps the catalog', async () => {
+			FakeCatalogConnector.mangas = [];
+			const { saveCatalog } = await import('../../../../utils/mangaCatalog.js');
+
+			await expect(runRefreshCatalogJob()).rejects.toThrow('mangeek');
+			expect(saveCatalog).not.toHaveBeenCalled();
+		});
+	});
+
+	test('enqueueCatalogRefresh adds a deduplicated refreshCatalog job', async () => {
+		addMock.mockResolvedValue({});
+		const { enqueueCatalogRefresh } = await import(
+			'../../../../service/queue/connectorQueue.js'
+		);
+
+		await enqueueCatalogRefresh('mangeek');
+
+		expect(addMock).toHaveBeenCalledWith(
+			'refreshCatalog',
+			{},
+			{ attempts: 3, deduplication: { id: 'catalog-mangeek' } },
+		);
 	});
 });

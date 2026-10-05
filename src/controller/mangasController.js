@@ -97,6 +97,7 @@ mangasController.get('/:pluginId', async (req, res) => {
 	const { title } = req.query;
 
 	const mangas = await MangaService.listMangas({ pluginId, title });
+	if (!mangas) return res.status(202).send();
 
 	res.status(200).send(mangas);
 });
