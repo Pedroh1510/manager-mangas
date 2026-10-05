@@ -16,6 +16,13 @@ describe('GET /mangas/:pluginId', () => {
 		const catalogPath = path.resolve('appdata', 'mangas.test-fixture.json');
 		const fixtureCatalog = JSON.stringify([{ id: '1', title: 'Black Clover' }]);
 		const freshCatalog = () => writeFile(catalogPath, fixtureCatalog);
+		const waitForRewrittenCatalog = () =>
+			vi.waitFor(
+				async () => {
+					expect(await readFile(catalogPath, 'utf8')).toEqual(fixtureCatalog);
+				},
+				{ timeout: 10000, interval: 200 },
+			);
 
 		beforeAll(freshCatalog);
 		afterAll(freshCatalog);
@@ -38,16 +45,14 @@ describe('GET /mangas/:pluginId', () => {
 		});
 
 		test('the background refresh rewrites the catalog after a 202', async () => {
+			// Let the refresh queued by the previous test land first, or it
+			// rewrites the file right after the rm below.
+			await waitForRewrittenCatalog();
 			await rm(catalogPath, { force: true });
 			const first = await api('/mangas/test-fixture/');
 			expect(first.status).toEqual(202);
 
-			await vi.waitFor(
-				async () => {
-					expect(await readFile(catalogPath, 'utf8')).toEqual(fixtureCatalog);
-				},
-				{ timeout: 10000, interval: 200 },
-			);
+			await waitForRewrittenCatalog();
 			const second = await api('/mangas/test-fixture/');
 			expect(second.status).toEqual(200);
 			expect(second.data).toEqual([{ id: '1', title: 'Black Clover' }]);
