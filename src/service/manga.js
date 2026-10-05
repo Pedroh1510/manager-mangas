@@ -140,6 +140,31 @@ function requestStaleCatalogRefresh(connectorId) {
 	);
 }
 
+// BullMQ's queue.add never rejects while Redis is unreachable (ioredis keeps
+// retrying), so a request with no catalog to serve would hang instead of
+// failing. Found by the stale-catalog-refresh verification.
+const CATALOG_ENQUEUE_TIMEOUT_MS = 5000;
+
+function enqueueCatalogRefreshWithTimeout(connectorId) {
+	const enqueue = enqueueCatalogRefresh(connectorId);
+	let timer;
+	const timeout = new Promise((_resolve, reject) => {
+		timer = setTimeout(
+			() =>
+				reject(
+					new Error(
+						`catalog refresh enqueue timed out after ${CATALOG_ENQUEUE_TIMEOUT_MS}ms for ${connectorId}`,
+					),
+				),
+			CATALOG_ENQUEUE_TIMEOUT_MS,
+		);
+	});
+	// The late outcome of an abandoned enqueue must not become an unhandled
+	// rejection that kills the process.
+	enqueue.catch(() => {});
+	return Promise.race([enqueue, timeout]).finally(() => clearTimeout(timer));
+}
+
 /**
  * Returns the cached catalog, or null when none is usable yet (refresh queued).
  * @example const mangas = await getCatalog('mangeek'); // null -> respond 202
@@ -147,7 +172,7 @@ function requestStaleCatalogRefresh(connectorId) {
 async function getCatalog(connectorId) {
 	const cached = await mangaCatalog.loadCatalog(connectorId);
 	if (!cached) {
-		await enqueueCatalogRefresh(connectorId);
+		await enqueueCatalogRefreshWithTimeout(connectorId);
 		return null;
 	}
 	if (await mangaCatalog.isStale(connectorId)) {

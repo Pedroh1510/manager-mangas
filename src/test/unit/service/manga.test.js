@@ -172,6 +172,37 @@ describe('MangaService', () => {
 			).rejects.toThrow('redis down');
 		});
 
+		test('rejects when enqueueing the refresh does not answer within 5000ms', async () => {
+			vi.useFakeTimers();
+			try {
+				arrangeFakePlugin();
+				vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(true);
+				vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue(null);
+				let rejectLateEnqueue;
+				vi.spyOn(connectorQueue, 'enqueueCatalogRefresh').mockReturnValue(
+					new Promise((_resolve, reject) => {
+						rejectLateEnqueue = reject;
+					}),
+				);
+				const unhandled = vi.fn();
+				process.on('unhandledRejection', unhandled);
+
+				const pending = MangaService.listMangas({ pluginId: 'fake' });
+				const assertion = expect(pending).rejects.toThrow(
+					'catalog refresh enqueue timed out after 5000ms for fake',
+				);
+				await vi.advanceTimersByTimeAsync(5000);
+				await assertion;
+
+				rejectLateEnqueue(new Error('redis gave up'));
+				await vi.advanceTimersByTimeAsync(0);
+				process.off('unhandledRejection', unhandled);
+				expect(unhandled).not.toHaveBeenCalled();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
 		test('filters the catalog by title, case-insensitively, substring match', async () => {
 			vi.spyOn(registry, 'hasConnector').mockReturnValue(true);
 			vi.spyOn(registry, 'getConnectorClass').mockReturnValue(FakeConnector);
