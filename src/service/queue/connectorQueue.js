@@ -3,6 +3,7 @@ import {
 	getConnectorClass,
 	listConnectorIds,
 } from '../../connectors/registry.js';
+import { saveCatalog } from '../../utils/mangaCatalog.js';
 import connection from './connection.js';
 
 const CONCURRENCY_BY_CONNECTOR = {
@@ -55,8 +56,34 @@ export async function enqueueAndWait(connectorId, operation, params) {
 	return job.waitUntilFinished(getQueueEvents(connectorId));
 }
 
+/**
+ * Enqueues a background catalog refresh without waiting for it. While one is
+ * waiting or active for the connector, further calls are no-ops.
+ * @example await enqueueCatalogRefresh('mangeek');
+ */
+export async function enqueueCatalogRefresh(connectorId) {
+	return getConnectorQueue(connectorId).add(
+		'refreshCatalog',
+		{},
+		{ attempts: 3, deduplication: { id: `catalog-${connectorId}` } },
+	);
+}
+
+async function refreshCatalog(connector) {
+	const mangas = await connector._getMangas();
+	// An empty scrape (layout change, silent auth failure) must not overwrite
+	// a good catalog on disk.
+	if (!mangas.length) {
+		throw new Error(
+			`refreshCatalog: connector ${connector.id} returned 0 mangas, expected a non-empty list`,
+		);
+	}
+	await saveCatalog(connector.id, mangas);
+	return mangas.length;
+}
+
 const operations = {
-	listMangas: (connector) => connector._getMangas(),
+	refreshCatalog,
 	listChapters: (connector, params) => connector._getChapters(params.manga),
 	listPages: (connector, params) => connector._getPages(params.chapter),
 };

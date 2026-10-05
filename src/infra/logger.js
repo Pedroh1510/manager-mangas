@@ -38,7 +38,8 @@ const formatLog = () =>
 		align(),
 		printf((info) => {
 			const { fileName, functionName, line } = getTrace();
-			return `[${info.timestamp}] [${fileName}:${line}] [${functionName}] ${info.level}: ${info.message}`;
+			const meta = info.meta ? ` ${JSON.stringify(info.meta)}` : '';
+			return `[${info.timestamp}] [${fileName}:${line}] [${functionName}] ${info.level}: ${info.message}${meta}`;
 		}),
 	);
 
@@ -53,8 +54,12 @@ class Logger {
 		this.logger.info(message);
 	}
 
-	error(message) {
-		this.logger.error(message);
+	error(message, meta) {
+		if (!meta) {
+			this.logger.error(message);
+			return;
+		}
+		this.logger.error(message, { meta });
 	}
 
 	warn(message) {

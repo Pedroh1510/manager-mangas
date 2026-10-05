@@ -5,7 +5,10 @@ import logger from '../infra/logger.js';
 import { formatChapters } from '../utils/chapterFormat.js';
 import * as mangaCatalog from '../utils/mangaCatalog.js';
 import Download from './download.js';
-import { enqueueAndWait } from './queue/connectorQueue.js';
+import {
+	enqueueAndWait,
+	enqueueCatalogRefresh,
+} from './queue/connectorQueue.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let cookie = null;
@@ -126,23 +129,61 @@ async function getInstancePlugin(pluginId) {
 	}
 	return instance;
 }
-async function refreshCatalog(instance) {
-	const mangas = await enqueueAndWait(instance.id, 'listMangas', {});
-	await mangaCatalog.saveCatalog(instance.id, mangas);
-	return mangas;
+function requestStaleCatalogRefresh(connectorId) {
+	// Fire-and-forget: the stale catalog is served now, the refresh lands on
+	// disk later. A failed enqueue must not fail a request that has data.
+	enqueueCatalogRefresh(connectorId).catch((error) =>
+		logger.error('catalog refresh enqueue failed', {
+			connectorId,
+			error: error.message,
+		}),
+	);
 }
 
-async function getCatalog(instance) {
-	if (await mangaCatalog.isStale(instance.id)) {
-		return refreshCatalog(instance);
+// BullMQ's queue.add never rejects while Redis is unreachable (ioredis keeps
+// retrying), so a request with no catalog to serve would hang instead of
+// failing. Found by the stale-catalog-refresh verification.
+const CATALOG_ENQUEUE_TIMEOUT_MS = 5000;
+
+function enqueueCatalogRefreshWithTimeout(connectorId) {
+	const enqueue = enqueueCatalogRefresh(connectorId);
+	let timer;
+	const timeout = new Promise((_resolve, reject) => {
+		timer = setTimeout(
+			() =>
+				reject(
+					new Error(
+						`catalog refresh enqueue timed out after ${CATALOG_ENQUEUE_TIMEOUT_MS}ms for ${connectorId}`,
+					),
+				),
+			CATALOG_ENQUEUE_TIMEOUT_MS,
+		);
+	});
+	// Promise.race subscribes to `enqueue`, so its late rejection after a
+	// timeout is handled and cannot crash the process (verified by C19).
+	return Promise.race([enqueue, timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Returns the cached catalog, or null when none is usable yet (refresh queued).
+ * @example const mangas = await getCatalog('mangeek'); // null -> respond 202
+ */
+async function getCatalog(connectorId) {
+	const cached = await mangaCatalog.loadCatalog(connectorId);
+	if (!cached) {
+		await enqueueCatalogRefreshWithTimeout(connectorId);
+		return null;
 	}
-	const cached = await mangaCatalog.loadCatalog(instance.id);
-	return cached ?? refreshCatalog(instance);
+	if (await mangaCatalog.isStale(connectorId)) {
+		requestStaleCatalogRefresh(connectorId);
+	}
+	return cached;
 }
 
 async function listMangas({ pluginId, title }) {
 	const instance = await getInstancePlugin(pluginId);
-	const mangas = await getCatalog(instance);
+	const mangas = await getCatalog(instance.id);
+	if (!mangas) return null;
 
 	const data = mangas.map((manga) => ({ id: manga.id, title: manga.title }));
 	if (title) {

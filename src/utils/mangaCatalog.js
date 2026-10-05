@@ -19,7 +19,13 @@ export async function loadCatalog(connectorId) {
 
 export async function saveCatalog(connectorId, mangas) {
 	await fs.mkdir(CACHE_DIR, { recursive: true });
-	await fs.writeFile(cachePath(connectorId), JSON.stringify(mangas));
+	// The worker rewrites this file while GET requests read it; rename is
+	// atomic on the same filesystem, so a reader sees the old or the new
+	// catalog, never a truncated one.
+	const finalPath = cachePath(connectorId);
+	const tmpPath = `${finalPath}.tmp`;
+	await fs.writeFile(tmpPath, JSON.stringify(mangas));
+	await fs.rename(tmpPath, finalPath);
 }
 
 export async function isStale(connectorId, maxAgeMs = MAX_AGE_MS) {
