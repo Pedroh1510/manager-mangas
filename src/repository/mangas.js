@@ -30,20 +30,43 @@ async function findMangaById({ idManga }) {
 	return rows[0] ?? null;
 }
 
+// One query for the whole list: the admin screen shows every manga with its
+// connector links, and a per-manga lookup would be N+1 over hundreds of rows.
+const CONNECTORS_JSON = `COALESCE(
+	json_agg(
+		json_build_object(
+			'idMangaConnector', "mangaConnectors"."idMangaConnector",
+			'idPlugin', "mangaConnectors"."idPlugin",
+			'titlePlugin', "mangaConnectors"."titlePlugin",
+			'isActive', "mangaConnectors"."isActive"
+		) ORDER BY "mangaConnectors"."idPlugin"
+	) FILTER (WHERE "mangaConnectors"."idMangaConnector" IS NOT NULL),
+	'[]'
+) AS "connectors"`;
+
 async function listMangas({ title } = {}) {
-	let where = { deletedAt: null };
+	let where = { '"mangas"."deletedAt"': null };
 	if (title) {
 		where = sql.and(
-			{ deletedAt: null },
-			sql.like('lower("title")', `%${title.toLowerCase()}%`),
+			where,
+			sql.like('lower("mangas"."title")', `%${title.toLowerCase()}%`),
 		);
 	}
 	const { rows } = await database.query(
 		sql
-			.select('idManga', 'title', 'createdAt', 'updatedAt')
+			.select(
+				'"mangas"."idManga"',
+				'"mangas"."title"',
+				'"mangas"."createdAt"',
+				'"mangas"."updatedAt"',
+				CONNECTORS_JSON,
+			)
 			.from('mangas')
+			.leftJoin('mangaConnectors')
+			.on({ '"mangaConnectors"."idManga"': '"mangas"."idManga"' })
 			.where(where)
-			.orderBy('title')
+			.groupBy('"mangas"."idManga"')
+			.orderBy('"mangas"."title"')
 			.toParams(),
 	);
 	return rows;
