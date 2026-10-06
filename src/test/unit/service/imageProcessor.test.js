@@ -16,11 +16,12 @@ vi.mock('../../../infra/logger.js', () => ({
 	default: { warn: vi.fn() },
 }));
 
-const { createImageConverter } = await import(
+const { convertImage, createImageConverter } = await import(
 	'../../../service/imageProcessor.js'
 );
 const sharp = (await import('sharp')).default;
 const logger = (await import('../../../infra/logger.js')).default;
+const CONFIG_ENV = (await import('../../../infra/env.js')).default;
 
 const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
 const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -186,5 +187,24 @@ describe('convertImage', () => {
 		const convertOne = enabledConverter(1);
 		await Promise.all(Array.from({ length: 6 }, () => convertOne(JPEG_BYTES)));
 		expect(maxActive).toBe(1);
+	});
+
+	test('shared convertImage caps encodes at IMAGE_CONVERSION_CONCURRENCY', async () => {
+		let active = 0;
+		let maxActive = 0;
+		toBufferMock.mockImplementation(async () => {
+			active++;
+			maxActive = Math.max(maxActive, active);
+			await new Promise((resolvePromise) => setTimeout(resolvePromise, 5));
+			active--;
+			return Buffer.from('webp-data');
+		});
+		const limit = CONFIG_ENV.IMAGE_CONVERSION_CONCURRENCY;
+
+		await Promise.all(
+			Array.from({ length: limit + 3 }, () => convertImage(JPEG_BYTES)),
+		);
+
+		expect(maxActive).toBe(limit);
 	});
 });

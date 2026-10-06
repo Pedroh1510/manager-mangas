@@ -109,6 +109,24 @@ describe('Download.downloadChapter', () => {
 		expect(convertImage).toHaveBeenCalledTimes(2);
 	});
 
+	test('converts every entry of a six-image bundle once', async () => {
+		withFsPromisesReady();
+		const bundle = new AdmZip();
+		for (let page = 1; page <= 6; page++) {
+			bundle.addFile(`0${page}.jpg`, Buffer.from(`page-${page}`));
+		}
+		downloadImage.mockResolvedValue(bundle.toBuffer());
+
+		await Download.downloadChapter({
+			manga: 'Test Manga',
+			chapter: 7,
+			pages: ['https://a.example/bundle.zip'],
+		});
+
+		expect(convertImage).toHaveBeenCalledTimes(6);
+		expect(new AdmZip(tempZipPath).getEntries()).toHaveLength(6);
+	});
+
 	test('stores entries without compression', async () => {
 		withFsPromisesReady();
 		downloadImage.mockResolvedValue(Buffer.alloc(4096, 'a'));

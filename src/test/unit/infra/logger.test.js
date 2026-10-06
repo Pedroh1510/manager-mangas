@@ -72,4 +72,16 @@ describe('logger', () => {
 		expect(stackTrace.get).toHaveBeenCalledTimes(1);
 		expect(output.lines.at(-1)).toMatch(/\[[^\]]*logger\.test\.js:\d+\]/);
 	});
+
+	test('error location names the calling function', () => {
+		function reportChapterFailure() {
+			logger.error('chapter failed');
+		}
+
+		reportChapterFailure();
+
+		expect(output.lines.at(-1)).toMatch(
+			/\[[^\]]*logger\.test\.js:\d+\] \[reportChapterFailure\]/,
+		);
+	});
 });
