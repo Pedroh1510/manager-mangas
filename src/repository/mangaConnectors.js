@@ -95,13 +95,19 @@ async function setConnectorActive({ idManga, idPlugin, isActive }) {
 	return rows[0] ?? null;
 }
 
-async function deactivateAllForManga({ idManga }) {
-	await database.query(
+// A single UPDATE so no reader sees a manga with only part of its links flipped.
+async function setAllConnectorsActive({ idManga, isActive }) {
+	const { rowCount } = await database.query(
 		sql
-			.update('mangaConnectors', { isActive: false, updatedAt: new Date() })
+			.update('mangaConnectors', { isActive, updatedAt: new Date() })
 			.where({ idManga })
 			.toParams(),
 	);
+	return rowCount;
+}
+
+async function deactivateAllForManga({ idManga }) {
+	await setAllConnectorsActive({ idManga, isActive: false });
 }
 
 const MangaConnectorsRepository = {
@@ -110,6 +116,7 @@ const MangaConnectorsRepository = {
 	listConnectorsByManga,
 	listActiveConnectors,
 	setConnectorActive,
+	setAllConnectorsActive,
 	deactivateAllForManga,
 };
 export default MangaConnectorsRepository;

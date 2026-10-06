@@ -165,6 +165,48 @@ mangasAdmController.get(
 
 /**
  * @swagger
+ * /mangas/adm/{idManga}/connectors:
+ *   patch:
+ *     tags: [MangaAdm]
+ *     description: Enable or disable every connector link of a manga at once. Enabling turns on all links, including ones that were already disabled
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Returns { idManga, isActive, updated }
+ *       400:
+ *         description: Invalid input or manga has no connector links
+ *       404:
+ *         description: Manga not found
+ */
+mangasAdmController.patch(
+	'/:idManga/connectors',
+	MangasAdmValidator.setAllConnectorsActive,
+	async (req, res) => {
+		const idManga = Number(req.params.idManga);
+		const { isActive } = req.body;
+		const response = await MangaAdminService.setAllConnectorsActive({
+			idManga,
+			isActive,
+		});
+		res.status(200).send(response);
+	},
+);
+
+/**
+ * @swagger
  * /mangas/adm/{idManga}/connectors/{idPlugin}:
  *   patch:
  *     tags: [MangaAdm]

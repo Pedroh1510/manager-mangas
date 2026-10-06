@@ -115,6 +115,69 @@ describe('MangaAdminService', () => {
 		});
 	});
 
+	describe('setAllConnectorsActive', () => {
+		test('throws a NotFoundError when the manga does not exist', async () => {
+			database.query.mockResolvedValueOnce({ rows: [] });
+
+			await expect(
+				MangaAdminService.setAllConnectorsActive({
+					idManga: 9,
+					isActive: true,
+				}),
+			).rejects.toMatchObject({
+				statusCode: 404,
+				message: 'Manga 9 not found',
+			});
+			expect(database.query).toHaveBeenCalledTimes(1);
+		});
+
+		test('throws a NotFoundError when the manga is soft-deleted', async () => {
+			database.query.mockResolvedValueOnce({
+				rows: [{ idManga: 9, deletedAt: new Date() }],
+			});
+
+			await expect(
+				MangaAdminService.setAllConnectorsActive({
+					idManga: 9,
+					isActive: true,
+				}),
+			).rejects.toMatchObject({
+				statusCode: 404,
+				message: 'Manga 9 not found',
+			});
+			expect(database.query).toHaveBeenCalledTimes(1);
+		});
+
+		test('throws a BadRequestError when the manga has no connector links', async () => {
+			database.query
+				.mockResolvedValueOnce({ rows: [{ idManga: 9, deletedAt: null }] })
+				.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+
+			await expect(
+				MangaAdminService.setAllConnectorsActive({
+					idManga: 9,
+					isActive: true,
+				}),
+			).rejects.toMatchObject({
+				statusCode: 400,
+				message: 'Manga 9 has no connector links',
+			});
+		});
+
+		test('returns the number of links updated', async () => {
+			database.query
+				.mockResolvedValueOnce({ rows: [{ idManga: 9, deletedAt: null }] })
+				.mockResolvedValueOnce({ rowCount: 3, rows: [] });
+
+			const result = await MangaAdminService.setAllConnectorsActive({
+				idManga: 9,
+				isActive: false,
+			});
+
+			expect(result).toEqual({ idManga: 9, isActive: false, updated: 3 });
+		});
+	});
+
 	describe('registerCookie', () => {
 		test('throws a ValidationError when the connector is not registered', async () => {
 			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(

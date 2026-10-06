@@ -2,7 +2,11 @@ import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import sql from 'sql-bricks';
 import database from '../infra/database.js';
-import { BadRequestError, ValidationError } from '../infra/errors.js';
+import {
+	BadRequestError,
+	NotFoundError,
+	ValidationError,
+} from '../infra/errors.js';
 import logger from '../infra/logger.js';
 import ChaptersRepository from '../repository/chapters.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
@@ -73,6 +77,32 @@ async function setConnectorActive({ idManga, idPlugin, isActive }) {
 		});
 	}
 	return updated;
+}
+
+/**
+ * Flip every connector link of a manga at once; reactivating turns on all of
+ * them, including links that were already off.
+ * @example await setAllConnectorsActive({ idManga: 1, isActive: false })
+ */
+async function setAllConnectorsActive({ idManga, isActive }) {
+	const manga = await MangasRepository.findMangaById({ idManga });
+	if (!manga || manga.deletedAt) {
+		throw new NotFoundError({
+			message: `Manga ${idManga} not found`,
+			action: 'Check idManga',
+		});
+	}
+	const updated = await MangaConnectorsRepository.setAllConnectorsActive({
+		idManga,
+		isActive,
+	});
+	if (updated === 0) {
+		throw new BadRequestError({
+			message: `Manga ${idManga} has no connector links`,
+			action: 'Link a connector first',
+		});
+	}
+	return { idManga, isActive, updated };
 }
 
 async function listConnectors({ idManga }) {
@@ -365,6 +395,7 @@ const MangaAdminService = {
 	createManga,
 	linkConnector,
 	setConnectorActive,
+	setAllConnectorsActive,
 	listConnectors,
 	listMangasRegistered,
 	deleteManga,
