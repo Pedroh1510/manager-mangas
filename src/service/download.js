@@ -5,11 +5,13 @@ import { PassThrough } from 'node:stream';
 import AdmZip from 'adm-zip';
 import archiver from 'archiver';
 import logger from '../infra/logger.js';
+import { createConcurrencyLimiter } from './concurrencyLimiter.js';
 import { withDomainSlot } from './domainConcurrency.js';
 import { PageNotFoundError, downloadImage } from './imageDownloader.js';
 import { convertImage } from './imageProcessor.js';
 
-const ZIP_COMPRESSION_LEVEL = 9;
+// Bounds memory: each page in flight holds its downloaded and converted bytes.
+const MAX_PAGES_IN_FLIGHT_PER_CHAPTER = 4;
 const IMAGE_EXTENSIONS = ['png', 'jpeg', 'jpg', 'avif'];
 
 function getPathMangaAndChapter({ title, volume = 0 }) {
@@ -68,6 +70,7 @@ async function appendPageToArchive({
 	chapter,
 	state,
 }) {
+	if (state.aborted) return;
 	logger.info({ manga, chapter, page, status: 'baixando' });
 	const start = performance.now();
 	const image = await downloadPage({ page, cookie, userAgent });
@@ -91,7 +94,8 @@ async function appendPageToArchive({
 }
 
 function createChapterArchive(chapterPath) {
-	const archive = archiver('zip', { zlib: { level: ZIP_COMPRESSION_LEVEL } });
+	// Pages are already compressed images; deflate burns CPU for no gain.
+	const archive = archiver('zip', { store: true });
 	const output = createWriteStream(chapterPath);
 	const finished = new Promise((resolvePromise, reject) => {
 		output.on('close', resolvePromise);
@@ -134,17 +138,22 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 
 	const { archive, output, finished } = createChapterArchive(chapterPath);
 	const state = { aborted: false };
+	const runPageLimited = createConcurrencyLimiter(
+		MAX_PAGES_IN_FLIGHT_PER_CHAPTER,
+	);
 	const tasks = pages.map((page, index) =>
-		appendPageToArchive({
-			archive,
-			page,
-			cookie,
-			userAgent,
-			index,
-			manga,
-			chapter,
-			state,
-		}),
+		runPageLimited(() =>
+			appendPageToArchive({
+				archive,
+				page,
+				cookie,
+				userAgent,
+				index,
+				manga,
+				chapter,
+				state,
+			}),
+		),
 	);
 
 	try {
