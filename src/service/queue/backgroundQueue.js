@@ -3,6 +3,7 @@ import { Queue, Worker } from 'bullmq';
 import KavitaCleanupService from '../kavita/cleanupReadChapters.js';
 import MangaAdminService from '../mangaAdmin.js';
 import connection from './connection.js';
+import { RETRY_WITH_BACKOFF } from './retryPolicy.js';
 
 const QUEUE_NAME = 'background-tasks';
 
@@ -20,7 +21,7 @@ const operations = {
 };
 
 export async function enqueueBackgroundTask(operation, data, jobId) {
-	await queue.add(operation, data, { attempts: 100, jobId });
+	await queue.add(operation, data, { ...RETRY_WITH_BACKOFF, jobId });
 }
 
 export function startBackgroundWorker() {

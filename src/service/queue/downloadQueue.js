@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import { PageNotFoundError } from '../imageDownloader.js';
 import MangaService from '../manga.js';
 import connection from './connection.js';
+import { RETRY_WITH_BACKOFF } from './retryPolicy.js';
 
 const QUEUE_NAME = 'download';
 
@@ -11,7 +12,7 @@ const queue = new Queue(QUEUE_NAME, {
 });
 
 export async function enqueueDownload(data, jobId) {
-	await queue.add('teste', data, { attempts: 100, jobId });
+	await queue.add('teste', data, { ...RETRY_WITH_BACKOFF, jobId });
 }
 
 export async function processDownloadJob(job) {

@@ -48,6 +48,32 @@ describe('downloadImage', () => {
 		expect(logger.warn).toHaveBeenCalledTimes(2);
 	});
 
+	test('returns the axios buffer without copying', async () => {
+		const body = Buffer.from('image-bytes');
+		axiosMock.mockResolvedValueOnce({ data: body });
+
+		const result = await downloadImage({ url: 'https://a.example/1.jpg' });
+
+		expect(result).toBe(body);
+	});
+
+	test('caps the response size at 100 MB', async () => {
+		axiosMock
+			.mockRejectedValueOnce(
+				new Error('maxContentLength size of 104857600 exceeded'),
+			)
+			.mockResolvedValueOnce({ data: Buffer.from('ok') });
+
+		const result = await downloadImage({ url: 'https://a.example/1.jpg' });
+
+		expect(result).toEqual(Buffer.from('ok'));
+		expect(axiosMock).toHaveBeenCalledTimes(2);
+		expect(axiosMock.mock.calls[0][0].maxContentLength).toBe(104857600);
+		expect(logger.warn).toHaveBeenCalledWith(
+			expect.objectContaining({ attempt: 1, status: 'download_falhou' }),
+		);
+	});
+
 	test('throws the last error after exhausting all attempts', async () => {
 		axiosMock.mockRejectedValue(new Error('network down'));
 

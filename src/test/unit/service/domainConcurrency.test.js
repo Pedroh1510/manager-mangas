@@ -73,4 +73,72 @@ describe('domainConcurrency', () => {
 		blockedRelease();
 		await blockedTask;
 	});
+
+	test('wakes a waiter without polling', async () => {
+		CONFIG_ENV.CONCURRENCY = 1;
+		vi.useFakeTimers();
+		try {
+			let releaseFirst;
+			const first = withDomainSlot(
+				'https://f.example/1.jpg',
+				() =>
+					new Promise((resolvePromise) => {
+						releaseFirst = resolvePromise;
+					}),
+			);
+			let secondRan = false;
+			const second = withDomainSlot('https://f.example/2.jpg', async () => {
+				secondRan = true;
+			});
+			await Promise.resolve();
+
+			expect(vi.getTimerCount()).toBe(0);
+			expect(secondRan).toBe(false);
+
+			releaseFirst();
+			await first;
+			// only microtasks run here: a timer-based wait could not resume yet
+			for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+
+			expect(secondRan).toBe(true);
+			await second;
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	test('a released slot wakes exactly one of several waiters', async () => {
+		CONFIG_ENV.CONCURRENCY = 1;
+		let releaseFirst;
+		const first = withDomainSlot(
+			'https://g.example/1.jpg',
+			() =>
+				new Promise((resolvePromise) => {
+					releaseFirst = resolvePromise;
+				}),
+		);
+		const started = [];
+		const releases = [];
+		const waiters = [2, 3].map((page) =>
+			withDomainSlot(`https://g.example/${page}.jpg`, () => {
+				started.push(page);
+				return new Promise((resolvePromise) => releases.push(resolvePromise));
+			}),
+		);
+		for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+		expect(started).toEqual([]);
+
+		releaseFirst();
+		await first;
+		for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+
+		expect(started).toEqual([2]);
+
+		releases[0]();
+		for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+		expect(started).toEqual([2, 3]);
+		releases[1]();
+		await Promise.all(waiters);
+	});
 });

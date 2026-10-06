@@ -49,7 +49,11 @@ describe('backgroundQueue Kavita cleanup wiring', () => {
 		expect(queueAddMock).toHaveBeenCalledWith(
 			'cleanupReadChapters',
 			{ idManga: 1 },
-			{ attempts: 100, jobId: 'job-1' },
+			{
+				attempts: 10,
+				backoff: { type: 'exponential', delay: 30000 },
+				jobId: 'job-1',
+			},
 		);
 	});
 });

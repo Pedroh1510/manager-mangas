@@ -106,6 +106,68 @@ describe('Download.downloadChapter', () => {
 			.map((entry) => entry.name)
 			.sort();
 		expect(names).toEqual(['01.webp', '02.webp']);
+		expect(convertImage).toHaveBeenCalledTimes(2);
+	});
+
+	test('converts every entry of a six-image bundle once', async () => {
+		withFsPromisesReady();
+		const bundle = new AdmZip();
+		for (let page = 1; page <= 6; page++) {
+			bundle.addFile(`0${page}.jpg`, Buffer.from(`page-${page}`));
+		}
+		downloadImage.mockResolvedValue(bundle.toBuffer());
+
+		await Download.downloadChapter({
+			manga: 'Test Manga',
+			chapter: 7,
+			pages: ['https://a.example/bundle.zip'],
+		});
+
+		expect(convertImage).toHaveBeenCalledTimes(6);
+		expect(new AdmZip(tempZipPath).getEntries()).toHaveLength(6);
+	});
+
+	test('stores entries without compression', async () => {
+		withFsPromisesReady();
+		downloadImage.mockResolvedValue(Buffer.alloc(4096, 'a'));
+
+		await Download.downloadChapter({
+			manga: 'Test Manga',
+			chapter: 5,
+			pages: ['https://a.example/1.jpg', 'https://a.example/2.jpg'],
+		});
+
+		const methods = new AdmZip(tempZipPath)
+			.getEntries()
+			.map((entry) => entry.header.method);
+		expect(methods).toEqual([0, 0]);
+	});
+
+	test('keeps at most 4 pages in flight per chapter', async () => {
+		withFsPromisesReady();
+		let inFlight = 0;
+		let maxInFlight = 0;
+		downloadImage.mockImplementation(async ({ url }) => {
+			inFlight++;
+			maxInFlight = Math.max(maxInFlight, inFlight);
+			await new Promise((resolvePromise) => setTimeout(resolvePromise, 15));
+			return Buffer.from(`bytes:${url}`);
+		});
+		convertImage.mockImplementation(async (buffer) => {
+			await new Promise((resolvePromise) => setTimeout(resolvePromise, 5));
+			inFlight--;
+			return { imageFormatted: buffer, type: 'webp' };
+		});
+		// one domain per page so the per-domain cap does not hide the chapter cap
+		const pages = Array.from(
+			{ length: 12 },
+			(_, index) => `https://p${index}.example/${index + 1}.jpg`,
+		);
+
+		await Download.downloadChapter({ manga: 'Test Manga', chapter: 6, pages });
+
+		expect(maxInFlight).toBe(4);
+		expect(new AdmZip(tempZipPath).getEntries()).toHaveLength(12);
 	});
 
 	test('aborts the whole chapter and deletes the partial file when a page 404s', async () => {

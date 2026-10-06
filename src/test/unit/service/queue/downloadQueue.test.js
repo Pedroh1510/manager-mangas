@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-const QueueMock = vi.fn().mockImplementation(function Queue() {});
+const queueAddMock = vi.fn();
+const QueueMock = vi.fn().mockImplementation(function Queue() {
+	this.add = queueAddMock;
+});
 const WorkerMock = vi.fn();
 
 vi.mock('bullmq', () => ({
@@ -11,7 +14,7 @@ vi.mock('../../../../service/manga.js', () => ({
 	default: { downloadMangas: vi.fn() },
 }));
 
-const { processDownloadJob } = await import(
+const { enqueueDownload, processDownloadJob } = await import(
 	'../../../../service/queue/downloadQueue.js'
 );
 const { PageNotFoundError } = await import(
@@ -64,5 +67,21 @@ describe('processDownloadJob', () => {
 
 		await expect(processDownloadJob(job)).rejects.toThrow('network down');
 		expect(job.discard).not.toHaveBeenCalled();
+	});
+});
+
+describe('enqueueDownload', () => {
+	test('enqueues downloads with exponential backoff', async () => {
+		await enqueueDownload({ manga: 'Test Manga' }, 'downloadQueue-1');
+
+		expect(queueAddMock).toHaveBeenCalledWith(
+			'teste',
+			{ manga: 'Test Manga' },
+			{
+				attempts: 10,
+				backoff: { type: 'exponential', delay: 30000 },
+				jobId: 'downloadQueue-1',
+			},
+		);
 	});
 });

@@ -1,7 +1,5 @@
-import { setTimeout } from 'node:timers/promises';
 import CONFIG_ENV from '../infra/env.js';
-
-const POLL_INTERVAL_MS = 100;
+import { createConcurrencyLimiter } from './concurrencyLimiter.js';
 
 /**
  * Per-domain concurrency limits. Empty by default (falls back to
@@ -10,7 +8,7 @@ const POLL_INTERVAL_MS = 100;
  */
 const CONCURRENCY_BY_DOMAIN = {};
 
-const activeSlotsByDomain = {};
+const limitersByDomain = new Map();
 
 function getDomain(url) {
 	return new URL(url).origin;
@@ -20,31 +18,20 @@ function getMaxConcurrency(domain) {
 	return CONCURRENCY_BY_DOMAIN[domain] ?? CONFIG_ENV.CONCURRENCY;
 }
 
-async function acquireDomainSlot(domain) {
-	const max = getMaxConcurrency(domain);
-	while ((activeSlotsByDomain[domain] ?? 0) >= max) {
-		await setTimeout(POLL_INTERVAL_MS);
+function getDomainLimiter(domain) {
+	if (!limitersByDomain.has(domain)) {
+		limitersByDomain.set(
+			domain,
+			createConcurrencyLimiter(getMaxConcurrency(domain)),
+		);
 	}
-	activeSlotsByDomain[domain] = (activeSlotsByDomain[domain] ?? 0) + 1;
-}
-
-function releaseDomainSlot(domain) {
-	activeSlotsByDomain[domain] = Math.max(
-		(activeSlotsByDomain[domain] ?? 1) - 1,
-		0,
-	);
+	return limitersByDomain.get(domain);
 }
 
 /**
  * Runs `task` once a concurrency slot for `url`'s domain is free, releasing
  * the slot afterwards regardless of success or failure.
  */
-export async function withDomainSlot(url, task) {
-	const domain = getDomain(url);
-	await acquireDomainSlot(domain);
-	try {
-		return await task();
-	} finally {
-		releaseDomainSlot(domain);
-	}
+export function withDomainSlot(url, task) {
+	return getDomainLimiter(getDomain(url))(task);
 }
