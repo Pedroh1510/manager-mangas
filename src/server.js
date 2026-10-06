@@ -6,26 +6,20 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
 import { ExpressAdapter } from '@bull-board/express';
 import cors from 'cors';
-import { listConnectorIds, registerForTests } from './connectors/registry.js';
+import { registerForTests } from './connectors/registry.js';
 import TestFixtureConnector from './connectors/testFixture/TestFixtureConnector.js';
 import CONFIG_ENV from './infra/env.js';
 import { ValidationError } from './infra/errors.js';
 import logger from './infra/logger.js';
 import router from './routes.js';
+import { listAllQueues } from './service/queue/allQueues.js';
 import {
-	getBackgroundQueue,
 	scheduleRecurringCleanup,
 	scheduleRecurringUpdate,
 	startBackgroundWorker,
 } from './service/queue/backgroundQueue.js';
-import {
-	getConnectorQueue,
-	startConnectorWorkers,
-} from './service/queue/connectorQueue.js';
-import {
-	getDownloadQueue,
-	startDownloadWorker,
-} from './service/queue/downloadQueue.js';
+import { startConnectorWorkers } from './service/queue/connectorQueue.js';
+import { startDownloadWorker } from './service/queue/downloadQueue.js';
 
 if (CONFIG_ENV.ENV === 'test') {
 	registerForTests('test-fixture', TestFixtureConnector);
@@ -51,11 +45,7 @@ server.use(router);
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/queues');
 createBullBoard({
-	queues: [
-		...listConnectorIds().map((id) => new BullMQAdapter(getConnectorQueue(id))),
-		new BullMQAdapter(getBackgroundQueue()),
-		new BullMQAdapter(getDownloadQueue()),
-	],
+	queues: listAllQueues().map((queue) => new BullMQAdapter(queue)),
 	serverAdapter,
 });
 server.use('/queues', serverAdapter.getRouter());

@@ -2,6 +2,8 @@ import express from 'express';
 import mangasController from './controller/mangasController.js';
 import routerDoc from './infra/swagger.js';
 import MigrationsService from './service/migrations.js';
+import { listAllQueues } from './service/queue/allQueues.js';
+import { buildQueuesSummary } from './service/queuesSummary.js';
 import StatusService from './service/status.js';
 
 const router = express();
@@ -35,6 +37,22 @@ router.use('/mangas', mangasController);
 router.get('/status', async (_, res) => {
 	const status = await StatusService.getDatabaseStatus();
 	res.status(200).json(status);
+});
+
+/**
+ * @swagger
+ * /queues-summary:
+ *   get:
+ *     tags: [Status]
+ *     responses:
+ *       200:
+ *         description: Returns job counts per state for every queue, sorted by name
+ *       503:
+ *         description: Redis did not answer within 3000ms
+ */
+router.get('/queues-summary', async (_, res) => {
+	const summary = await buildQueuesSummary(listAllQueues());
+	res.status(200).json(summary);
 });
 
 /**

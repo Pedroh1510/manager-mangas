@@ -49,6 +49,23 @@ export class NotFoundError extends Error {
 	}
 }
 
+export class ServiceUnavailableError extends Error {
+	constructor({ cause, message, action }) {
+		super(message, cause);
+		this.name = 'ServiceUnavailableError';
+		this.action = action ?? 'Entre em contato com o suporte';
+		this.statusCode = 503;
+	}
+	toJSON() {
+		return {
+			name: this.name,
+			message: this.message,
+			action: this.action,
+			statusCode: this.statusCode,
+		};
+	}
+}
+
 export class ServiceError extends Error {
 	constructor({ cause, message, action }) {
 		super(message, cause);
