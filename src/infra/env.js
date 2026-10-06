@@ -1,3 +1,4 @@
+import { availableParallelism } from 'node:os';
 import { config } from 'dotenv';
 
 const CONFIG_ENV = {};
@@ -28,3 +29,35 @@ CONFIG_ENV.CONCURRENCY = Number.isNaN(concurrency) ? 1 : concurrency;
 
 CONFIG_ENV.KAVITA_URL = process.env.KAVITA_URL;
 CONFIG_ENV.KAVITA_API_KEY = process.env.KAVITA_API_KEY;
+
+/**
+ * Conversion stays on unless the operator writes exactly `false`.
+ * @example parseImageConversionEnabled('false') // false
+ * @param {string | undefined} value
+ * @returns {boolean}
+ */
+export function parseImageConversionEnabled(value) {
+	return value !== 'false';
+}
+
+/**
+ * Positive integer from the env, else every core but one (minimum 1), leaving
+ * a core for the event loop, Redis and Postgres clients.
+ * @example parseImageConversionConcurrency(undefined, 8) // 7
+ * @param {string | undefined} value
+ * @param {number} cores
+ * @returns {number}
+ */
+export function parseImageConversionConcurrency(value, cores) {
+	const parsed = Number(value);
+	if (Number.isInteger(parsed) && parsed >= 1) return parsed;
+	return Math.max(1, cores - 1);
+}
+
+CONFIG_ENV.IMAGE_CONVERSION_ENABLED = parseImageConversionEnabled(
+	process.env.IMAGE_CONVERSION_ENABLED,
+);
+CONFIG_ENV.IMAGE_CONVERSION_CONCURRENCY = parseImageConversionConcurrency(
+	process.env.IMAGE_CONVERSION_CONCURRENCY,
+	availableParallelism(),
+);

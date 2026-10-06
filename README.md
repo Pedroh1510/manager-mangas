@@ -50,6 +50,9 @@ URL=http://localhost:3001
 URL_DOC=http://localhost:3001
 CONCURRENCY=1
 ENABLE_JOB=true
+# opcionais
+IMAGE_CONVERSION_ENABLED=true      # "false" grava as páginas no formato original, sem converter para webp
+IMAGE_CONVERSION_CONCURRENCY=3     # conversões simultâneas no processo; padrão: núcleos - 1 (mínimo 1)
 ```
 
 ## Instalação e Execução
