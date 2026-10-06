@@ -1,7 +1,14 @@
 import { Writable } from 'node:stream';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import winston from 'winston';
-import logger from '../../../infra/logger.js';
+
+vi.mock('stack-trace', async (importOriginal) => {
+	const actual = await importOriginal();
+	return { ...actual, get: vi.fn((...args) => actual.get(...args)) };
+});
+
+const logger = (await import('../../../infra/logger.js')).default;
+const stackTrace = await import('stack-trace');
 
 class CapturedOutputStream extends Writable {
 	lines = [];
@@ -43,5 +50,26 @@ describe('logger', () => {
 		const line = output.lines.at(-1);
 		expect(line).toContain('plain message');
 		expect(line).not.toContain('{');
+	});
+
+	test('does not capture a stack trace below error', () => {
+		stackTrace.get.mockClear();
+
+		logger.info('info line');
+		logger.warn('warn line');
+		logger.debug('debug line');
+		logger.http('http line');
+
+		expect(output.lines).toHaveLength(4);
+		expect(stackTrace.get).not.toHaveBeenCalled();
+	});
+
+	test('error captures the caller location once', () => {
+		stackTrace.get.mockClear();
+
+		logger.error('located failure');
+
+		expect(stackTrace.get).toHaveBeenCalledTimes(1);
+		expect(output.lines.at(-1)).toMatch(/\[[^\]]*logger\.test\.js:\d+\]/);
 	});
 });

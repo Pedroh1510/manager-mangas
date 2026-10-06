@@ -4,30 +4,30 @@ import winston from 'winston';
 
 const { combine, timestamp, printf, colorize, align, errors, metadata } =
 	winston.format;
+const LOGGER_FILE = '/infra/logger.js';
+
+// Capturing a stack is the costly part of a log line, so it runs once and
+// only for errors. The caller is the frame right after the last logger frame.
 const getTrace = () => {
-	let isAfterLogger = false;
-	const aaaa = stack
-		.get()
-		.slice(2)
-		.map((item) => item.getFileName());
-	const fileProps = stack
-		.get()
-		.slice(2)
-		.find((item) => {
-			const file = item.getFileName();
-			if (item.getFileName().includes('/infra/logger.js')) {
-				isAfterLogger = true;
-				return false;
-			}
-			return isAfterLogger;
-		});
-	if (!fileProps) return {};
+	const frames = stack.get();
+	const lastLoggerFrame = frames.findLastIndex((frame) =>
+		frame.getFileName()?.includes(LOGGER_FILE),
+	);
+	const caller = frames[lastLoggerFrame + 1];
+	if (lastLoggerFrame === -1 || !caller) return {};
 	return {
-		fileName: fileProps.getFileName(),
-		functionName: fileProps.getFunctionName(),
-		line: fileProps.getLineNumber(),
+		fileName: caller.getFileName(),
+		functionName: caller.getFunctionName(),
+		line: caller.getLineNumber(),
 	};
 };
+
+function formatLocation(info) {
+	if (info[Symbol.for('level')] !== 'error') return '';
+	const { fileName, functionName, line } = getTrace();
+	return ` [${fileName}:${line}] [${functionName}]`;
+}
+
 const formatLog = () =>
 	combine(
 		errors({ stack: true }),
@@ -37,9 +37,8 @@ const formatLog = () =>
 		}),
 		align(),
 		printf((info) => {
-			const { fileName, functionName, line } = getTrace();
 			const meta = info.meta ? ` ${JSON.stringify(info.meta)}` : '';
-			return `[${info.timestamp}] [${fileName}:${line}] [${functionName}] ${info.level}: ${info.message}${meta}`;
+			return `[${info.timestamp}]${formatLocation(info)} ${info.level}: ${info.message}${meta}`;
 		}),
 	);
 
