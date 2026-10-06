@@ -73,4 +73,38 @@ describe('domainConcurrency', () => {
 		blockedRelease();
 		await blockedTask;
 	});
+
+	test('wakes a waiter without polling', async () => {
+		CONFIG_ENV.CONCURRENCY = 1;
+		vi.useFakeTimers();
+		try {
+			let releaseFirst;
+			const first = withDomainSlot(
+				'https://f.example/1.jpg',
+				() =>
+					new Promise((resolvePromise) => {
+						releaseFirst = resolvePromise;
+					}),
+			);
+			let secondRan = false;
+			const second = withDomainSlot('https://f.example/2.jpg', async () => {
+				secondRan = true;
+			});
+			await Promise.resolve();
+
+			expect(vi.getTimerCount()).toBe(0);
+			expect(secondRan).toBe(false);
+
+			releaseFirst();
+			await first;
+			// only microtasks run here: a timer-based wait could not resume yet
+			for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+
+			expect(secondRan).toBe(true);
+			await second;
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });
