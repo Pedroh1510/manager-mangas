@@ -1,0 +1,13 @@
+// Gate of the `audit` CI job: dev deps included, fails on high and above.
+// Every allowlist entry says which package it covers, why it is not fixed and when to look again.
+{
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  "high": true,
+  "allowlist": [
+    // braces (via chokidar/micromatch): no patched release in the range these tools accept; only the next major of the parent (npm only offers downgrading nodemon to 1.14, a major step backwards) drops it. Dev tooling only, parses its own globs. revisar até 2027-01-10
+    "GHSA-vfj7-8cjw-p6xm",
+    // tinypool via vitest: fixed only in vitest 5 (major). Runs in CI with the workflow token, so it gets the short review. revisar até 2026-11-11
+    "GHSA-5gmw-xhrv-c9v3",
+    "GHSA-85c8-ppgw-ccpr"
+  ]
+}

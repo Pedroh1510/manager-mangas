@@ -8,3 +8,5 @@ appdata
 .superpowers/
 .worktrees/
 graphify-out
+# vitest --coverage output
+coverage/
