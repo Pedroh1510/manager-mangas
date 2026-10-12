@@ -72,10 +72,13 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          range="$BASE_SHA..$HEAD_SHA"
+          range=("$BASE_SHA..$HEAD_SHA")
           # A first push has no "before"; scan just the pushed commit then.
-          if [[ "$BASE_SHA" =~ ^0+$ ]]; then range="-1 $HEAD_SHA"; fi
-          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /repo --redact --log-opts="$range"
+          if [[ "$BASE_SHA" =~ ^0+$ ]]; then range=(-1 "$HEAD_SHA"); fi
+          # gitleaks passes with "0 commits scanned" when the range does not resolve, so check it first.
+          count=$(git rev-list --count "${range[@]}") || { echo "::error::cannot resolve ${range[*]}"; exit 1; }
+          if [ "$count" -eq 0 ]; then echo "::error::no commits in ${range[*]}"; exit 1; fi
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /repo --redact --log-opts="${range[*]}"
 
   # The only check the main ruleset requires: adding a job here never touches the ruleset.
   ci-ok:
