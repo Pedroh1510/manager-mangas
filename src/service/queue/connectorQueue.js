@@ -8,6 +8,7 @@ import connection from './connection.js';
 
 const CONCURRENCY_BY_CONNECTOR = {
 	mangeek: 1,
+	nexustoons: 2,
 };
 const DEFAULT_CONCURRENCY = 1;
 
