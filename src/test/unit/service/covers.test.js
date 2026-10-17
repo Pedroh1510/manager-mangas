@@ -1,6 +1,14 @@
 import path from 'node:path';
 import sharp from 'sharp';
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	test,
+	vi,
+} from 'vitest';
 import {
 	COVER_MAX_BYTES,
 	COVER_TIMEOUT_MS,
@@ -79,6 +87,7 @@ describe('cover downloader', () => {
 		server = await FakeImageServer.start();
 	});
 	afterAll(() => server.stop());
+	afterEach(() => vi.restoreAllMocks());
 
 	test('downloads a 300px wide webp', async () => {
 		const cover = await createCoverDownloader()(server.url('/cover.png'));
@@ -104,18 +113,13 @@ describe('cover downloader', () => {
 			throw new Error('timeout of 15000ms exceeded');
 		};
 
-		const signalTimeouts = [];
 		const signal = new AbortController().signal;
-		const recordSignal = (ms) => {
-			signalTimeouts.push(ms);
-			return signal;
-		};
+		const signalTimeout = vi
+			.spyOn(AbortSignal, 'timeout')
+			.mockReturnValue(signal);
 
 		await expect(
-			createCoverDownloader({
-				request: recordRequest,
-				createTimeoutSignal: recordSignal,
-			})('https://h/a.jpg'),
+			createCoverDownloader({ request: recordRequest })('https://h/a.jpg'),
 		).rejects.toThrow('timeout of 15000ms exceeded');
 
 		expect(requests).toHaveLength(1);
@@ -124,7 +128,7 @@ describe('cover downloader', () => {
 			timeout: 15_000,
 			maxContentLength: 10 * 1024 * 1024,
 		});
-		expect(signalTimeouts).toEqual([15_000]);
+		expect(signalTimeout.mock.calls).toEqual([[15_000]]);
 		expect(requests[0].signal).toBe(signal);
 	});
 
