@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import Connector from '../Connector.js';
+import logger from '../../infra/logger.js';
 
 export default class Mangeek extends Connector {
 	constructor() {
@@ -42,12 +43,12 @@ export default class Mangeek extends Connector {
 
 	async _getMangas() {
 		this.init();
-		console.log('Fetching all mangas...');
+		logger.info('Fetching all mangas...');
 		const tags = await this._getAllTags();
 		const seen = new Map();
 
 		for (const tag of tags) {
-			console.log(`Fetching mangas for tag: ${tag}`);
+			logger.info(`Fetching mangas for tag: ${tag}`);
 			let ignore = [];
 			let morePages = true;
 			while (morePages) {
@@ -64,7 +65,7 @@ export default class Mangeek extends Connector {
 					);
 					request.headers.set('content-type', 'application/json');
 					const page = await this.fetchJSON(request).catch((error) => {
-						console.error(`Error fetching mangas for tag ${tag}:`, error);
+						logger.error(`Error fetching mangas for tag ${tag}`, { error: error.message });
 						return [];
 					});
 					if (!page?.length) {
@@ -84,7 +85,7 @@ export default class Mangeek extends Connector {
 						await this.wait(500);
 					}
 				} catch (error) {
-					console.error(`Error fetching mangas for tag ${tag}:`, error);
+					logger.error(`Error fetching mangas for tag ${tag}`, { error: error.message });
 					morePages = false;
 				}
 			}
