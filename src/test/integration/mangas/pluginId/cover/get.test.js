@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import {
@@ -11,8 +11,8 @@ import {
 	test,
 } from 'vitest';
 import CONFIG_ENV from '../../../../../infra/env.js';
-import orchestrator from '../../../../orchestrator.js';
 import FakeImageServer from '../../../../fakes/FakeImageServer.js';
+import orchestrator from '../../../../orchestrator.js';
 
 // The API and this suite share the working directory (same container), so
 // they see the same appdata/ and the API reaches the fake on 127.0.0.1.

@@ -97,6 +97,26 @@ describe('cover downloader', () => {
 		await expect(createCoverDownloader()(server.url('/404'))).rejects.toThrow();
 	});
 
+	test('rejects a failed download without writing a file: downloader bounds a default request at 15s and 10 MB', async () => {
+		const requests = [];
+		const recordRequest = async (config) => {
+			requests.push(config);
+			throw new Error('timeout of 15000ms exceeded');
+		};
+
+		await expect(
+			createCoverDownloader({ request: recordRequest })('https://h/a.jpg'),
+		).rejects.toThrow('timeout of 15000ms exceeded');
+
+		expect(requests).toHaveLength(1);
+		expect(requests[0]).toMatchObject({
+			url: 'https://h/a.jpg',
+			timeout: 15_000,
+			maxContentLength: 10 * 1024 * 1024,
+		});
+		expect(requests[0].signal).toBeInstanceOf(AbortSignal);
+	});
+
 	test('rejects a failed download without writing a file: downloader rejects past the timeout', async () => {
 		const downloadCover = createCoverDownloader({ timeoutMs: 200 });
 		await expect(downloadCover(server.url('/hang'))).rejects.toThrow();
