@@ -66,8 +66,14 @@ export default class FakeImageServer {
 			'/hang': () => this.hanging.push(res),
 			'/trickle': () => this.trickle(res),
 		};
-		const route = routes[req.url] ?? (() => res.writeHead(404).end());
-		route();
+		if (Object.prototype.hasOwnProperty.call(routes, req.url)) {
+			const route = routes[req.url];
+			if (typeof route === 'function') {
+				route();
+				return;
+			}
+		}
+		res.writeHead(404).end();
 	}
 
 	trickle(res) {
