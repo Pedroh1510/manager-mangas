@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { resolveTelemetryConfig } from '../../../../infra/telemetry/config.js';
 import {
 	createInstrumentations,
+	isBullBoardRequest,
 	startTelemetry,
 } from '../../../../infra/telemetry/sdk.js';
 import { installMeterProvider } from '../../../fakes/telemetry.js';
@@ -38,6 +39,18 @@ describe('telemetry config', () => {
 				OTEL_EXPORTER_OTLP_ENDPOINT: 'http://y:4318',
 			}),
 		).toEqual({ serviceName: 'x', endpoint: 'http://y:4318' });
+	});
+});
+
+describe('incoming http filter', () => {
+	test.each([
+		['/queues', true],
+		['/queues/api/queues?page=1', true],
+		['/queues-summary', false],
+		['/status', false],
+		[undefined, false],
+	])('only bull-board requests are untraced: %s', (url, expected) => {
+		expect(isBullBoardRequest(url)).toBe(expected);
 	});
 });
 
