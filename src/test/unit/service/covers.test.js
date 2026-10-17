@@ -132,6 +132,25 @@ describe('cover downloader', () => {
 		expect(requests[0].signal).toBe(signal);
 	});
 
+	test('rejects a failed download without writing a file: downloader starts a fresh 15s signal per download', async () => {
+		const requests = [];
+		const recordRequest = async (config) => {
+			requests.push(config);
+			throw new Error('down');
+		};
+		const signalTimeout = vi.spyOn(AbortSignal, 'timeout');
+		const downloadCover = createCoverDownloader({ request: recordRequest });
+
+		await expect(downloadCover('https://h/a.jpg')).rejects.toThrow('down');
+		await expect(downloadCover('https://h/b.jpg')).rejects.toThrow('down');
+
+		// One downloader serves the whole process: a signal shared across
+		// calls would abort every download once the process is 15s old.
+		expect(signalTimeout.mock.calls).toEqual([[15_000], [15_000]]);
+		expect(requests[0].signal).not.toBe(requests[1].signal);
+		expect(requests[1].signal.aborted).toBe(false);
+	});
+
 	test('rejects a failed download without writing a file: downloader aborts a body still streaming past timeoutMs', async () => {
 		const downloadCover = createCoverDownloader({ timeoutMs: 300 });
 		const startedAt = Date.now();
