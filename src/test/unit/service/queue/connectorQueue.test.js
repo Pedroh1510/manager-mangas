@@ -44,6 +44,18 @@ vi.mock('../../../../service/covers/index.js', async () => {
 	};
 });
 
+// Records the index sync refreshCatalog triggers, in call order with the
+// catalog save, so the tests can tell "after saving" from "instead of".
+const calls = vi.hoisted(() => ({ order: [] }));
+vi.mock('../../../../service/coverSuggestions/index.js', () => ({
+	default: {
+		syncConnectorIndex: vi.fn(async (id) => {
+			calls.order.push(`sync:${id}`);
+			calls.coverFilesAtSync = covers.store?.paths().toSorted();
+		}),
+	},
+}));
+
 vi.mock('../../../../connectors/registry.js', () => ({
 	getConnectorClass: vi.fn().mockReturnValue(
 		class MockConnector {
@@ -199,6 +211,36 @@ describe('connectorQueue', () => {
 					localCover,
 				].toSorted(),
 			);
+		});
+
+		test('refreshCatalog syncs the cover hash index after saving', async () => {
+			await arrangeCoverFiles();
+			FakeCatalogConnector.mangas = nextCatalog;
+			calls.order = [];
+			const { saveCatalog } = await import('../../../../utils/mangaCatalog.js');
+			vi.mocked(saveCatalog).mockImplementation(async (id) => {
+				calls.order.push(`save:${id}`);
+			});
+
+			await runRefreshCatalogJob();
+
+			expect(calls.order).toEqual(['save:mangeek', 'sync:mangeek']);
+			// Stale catalog covers are gone before the index sync reads the cache.
+			expect(calls.coverFilesAtSync).toEqual(
+				[catalogCover('a'), localCover].toSorted(),
+			);
+		});
+
+		test('refreshCatalog does not sync the index on an empty scrape', async () => {
+			await arrangeCoverFiles();
+			FakeCatalogConnector.mangas = [];
+			const CoverSuggestions = (
+				await import('../../../../service/coverSuggestions/index.js')
+			).default;
+
+			await expect(runRefreshCatalogJob()).rejects.toThrow('mangeek');
+
+			expect(CoverSuggestions.syncConnectorIndex).not.toHaveBeenCalled();
 		});
 
 		test('refreshCatalog never touches local manga covers', async () => {

@@ -2,6 +2,7 @@ import express from 'express';
 import CoverService from '../service/covers/index.js';
 import MangaAdminService from '../service/mangaAdmin.js';
 import MangasAdmValidator from '../validators/mangasAdmValidator.js';
+import coverSuggestionsAdmController from './coverSuggestionsAdmController.js';
 import kavitaAdmController from './kavitaAdmController.js';
 import { sendCover } from './sendCover.js';
 
@@ -9,6 +10,7 @@ const mangasAdmController = express();
 export default mangasAdmController;
 
 mangasAdmController.use('/kavita', kavitaAdmController);
+mangasAdmController.use(coverSuggestionsAdmController);
 
 /**
  * @swagger

@@ -9,6 +9,7 @@ import {
 } from '../infra/errors.js';
 import logger from '../infra/logger.js';
 import ChaptersRepository from '../repository/chapters.js';
+import CoverSuggestionsRepository from '../repository/coverSuggestions.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 import MangasRepository from '../repository/mangas.js';
 import CoverService from './covers/index.js';
@@ -69,6 +70,12 @@ async function linkConnector({
 			});
 		}
 		throw error;
+	});
+	// A connector linked by any path is no longer missing, so its pending
+	// suggestions stop being actionable (cover-connector-suggestions AC 37).
+	await CoverSuggestionsRepository.deletePendingByConnector({
+		idManga,
+		idPlugin,
 	});
 	createLocalCoverInBackground(idManga);
 	return { idMangaConnector, idManga, idPlugin };

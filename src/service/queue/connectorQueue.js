@@ -4,6 +4,7 @@ import {
 	listConnectorIds,
 } from '../../connectors/registry.js';
 import { loadCatalog, saveCatalog } from '../../utils/mangaCatalog.js';
+import CoverSuggestions from '../coverSuggestions/index.js';
 import CoverService from '../covers/index.js';
 import connection from './connection.js';
 
@@ -85,6 +86,7 @@ async function refreshCatalog(connector) {
 	// Runs after the empty-scrape guard above, so a broken scrape never
 	// deletes cover files (manga-covers AC 17).
 	await CoverService.dropStaleCatalogCovers(connector.id, previous, mangas);
+	await CoverSuggestions.syncConnectorIndex(connector.id);
 	return mangas.length;
 }
 

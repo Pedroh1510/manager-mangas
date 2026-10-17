@@ -12,13 +12,17 @@ import CONFIG_ENV from './infra/env.js';
 import { ValidationError } from './infra/errors.js';
 import logger from './infra/logger.js';
 import router from './routes.js';
+import CoverSuggestions from './service/coverSuggestions/index.js';
 import { listAllQueues } from './service/queue/allQueues.js';
 import {
 	scheduleRecurringCleanup,
+	scheduleRecurringCoverIndexSync,
+	scheduleRecurringCoverMatching,
 	scheduleRecurringUpdate,
 	startBackgroundWorker,
 } from './service/queue/backgroundQueue.js';
 import { startConnectorWorkers } from './service/queue/connectorQueue.js';
+import { startCoverHashWorkers } from './service/queue/coverHashQueue.js';
 import { startDownloadWorker } from './service/queue/downloadQueue.js';
 
 if (CONFIG_ENV.ENV === 'test') {
@@ -74,6 +78,9 @@ const serverInstance = server.listen(CONFIG_ENV.PORT, async () => {
 		startBackgroundWorker();
 		await scheduleRecurringUpdate();
 		await scheduleRecurringCleanup();
+		startCoverHashWorkers(CoverSuggestions.hashCover);
+		await scheduleRecurringCoverIndexSync();
+		await scheduleRecurringCoverMatching();
 	}
 });
 
