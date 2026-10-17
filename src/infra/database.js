@@ -1,5 +1,6 @@
 import pg from 'pg';
 import CONFIG_ENV from './env.js';
+import logger from './logger.js';
 const { Client } = pg;
 
 async function query(queryObject) {
@@ -10,7 +11,7 @@ async function query(queryObject) {
 		const result = await client.query(queryObject);
 		return result;
 	} catch (error) {
-		console.error(error);
+		logger.error(error);
 		throw error;
 	} finally {
 		await client?.end();

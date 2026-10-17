@@ -7,6 +7,7 @@ import { loadCatalog, saveCatalog } from '../../utils/mangaCatalog.js';
 import CoverSuggestions from '../coverSuggestions/index.js';
 import CoverService from '../covers/index.js';
 import connection from './connection.js';
+import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
 const CONCURRENCY_BY_CONNECTOR = {
 	mangeek: 1,
@@ -27,6 +28,7 @@ export function getConnectorQueue(connectorId) {
 			connectorId,
 			new Queue(queueName(connectorId), {
 				connection,
+				telemetry: jobTelemetry,
 				// removeOnComplete can't be `true` here (unlike downloadQueue):
 				// enqueueAndWait() reads the result back via job.waitUntilFinished(),
 				// which needs the job's Redis hash to still exist when it polls right
@@ -102,12 +104,13 @@ export function startConnectorWorkers() {
 		const connector = new ConnectorClass();
 		return new Worker(
 			queueName(connectorId),
-			async (job) => {
+			withJobMetrics(queueName(connectorId), async (job) => {
 				await connector.initialize();
 				return operations[job.name](connector, job.data);
-			},
+			}),
 			{
 				connection,
+				telemetry: jobTelemetry,
 				concurrency:
 					CONCURRENCY_BY_CONNECTOR[connectorId] ?? DEFAULT_CONCURRENCY,
 			},

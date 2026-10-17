@@ -3,6 +3,7 @@ import CONFIG_ENV from '../infra/env.js';
 import logger from '../infra/logger.js';
 import { detectImageExtension } from '../utils/imageFormat.js';
 import { createConcurrencyLimiter } from './concurrencyLimiter.js';
+import { countPipelineEvent } from '../infra/telemetry/business.js';
 
 // One libvips thread per encode: concurrency is capped by the limiter below,
 // otherwise every parallel encode spawns a pool sized to the host's cores.
@@ -16,6 +17,9 @@ const TARGET_QUALITY = 100;
 // WebP's hard limit is 16383 px per side; taller strips fail after a full decode.
 const MAX_ENCODABLE_HEIGHT = 16383;
 const ALREADY_COMPACT_EXTENSIONS = new Set(['webp', 'avif']);
+// Pages reach the converter without their connector; the metric counts the
+// local encode step only
+const IMAGE_SOURCE = 'local';
 
 function keepOriginal(image, extension) {
 	return { imageFormatted: image, type: extension };
@@ -32,8 +36,16 @@ async function encodeOrKeep(image, extension) {
 		const imageFormatted = await sharp(image)
 			.toFormat(TARGET_FORMAT, { quality: TARGET_QUALITY })
 			.toBuffer();
+		countPipelineEvent('mangas.images.processed', {
+			source: IMAGE_SOURCE,
+			result: 'ok',
+		});
 		return { imageFormatted, type: TARGET_FORMAT };
 	} catch (error) {
+		countPipelineEvent('mangas.images.processed', {
+			source: IMAGE_SOURCE,
+			result: 'fail',
+		});
 		logger.warn({
 			format: TARGET_FORMAT,
 			error: error.message,

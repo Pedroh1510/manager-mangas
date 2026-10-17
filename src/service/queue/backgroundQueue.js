@@ -5,11 +5,13 @@ import KavitaCleanupService from '../kavita/cleanupReadChapters.js';
 import MangaAdminService from '../mangaAdmin.js';
 import connection from './connection.js';
 import { RETRY_WITH_BACKOFF } from './retryPolicy.js';
+import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
 const QUEUE_NAME = 'background-tasks';
 
 const queue = new Queue(QUEUE_NAME, {
 	connection,
+	telemetry: jobTelemetry,
 	defaultJobOptions: { removeOnComplete: true, removeOnFail: { age: 10 } },
 });
 
@@ -28,10 +30,11 @@ export async function enqueueBackgroundTask(operation, data, jobId) {
 }
 
 export function startBackgroundWorker() {
-	return new Worker(QUEUE_NAME, (job) => operations[job.name](job.data), {
-		connection,
-		concurrency: 3,
-	});
+	return new Worker(
+		QUEUE_NAME,
+		withJobMetrics(QUEUE_NAME, (job) => operations[job.name](job.data)),
+		{ connection, concurrency: 3, telemetry: jobTelemetry },
+	);
 }
 
 export async function scheduleRecurringUpdate() {

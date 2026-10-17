@@ -17,6 +17,7 @@ import Download from './download.js';
 import MangaService from './manga.js';
 import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
 import { enqueueDownload } from './queue/downloadQueue.js';
+import { countPipelineEvent } from '../infra/telemetry/business.js';
 
 async function createManga({ title }) {
 	const existing = await MangasRepository.findMangaByTitleIncludingDeleted({
@@ -240,6 +241,7 @@ async function listChaptersMissing({ idManga }) {
 			chaptersMissing.push({
 				...chapter,
 				idMangaConnector: connector.idMangaConnector,
+				idPlugin: connector.idPlugin,
 			});
 		}
 	}
@@ -261,6 +263,10 @@ async function updateMangaChapters({ idManga }) {
 			idChapterPlugin: chapter.id,
 			name: chapter.title,
 			volume: chapter.volume,
+		});
+		countPipelineEvent('mangas.chapters.discovered', {
+			source: chapter.idPlugin,
+			result: 'ok',
 		});
 	}
 	if (chaptersMissing.length) {
@@ -327,6 +333,10 @@ async function updateMangasBatch({ idPlugin }) {
 				volume: chapter.volume,
 			});
 			if (!inserted) continue;
+			countPipelineEvent('mangas.chapters.discovered', {
+				source: connector.idPlugin,
+				result: 'ok',
+			});
 			await enqueueDownload(
 				{
 					manga: connector.title,

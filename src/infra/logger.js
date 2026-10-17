@@ -1,9 +1,9 @@
 import { setTimeout } from 'node:timers/promises';
+import { isSpanContextValid, trace } from '@opentelemetry/api';
 import * as stack from 'stack-trace';
 import winston from 'winston';
 
-const { combine, timestamp, printf, colorize, align, errors, metadata } =
-	winston.format;
+const { combine, printf, errors } = winston.format;
 const LOGGER_FILE = '/infra/logger.js';
 
 // Capturing a stack is the costly part of a log line, so it runs once and
@@ -16,30 +16,38 @@ const getTrace = () => {
 	const caller = frames[lastLoggerFrame + 1];
 	if (lastLoggerFrame === -1 || !caller) return {};
 	return {
-		fileName: caller.getFileName(),
-		functionName: caller.getFunctionName(),
-		line: caller.getLineNumber(),
+		location: `${caller.getFileName()}:${caller.getLineNumber()}`,
+		function: caller.getFunctionName(),
 	};
 };
 
-function formatLocation(info) {
-	if (info[Symbol.for('level')] !== 'error') return '';
-	const { fileName, functionName, line } = getTrace();
-	return ` [${fileName}:${line}] [${functionName}]`;
+// app-observability door 3: the collector copies trace_id/span_id into the
+// log record, linking the line to its trace
+function activeSpanIds() {
+	const spanContext = trace.getActiveSpan()?.spanContext();
+	if (!spanContext || !isSpanContextValid(spanContext)) return {};
+	return { trace_id: spanContext.traceId, span_id: spanContext.spanId };
 }
 
+// One JSON object per line: level, msg, time, then the optional fields
 const formatLog = () =>
 	combine(
 		errors({ stack: true }),
-		colorize({ all: true }),
-		timestamp({
-			format: 'DD/MM/YYYY HH:mm:ss.SSS ',
-		}),
-		align(),
-		printf((info) => {
-			const meta = info.meta ? ` ${JSON.stringify(info.meta)}` : '';
-			return `[${info.timestamp}]${formatLocation(info)} ${info.level}: ${info.message}${meta}`;
-		}),
+		printf((info) =>
+			JSON.stringify({
+				level: info.level,
+				msg: info.message,
+				time: new Date().toISOString(),
+				...(info.meta ? { meta: info.meta } : {}),
+				...(info.stack ? { stack: info.stack } : {}),
+				...(info.location
+					? { location: info.location, function: info.function }
+					: {}),
+				...(info.trace_id
+					? { trace_id: info.trace_id, span_id: info.span_id }
+					: {}),
+			}),
+		),
 	);
 
 class Logger {
@@ -49,30 +57,35 @@ class Logger {
 		transports: [new winston.transports.Console()],
 	});
 
+	#log(level, message, fields = {}) {
+		this.logger.log({ level, message, ...fields, ...activeSpanIds() });
+	}
+
 	info(message) {
-		this.logger.info(message);
+		this.#log('info', message);
 	}
 
 	error(message, meta) {
+		const location = getTrace();
 		if (!meta) {
-			this.logger.error(message);
+			this.#log('error', message, location);
 			return;
 		}
-		this.logger.error(message, { meta });
+		this.#log('error', message, { meta, ...location });
 	}
 
 	warn(message) {
-		this.logger.warn(message);
+		this.#log('warn', message);
 	}
 
 	debug(message) {
 		const messageFormatted =
 			typeof message === 'object' ? JSON.stringify(message, null, 2) : message;
-		this.logger.debug(messageFormatted);
+		this.#log('debug', messageFormatted);
 	}
 
 	http(message) {
-		this.logger.http(message);
+		this.#log('http', message);
 	}
 
 	async close() {
