@@ -32,6 +32,7 @@ export function createCoverDownloader({
 	request = axios,
 	timeoutMs = COVER_TIMEOUT_MS,
 	maxBytes = COVER_MAX_BYTES,
+	createTimeoutSignal = (ms) => AbortSignal.timeout(ms),
 } = {}) {
 	return async function downloadCover(url) {
 		const { data } = await request({
@@ -44,7 +45,7 @@ export function createCoverDownloader({
 			},
 			timeout: timeoutMs,
 			// axios' timeout only bounds an idle socket; this bounds the whole body.
-			signal: AbortSignal.timeout(timeoutMs),
+			signal: createTimeoutSignal(timeoutMs),
 			maxContentLength: maxBytes,
 		});
 		return toCoverWebp(Buffer.from(data));

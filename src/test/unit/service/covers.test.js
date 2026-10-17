@@ -104,8 +104,18 @@ describe('cover downloader', () => {
 			throw new Error('timeout of 15000ms exceeded');
 		};
 
+		const signalTimeouts = [];
+		const signal = new AbortController().signal;
+		const recordSignal = (ms) => {
+			signalTimeouts.push(ms);
+			return signal;
+		};
+
 		await expect(
-			createCoverDownloader({ request: recordRequest })('https://h/a.jpg'),
+			createCoverDownloader({
+				request: recordRequest,
+				createTimeoutSignal: recordSignal,
+			})('https://h/a.jpg'),
 		).rejects.toThrow('timeout of 15000ms exceeded');
 
 		expect(requests).toHaveLength(1);
@@ -114,7 +124,8 @@ describe('cover downloader', () => {
 			timeout: 15_000,
 			maxContentLength: 10 * 1024 * 1024,
 		});
-		expect(requests[0].signal).toBeInstanceOf(AbortSignal);
+		expect(signalTimeouts).toEqual([15_000]);
+		expect(requests[0].signal).toBe(signal);
 	});
 
 	test('rejects a failed download without writing a file: downloader aborts a body still streaming past timeoutMs', async () => {
