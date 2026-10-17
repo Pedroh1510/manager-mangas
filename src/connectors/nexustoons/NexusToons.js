@@ -64,7 +64,9 @@ export default class NexusToons extends Connector {
 		return pages
 			.flatMap((catalogPage) => catalogPage.data)
 			.filter(isDownloadableManga)
-			.map((manga) => ({ id: manga.slug, title: manga.title }));
+			.map((manga) =>
+				this._toCatalogEntry(manga.slug, manga.title, manga.coverImage),
+			);
 	}
 
 	async _getChapters(manga) {

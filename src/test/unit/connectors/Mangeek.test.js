@@ -137,6 +137,48 @@ describe('Mangeek', () => {
 			});
 		});
 
+		const discoverOnce = (connector, page) => {
+			connector._getAllTags = vi.fn().mockResolvedValue(['Ação']);
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({ status: 200, json: async () => page }),
+			);
+			return connector._getMangas();
+		};
+
+		test('maps thumbnail to coverUrl', async () => {
+			const mangas = await discoverOnce(new Mangeek(), [
+				{
+					id: 1691787754,
+					title: 'Juvenile Detention Center',
+					thumbnail:
+						'http://51.79.78.152/storage/static/covers/j/juvenile-detention-center-kc802.webp',
+				},
+			]);
+
+			expect(mangas).toEqual([
+				{
+					id: '1691787754',
+					title: 'Juvenile Detention Center',
+					coverUrl:
+						'http://51.79.78.152/storage/static/covers/j/juvenile-detention-center-kc802.webp',
+				},
+			]);
+		});
+
+		test('omits coverUrl when thumbnail is missing, null or empty', async () => {
+			const mangas = await discoverOnce(new Mangeek(), [
+				{ id: 1, title: 'Sem campo' },
+				{ id: 2, title: 'Nulo', thumbnail: null },
+				{ id: 3, title: 'Vazio', thumbnail: '' },
+			]);
+
+			expect(mangas).toHaveLength(3);
+			for (const manga of mangas) {
+				expect('coverUrl' in manga).toBe(false);
+			}
+		});
+
 		test('sends tags and an accumulating ignore list in the discover request body', async () => {
 			const connector = new Mangeek();
 			connector._getAllTags = vi.fn().mockResolvedValue(['Ação']);

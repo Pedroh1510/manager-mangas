@@ -184,6 +184,42 @@ describe('NexusToons', () => {
 			]);
 		});
 
+		const catalogOf = (data) =>
+			buildConnector(
+				siteRoutes({ '/api/mangas?page=1&limit=1000': { pages: 1, data } }),
+			).then(({ connector }) => connector._getMangas());
+
+		test('maps coverImage to coverUrl', async () => {
+			const mangas = await catalogOf([
+				catalogManga({
+					slug: 'pico-marcial',
+					title: 'Pico Marcial',
+					coverImage: 'https://img.nx-toons.xyz/covers/a.jpg',
+				}),
+			]);
+
+			expect(mangas).toEqual([
+				{
+					id: 'pico-marcial',
+					title: 'Pico Marcial',
+					coverUrl: 'https://img.nx-toons.xyz/covers/a.jpg',
+				},
+			]);
+		});
+
+		test('omits coverUrl when coverImage is missing, null or empty', async () => {
+			const mangas = await catalogOf([
+				catalogManga({ slug: 'sem-campo' }),
+				catalogManga({ slug: 'nulo', coverImage: null }),
+				catalogManga({ slug: 'vazio', coverImage: '' }),
+			]);
+
+			expect(mangas).toHaveLength(3);
+			for (const manga of mangas) {
+				expect('coverUrl' in manga).toBe(false);
+			}
+		});
+
 		test('drops VIP, licensed and novel titles but keeps NSFW', async () => {
 			const { connector } = await buildConnector(
 				siteRoutes({

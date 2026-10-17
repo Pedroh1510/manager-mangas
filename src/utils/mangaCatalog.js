@@ -8,13 +8,31 @@ function cachePath(connectorId) {
 	return path.join(CACHE_DIR, `mangas.${connectorId}.json`);
 }
 
-export async function loadCatalog(connectorId) {
+// Bumped when the cached item shape changes; an older file is still served
+// but counts as stale, so the existing refresh rewrites it (manga-covers door 1).
+const CATALOG_VERSION = 2;
+
+async function readCatalogFile(connectorId) {
 	try {
 		const raw = await fs.readFile(cachePath(connectorId), 'utf8');
 		return JSON.parse(raw);
 	} catch {
 		return null;
 	}
+}
+
+function isCurrentFormat(parsed) {
+	return parsed?.version === CATALOG_VERSION && Array.isArray(parsed.mangas);
+}
+
+/**
+ * Cached catalog items, from the versioned envelope or the legacy raw array.
+ * @example await loadCatalog('mangeek') // [{ id: '1', title: 'A', coverUrl: '...' }] or null
+ */
+export async function loadCatalog(connectorId) {
+	const parsed = await readCatalogFile(connectorId);
+	if (Array.isArray(parsed)) return parsed;
+	return isCurrentFormat(parsed) ? parsed.mangas : null;
 }
 
 export async function saveCatalog(connectorId, mangas) {
@@ -24,15 +42,19 @@ export async function saveCatalog(connectorId, mangas) {
 	// catalog, never a truncated one.
 	const finalPath = cachePath(connectorId);
 	const tmpPath = `${finalPath}.tmp`;
-	await fs.writeFile(tmpPath, JSON.stringify(mangas));
+	await fs.writeFile(
+		tmpPath,
+		JSON.stringify({ version: CATALOG_VERSION, mangas }),
+	);
 	await fs.rename(tmpPath, finalPath);
 }
 
 export async function isStale(connectorId, maxAgeMs = MAX_AGE_MS) {
 	try {
 		const stats = await fs.stat(cachePath(connectorId));
-		return Date.now() - stats.mtimeMs > maxAgeMs;
+		if (Date.now() - stats.mtimeMs > maxAgeMs) return true;
 	} catch {
 		return true;
 	}
+	return !isCurrentFormat(await readCatalogFile(connectorId));
 }

@@ -58,8 +58,28 @@ describe('mangaCatalog', () => {
 			);
 			expect(fs.writeFile).toHaveBeenCalledWith(
 				expect.stringContaining('mangas.mangeek.json'),
-				JSON.stringify([{ id: '1', title: 'Black Clover' }]),
+				JSON.stringify({
+					version: 2,
+					mangas: [{ id: '1', title: 'Black Clover' }],
+				}),
 			);
+		});
+
+		test('writes the versioned catalog envelope', async () => {
+			fs.mkdir.mockResolvedValue(undefined);
+			fs.writeFile.mockResolvedValue(undefined);
+			fs.rename.mockResolvedValue(undefined);
+			const mangas = [{ id: '1', title: 'A', coverUrl: 'https://h/a.jpg' }];
+
+			await saveCatalog('x', mangas);
+
+			const [writtenPath, written] = fs.writeFile.mock.calls[0];
+			expect(writtenPath).toMatch(/mangas\.x\.json\.tmp$/);
+			expect(written).toBe(
+				'{"version":2,"mangas":[{"id":"1","title":"A","coverUrl":"https://h/a.jpg"}]}',
+			);
+			fs.readFile.mockResolvedValue(written);
+			expect(await loadCatalog('x')).toEqual(mangas);
 		});
 
 		test('writes the catalog to a temp file and renames it into place', async () => {
@@ -83,6 +103,22 @@ describe('mangaCatalog', () => {
 	});
 
 	describe('isStale', () => {
+		const versionedCatalog = JSON.stringify({ version: 2, mangas: [] });
+
+		test('treats a catalog without version 2 as stale', async () => {
+			fs.stat.mockResolvedValue({ mtimeMs: Date.now() });
+
+			fs.readFile.mockResolvedValue('[{"id":"1","title":"A"}]');
+			expect(await loadCatalog('x')).toEqual([{ id: '1', title: 'A' }]);
+			expect(await isStale('x')).toBe(true);
+
+			fs.readFile.mockResolvedValue(versionedCatalog);
+			expect(await isStale('x')).toBe(false);
+
+			fs.readFile.mockResolvedValue(JSON.stringify({ version: 1, mangas: [] }));
+			expect(await isStale('x')).toBe(true);
+		});
+
 		test('returns true when there is no cache file yet', async () => {
 			fs.stat.mockRejectedValue(
 				Object.assign(new Error('ENOENT'), { code: 'ENOENT' }),
@@ -101,6 +137,7 @@ describe('mangaCatalog', () => {
 		test('returns false when the cache file is within maxAgeMs', async () => {
 			const oneHourAgo = Date.now() - 60 * 60 * 1000;
 			fs.stat.mockResolvedValue({ mtimeMs: oneHourAgo });
+			fs.readFile.mockResolvedValue(versionedCatalog);
 
 			expect(await isStale('mangeek')).toBe(false);
 		});
@@ -108,6 +145,7 @@ describe('mangaCatalog', () => {
 		test('accepts a custom maxAgeMs', async () => {
 			const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
 			fs.stat.mockResolvedValue({ mtimeMs: twoHoursAgo });
+			fs.readFile.mockResolvedValue(versionedCatalog);
 
 			expect(await isStale('mangeek', 60 * 60 * 1000)).toBe(true);
 		});
