@@ -82,6 +82,17 @@ export async function pHash(image) {
 			coefficients.push(dctCoefficient(pixel, row, col));
 		}
 	}
+	return thresholdBits(coefficients);
+}
+
+/**
+ * 64 bits of the DCT coefficients (DC first), each set when above the median
+ * of the 63 non-DC ones; the DC term would drag the median up on every image.
+ * @example thresholdBits([1000, ...Array(32).fill(0), ...Array(31).fill(1)]) // DC and the 31 ones set
+ * @param {number[]} coefficients
+ * @returns {bigint}
+ */
+export function thresholdBits(coefficients) {
 	const threshold = median(coefficients.slice(1));
 	return bitsToHash(coefficients.map((value) => value > threshold));
 }

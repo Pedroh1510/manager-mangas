@@ -51,6 +51,7 @@ vi.mock('../../../../service/coverSuggestions/index.js', () => ({
 	default: {
 		syncConnectorIndex: vi.fn(async (id) => {
 			calls.order.push(`sync:${id}`);
+			calls.coverFilesAtSync = covers.store?.paths().toSorted();
 		}),
 	},
 }));
@@ -224,6 +225,10 @@ describe('connectorQueue', () => {
 			await runRefreshCatalogJob();
 
 			expect(calls.order).toEqual(['save:mangeek', 'sync:mangeek']);
+			// Stale catalog covers are gone before the index sync reads the cache.
+			expect(calls.coverFilesAtSync).toEqual(
+				[catalogCover('a'), localCover].toSorted(),
+			);
 		});
 
 		test('refreshCatalog does not sync the index on an empty scrape', async () => {

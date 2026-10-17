@@ -20,6 +20,7 @@ beforeAll(async () => {
 		strong97: await seedSuggestion(idManga, 'nexustoons', 's97', { dSimilarity: 0.6, pSimilarity: 0.97 }),
 		conflict: await seedSuggestion(idManga, 'nexustoons', 'taken', { dSimilarity: 0.88, pSimilarity: 0.5, band: 'possible' }),
 		dismissed: await seedSuggestion(idManga, 'nexustoons', 'gone', { status: 'dismissed' }),
+		accepted: await seedSuggestion(idManga, 'nexustoons', 'done', { status: 'accepted' }),
 	};
 });
 
@@ -55,11 +56,14 @@ describe('GET /mangas/adm/suggestions', () => {
 
 	test('filters by status and rejects an unknown status', async () => {
 		const dismissed = await call('GET', '/mangas/adm/suggestions?status=dismissed');
+		const accepted = await call('GET', '/mangas/adm/suggestions?status=accepted');
 		const invalid = await call('GET', '/mangas/adm/suggestions?status=xyz');
 
 		expect(dismissed.status).toBe(200);
 		expect(dismissed.body.suggestions.map((s) => s.idSuggestion)).toEqual([ids.dismissed]);
 		expect(dismissed.body.conflicts).toEqual([]);
+		expect(accepted.status).toBe(200);
+		expect(accepted.body.suggestions.map((s) => s.idSuggestion)).toEqual([ids.accepted]);
 		expect(invalid.status).toBe(400);
 		expect(invalid.body.name).toBe('ValidationError');
 		expect(invalid.body.message).toContain('status');

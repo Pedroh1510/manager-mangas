@@ -21,16 +21,22 @@ function arrange({ files = {}, downloadCover, hashImage, rows = [] } = {}) {
 	const clock = new FakeClock();
 	const downloads = [];
 	const slots = [];
+	let isInsideSlot = false;
 	const hashCover = createHashCoverJob({
 		paths,
 		store,
 		downloadCover: async (url) => {
-			downloads.push(url);
+			downloads.push({ url, isInsideSlot });
 			return downloadCover ? downloadCover(url) : COVER;
 		},
-		withDomainSlot: (url, task) => {
+		withDomainSlot: async (url, task) => {
 			slots.push(url);
-			return task();
+			isInsideSlot = true;
+			try {
+				return await task();
+			} finally {
+				isInsideSlot = false;
+			}
 		},
 		hashImage: hashImage ?? (async () => HASHED),
 		hashes,
@@ -64,7 +70,7 @@ describe('hashCover job', () => {
 		await hashCover(item);
 
 		expect(slots).toEqual([COVER_URL]);
-		expect(downloads).toEqual([COVER_URL]);
+		expect(downloads).toEqual([{ url: COVER_URL, isInsideSlot: true }]);
 		expect(await store.read(cachedPath)).toEqual(COVER);
 		expect(hashes.row(PLUGIN, 'a')).toMatchObject({
 			coverUrl: COVER_URL,

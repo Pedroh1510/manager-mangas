@@ -23,7 +23,13 @@ const candidate = (overrides) => ({
 	...overrides,
 });
 
-function arrangeMatcher({ links, rows, localCover = null, connectorIds }) {
+function arrangeMatcher({
+	links,
+	rows,
+	localCover = null,
+	connectorIds,
+	hashedImages = [],
+}) {
 	const hashes = new FakeCatalogCoverHashes(rows);
 	const suggestions = new FakeCoverSuggestions();
 	const logger = new FakeLogger();
@@ -34,7 +40,10 @@ function arrangeMatcher({ links, rows, localCover = null, connectorIds }) {
 		hashes,
 		suggestions,
 		readLocalCover: async () => localCover,
-		hashImage: async () => ({ dHash: 0n, pHash: 0n }),
+		hashImage: async (image) => {
+			hashedImages.push(image);
+			return { dHash: 0n, pHash: 0n };
+		},
 		loadCatalog: async () => [],
 		logger,
 	});
@@ -83,10 +92,13 @@ describe('cover matching', () => {
 	});
 
 	test('falls back to the local cover as reference', async () => {
+		const localCover = Buffer.from('local');
+		const hashedImages = [];
 		const { matcher, suggestions, hashes } = arrangeMatcher({
 			links: [link('m1')],
 			rows: [row('nexustoons', 'n1', 0)],
-			localCover: Buffer.from('local'),
+			localCover,
+			hashedImages,
 		});
 
 		await matcher.matchManga({ idManga: 7, title: 'Solo Leveling' });
@@ -95,6 +107,7 @@ describe('cover matching', () => {
 			expect.objectContaining({ idMangaPlugin: 'n1', band: 'strong' }),
 		]);
 		expect(hashes.row('mangeek', 'm1')).toBeNull();
+		expect(hashedImages).toEqual([localCover]);
 	});
 
 	test('skips a manga without reference', async () => {
@@ -181,6 +194,28 @@ describe('cover matching', () => {
 			'strong',
 			'possible',
 		]);
+	});
+
+	test('reads the generic limit and top N from the env', async () => {
+		vi.resetModules();
+		vi.stubEnv('COVER_MATCH_GENERIC_LIMIT', '4');
+		vi.stubEnv('COVER_MATCH_TOP_N', '1');
+		const { default: env } = await import('../../../../infra/env.js');
+		const config = matchConfigFrom(env);
+		vi.unstubAllEnvs();
+		const five = Array.from({ length: 5 }, (_, i) =>
+			candidate({ idMangaPlugin: `c${i}`, dSimilarity: i === 0 ? 0.95 : 0.85 }),
+		);
+
+		expect(config).toMatchObject({ genericLimit: 4, topN: 1 });
+		// 5 matches over a limit of 4: generic, only the strong one stays.
+		expect(
+			selectSuggestions(five, { ...config, topN: 3 }).map((s) => s.band),
+		).toEqual(['strong']);
+		// 4 matches, not generic: top N of 1 keeps the best.
+		expect(
+			selectSuggestions(five.slice(0, 4), config).map((s) => s.idMangaPlugin),
+		).toEqual(['c0']);
 	});
 
 	test('keeps the top N ordered by score then title similarity', () => {

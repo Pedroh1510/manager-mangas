@@ -5,6 +5,7 @@ import {
 	hashCoverImage,
 	pHash,
 	similarity,
+	thresholdBits,
 } from '../../../../service/coverSuggestions/hashing.js';
 
 const ALL_ONES = 0xffffffffffffffffn;
@@ -67,6 +68,15 @@ describe('cover hashing', () => {
 		const bitAt = (row, col) => (bits >> BigInt(63 - (row * 8 + col))) & 1n;
 		expect(bitAt(0, 1)).toBe(1n);
 		expect(bitAt(1, 0)).toBe(0n);
+	});
+
+	test('pHash leaves the DC term out of the median', () => {
+		// 32 zeros and 31 ones after DC: without DC the median is 0, so every
+		// 1 is set; with DC in the median it would be 1 and none of them would.
+		const coefficients = [1000, ...Array(32).fill(0), ...Array(31).fill(1)];
+		const expected = BigInt.asIntN(64, (1n << 63n) | ((1n << 31n) - 1n));
+
+		expect(thresholdBits(coefficients)).toBe(expected);
 	});
 
 	test('is deterministic', async () => {
