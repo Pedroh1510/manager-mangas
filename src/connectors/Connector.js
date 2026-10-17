@@ -26,6 +26,20 @@ export default class Connector {
 		);
 	}
 
+	/**
+	 * Catalog entry in the connector contract; an empty or missing cover
+	 * leaves `coverUrl` out instead of storing a value nothing can fetch.
+	 * @example this._toCatalogEntry(7, 'A', '') // { id: '7', title: 'A' }
+	 * @param {string|number} id
+	 * @param {string} title
+	 * @param {string|null|undefined} coverUrl
+	 * @returns {{id: string, title: string, coverUrl?: string}}
+	 */
+	_toCatalogEntry(id, title, coverUrl) {
+		const entry = { id: String(id), title };
+		return coverUrl ? { ...entry, coverUrl } : entry;
+	}
+
 	async _getMangas() {
 		throw new Error(`${this.constructor.name} does not implement _getMangas()`);
 	}

@@ -7,7 +7,7 @@ const TIMEOUT_INCREMENT_MS = 2 * 60 * 1000;
 // A manga page is a few MB at most; anything past this is a wrong response
 // (an HTML error page streamed forever, a video) that would sit in memory.
 const MAX_IMAGE_BYTES = 100 * 1024 * 1024;
-const DEFAULT_USER_AGENT =
+export const DEFAULT_USER_AGENT =
 	'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0';
 
 export class PageNotFoundError extends Error {

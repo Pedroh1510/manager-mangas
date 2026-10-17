@@ -43,6 +43,18 @@ describe('MangaService', () => {
 			database.query.mockResolvedValue({ rows: [] });
 		}
 
+		test('listMangas strips coverUrl from catalog items', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(false);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue([
+				{ id: '1', title: 'A', coverUrl: 'https://h/a.jpg' },
+			]);
+
+			const result = await MangaService.listMangas({ pluginId: 'fake' });
+
+			expect(result).toEqual([{ id: '1', title: 'A' }]);
+		});
+
 		test('returns the fresh cached catalog without enqueueing a refresh', async () => {
 			arrangeFakePlugin();
 			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(false);

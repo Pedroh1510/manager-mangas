@@ -1,6 +1,9 @@
 import express from 'express';
+import { ValidationError } from '../infra/errors.js';
+import CoverService from '../service/covers/index.js';
 import MangaService from '../service/manga.js';
 import mangasAdmController from './mangasAdmController.js';
+import { sendCover } from './sendCover.js';
 
 const mangasController = express();
 export default mangasController;
@@ -127,6 +130,41 @@ mangasController.get('/:pluginId/manga', async (req, res) => {
 
 	const chapters = await MangaService.listChapters({ mangaId, pluginId });
 	res.status(200).send(chapters);
+});
+
+/**
+ * @swagger
+ * /mangas/{idPlugin}/cover/{idMangaPlugin}:
+ *   get:
+ *     tags: [Manga]
+ *     description: cover of a catalog item, as a WebP at most 300px wide
+ *     parameters:
+ *       - name: idPlugin
+ *         in: path
+ *         required: true
+ *         type: string
+ *       - name: idMangaPlugin
+ *         in: path
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: image/webp
+ *       400:
+ *         description: Unknown plugin
+ *       404:
+ *         description: No cover for this item
+ */
+mangasController.get('/:pluginId/cover/:idMangaPlugin', async (req, res) => {
+	const { pluginId, idMangaPlugin } = req.params;
+	if (!MangaService.hasConnector(pluginId)) {
+		throw new ValidationError({
+			message: `Plugin with id ${pluginId} not found`,
+			action: 'Change plugin id',
+		});
+	}
+	const cover = await CoverService.getCatalogCover({ pluginId, idMangaPlugin });
+	sendCover(res, cover);
 });
 
 /**

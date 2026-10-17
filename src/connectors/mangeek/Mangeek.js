@@ -72,10 +72,10 @@ export default class Mangeek extends Connector {
 						break;
 					}
 					for (const manga of page) {
-						seen.set(String(manga.id), {
-							id: String(manga.id),
-							title: manga.title
-						});
+						seen.set(
+							String(manga.id),
+							this._toCatalogEntry(manga.id, manga.title, manga.thumbnail)
+						);
 					}
 					ignore = ignore.concat(page.map((manga) => manga.id));
 					if (page.length < 25) {

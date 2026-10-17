@@ -16,7 +16,11 @@ describe('GET /mangas/:pluginId', () => {
 		// The API and this suite share the working directory (same container),
 		// so they see the same appdata/ catalog file.
 		const catalogPath = path.resolve('appdata', 'mangas.test-fixture.json');
-		const fixtureCatalog = JSON.stringify([{ id: '1', title: 'Black Clover' }]);
+		const fixtureCatalog = JSON.stringify({
+			version: 2,
+			mangas: [{ id: '1', title: 'Black Clover' }],
+		});
+		const legacyCatalog = JSON.stringify([{ id: '1', title: 'Black Clover' }]);
 		const freshCatalog = () => writeFile(catalogPath, fixtureCatalog);
 		const waitForRewrittenCatalog = () =>
 			vi.waitFor(
@@ -58,6 +62,41 @@ describe('GET /mangas/:pluginId', () => {
 			const second = await api('/mangas/test-fixture/');
 			expect(second.status).toEqual(200);
 			expect(second.data).toEqual([{ id: '1', title: 'Black Clover' }]);
+		});
+
+		test('serves an unversioned catalog and rewrites it as version 2', async () => {
+			await waitForRewrittenCatalog();
+			await writeFile(catalogPath, legacyCatalog);
+
+			const response = await api('/mangas/test-fixture/');
+
+			expect(response.status).toEqual(200);
+			expect(response.data).toEqual([{ id: '1', title: 'Black Clover' }]);
+			await vi.waitFor(
+				async () => {
+					const rewritten = JSON.parse(await readFile(catalogPath, 'utf8'));
+					expect(rewritten.version).toEqual(2);
+				},
+				{ timeout: 10000, interval: 200 },
+			);
+		});
+
+		test('never exposes coverUrl', async () => {
+			await writeFile(
+				catalogPath,
+				JSON.stringify({
+					version: 2,
+					mangas: [
+						{ id: '1', title: 'Black Clover', coverUrl: 'https://h/bc.jpg' },
+					],
+				}),
+			);
+
+			const response = await api('/mangas/test-fixture/');
+			await freshCatalog();
+
+			expect(response.status).toEqual(200);
+			expect(response.data).toEqual([{ id: '1', title: 'Black Clover' }]);
 		});
 
 		test('responds 500 when there is no cached catalog and redis is unreachable', async () => {

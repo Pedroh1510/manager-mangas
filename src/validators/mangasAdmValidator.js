@@ -58,6 +58,14 @@ async function idMangaParam({ params }, _, next) {
 	return next();
 }
 
+async function idMangaCoverParam({ params }, _, next) {
+	const schema = Joi.object().keys({
+		idManga: Joi.number().integer().positive().required(),
+	});
+	await schema.validateAsync(params);
+	return next();
+}
+
 async function chapterParams({ params }, _, next) {
 	const schema = Joi.object().keys({
 		idManga: Joi.number().integer().required(),
@@ -128,6 +136,7 @@ const MangasAdmValidator = {
 	setConnectorActive,
 	setAllConnectorsActive,
 	idMangaParam,
+	idMangaCoverParam,
 	chapterParams,
 	downloadManga,
 	listMangasRegistered,

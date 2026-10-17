@@ -1,7 +1,9 @@
 import express from 'express';
+import CoverService from '../service/covers/index.js';
 import MangaAdminService from '../service/mangaAdmin.js';
 import MangasAdmValidator from '../validators/mangasAdmValidator.js';
 import kavitaAdmController from './kavitaAdmController.js';
+import { sendCover } from './sendCover.js';
 
 const mangasAdmController = express();
 export default mangasAdmController;
@@ -421,6 +423,34 @@ mangasAdmController.get('/update-mangas', async (req, res) => {
 	});
 	res.status(200).send(response);
 });
+
+/**
+ * @swagger
+ * /mangas/adm/{idManga}/cover:
+ *   get:
+ *     tags: [MangaAdm]
+ *     description: Fixed local cover of a registered manga, as a WebP at most 300px wide
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: image/webp
+ *       400:
+ *         description: idManga is not a positive integer
+ *       404:
+ *         description: Unknown manga, or no connector has a cover
+ */
+mangasAdmController.get(
+	'/:idManga/cover',
+	MangasAdmValidator.idMangaCoverParam,
+	async (req, res) => {
+		const idManga = Number(req.params.idManga);
+		sendCover(res, await CoverService.getLocalCover({ idManga }));
+	},
+);
 
 /**
  * @swagger
