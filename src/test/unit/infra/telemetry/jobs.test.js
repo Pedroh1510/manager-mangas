@@ -1,4 +1,5 @@
-import { context, trace } from '@opentelemetry/api';
+import { ROOT_CONTEXT, context, propagation, trace } from '@opentelemetry/api';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import {
 	createMeterProvider,
@@ -126,6 +127,54 @@ describe('queue gauges', () => {
 });
 
 describe('bullmq tracing', () => {
+	let tracerProvider;
+
+	beforeAll(() => {
+		tracerProvider = new NodeTracerProvider();
+		tracerProvider.register();
+	});
+
+	afterAll(async () => {
+		await tracerProvider.shutdown();
+		trace.disable();
+		propagation.disable();
+		context.disable();
+	});
+
+	// what BullMQ does around queue.add: start the producer span, then derive
+	// the propagation metadata from the context the span is set on
+	function metadataOfAdd(fromContext) {
+		return context.with(fromContext, () => {
+			const span = jobs.jobTelemetry.tracer.startSpan('add download', {});
+			const ctx = span.setSpanOnContext(context.active());
+			span.end();
+			return jobs.jobTelemetry.contextManager.getMetadata(ctx);
+		});
+	}
+
+	test('a job enqueued by a request propagates its trace', () => {
+		const tracer = trace.getTracer('test');
+		const request = tracer.startSpan('GET /mangas');
+		const metadata = metadataOfAdd(trace.setSpan(ROOT_CONTEXT, request));
+		request.end();
+
+		expect(JSON.parse(metadata).traceparent).toContain(
+			request.spanContext().traceId,
+		);
+	});
+
+	test('a job enqueued by another job starts its own trace', () => {
+		const parent = jobs.jobTelemetry.tracer.startSpan(
+			'process background-tasks',
+			{},
+		);
+		const insideJob = parent.setSpanOnContext(ROOT_CONTEXT);
+		const metadata = metadataOfAdd(insideJob);
+		parent.end();
+
+		expect(JSON.parse(metadata)).toEqual({});
+	});
+
 	test('traces only add and process operations', () => {
 		const ctx = context.active();
 		const internal = jobs.jobTelemetry.tracer.startSpan(

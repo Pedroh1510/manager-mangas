@@ -1,4 +1,9 @@
-import { metrics } from '@opentelemetry/api';
+import {
+	ROOT_CONTEXT,
+	context,
+	createContextKey,
+	metrics,
+} from '@opentelemetry/api';
 import { BullMQOtel } from 'bullmq-otel';
 import logger from '../logger.js';
 
@@ -6,7 +11,10 @@ const METER_NAME = 'manager-mangas';
 const QUEUE_STATES = ['waiting', 'delayed', 'active', 'failed'];
 // BullMQ wraps its internal loop (getNextJob blocks up to drainDelay, 5s) in
 // spans too; only these become spans, or the slow-trace policy keeps them all
-const TRACED_OPERATIONS = new Set(['add', 'addBulk', 'process']);
+const PRODUCER_OPERATIONS = new Set(['add', 'addBulk']);
+const CONSUMER_OPERATION = 'process';
+// Set on the context a job runs in (plan door 4c)
+const INSIDE_JOB = createContextKey('manager-mangas bullmq job');
 
 class UntracedSpan {
 	setSpanOnContext(ctx) {
@@ -19,15 +27,38 @@ class UntracedSpan {
 	end() {}
 }
 
+// A job enqueued by another job: no producer span, and an empty context, so
+// the child job starts its own trace instead of growing the parent's
+class DetachedSpan extends UntracedSpan {
+	setSpanOnContext() {
+		return ROOT_CONTEXT;
+	}
+}
+
+function markInsideJob(span) {
+	const marked = Object.create(span);
+	marked.setSpanOnContext = (ctx) =>
+		span.setSpanOnContext(ctx).setValue(INSIDE_JOB, true);
+	return marked;
+}
+
+/**
+ * One trace per job (plan door 4c): a job enqueued by a request joins the
+ * request's trace, a job enqueued by a job does not. A whole cascade in one
+ * trace outlives the tail sampler's 30 s decision and is dropped unseen.
+ */
 function createJobTelemetry() {
 	const telemetry = new BullMQOtel(METER_NAME);
 	const { tracer } = telemetry;
 	telemetry.tracer = {
 		startSpan(name, options, ctx) {
 			const operation = name.split(' ')[0];
-			return TRACED_OPERATIONS.has(operation)
-				? tracer.startSpan(name, options, ctx)
-				: new UntracedSpan();
+			if (operation === CONSUMER_OPERATION) {
+				return markInsideJob(tracer.startSpan(name, options, ctx));
+			}
+			if (!PRODUCER_OPERATIONS.has(operation)) return new UntracedSpan();
+			if (context.active().getValue(INSIDE_JOB)) return new DetachedSpan();
+			return tracer.startSpan(name, options, ctx);
 		},
 	};
 	return telemetry;
