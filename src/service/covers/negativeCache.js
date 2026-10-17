@@ -17,5 +17,8 @@ export function createNegativeCache({ ttlMs, now = Date.now }) {
 		add(key) {
 			failedAt.set(key, now());
 		},
+		forget(key) {
+			failedAt.delete(key);
+		},
 	};
 }

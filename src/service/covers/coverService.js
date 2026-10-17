@@ -112,6 +112,13 @@ export function createCoverService({
 		return cover;
 	}
 
+	// A new link is new information, so it gets a fresh attempt even while
+	// an earlier failure for the same manga is still remembered.
+	function refreshLocalCover({ idManga }) {
+		mangaFailures.forget(idManga);
+		return getLocalCover({ idManga });
+	}
+
 	async function dropStaleCatalogCovers(pluginId, previous, next) {
 		const ids = staleCoverIds(previous, next);
 		await Promise.all(
@@ -119,5 +126,10 @@ export function createCoverService({
 		);
 	}
 
-	return { getCatalogCover, getLocalCover, dropStaleCatalogCovers };
+	return {
+		getCatalogCover,
+		getLocalCover,
+		refreshLocalCover,
+		dropStaleCatalogCovers,
+	};
 }

@@ -11,6 +11,7 @@ import logger from '../infra/logger.js';
 import ChaptersRepository from '../repository/chapters.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 import MangasRepository from '../repository/mangas.js';
+import CoverService from './covers/index.js';
 import Download from './download.js';
 import MangaService from './manga.js';
 import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
@@ -32,6 +33,14 @@ async function createManga({ title }) {
 	}
 	const { idManga } = await MangasRepository.createManga({ title });
 	return { idManga };
+}
+
+// Fire-and-forget: a link never waits on, nor fails because of, a cover
+// download; a manga without cover still gets one on its first GET.
+function createLocalCoverInBackground(idManga) {
+	CoverService.refreshLocalCover({ idManga }).catch((error) =>
+		logger.warn({ status: 'capa_falhou', idManga, error: error.message }),
+	);
 }
 
 async function linkConnector({
@@ -61,6 +70,7 @@ async function linkConnector({
 		}
 		throw error;
 	});
+	createLocalCoverInBackground(idManga);
 	return { idMangaConnector, idManga, idPlugin };
 }
 

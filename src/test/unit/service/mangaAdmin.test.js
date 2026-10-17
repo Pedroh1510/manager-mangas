@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import database from '../../../infra/database.js';
+import logger from '../../../infra/logger.js';
+import CoverService from '../../../service/covers/index.js';
 import * as mangaServiceModule from '../../../service/manga.js';
 import MangaAdminService from '../../../service/mangaAdmin.js';
 
@@ -83,6 +85,60 @@ describe('MangaAdminService', () => {
 				idMangaConnector: 7,
 				idManga: 1,
 				idPlugin: 'fake',
+			});
+		});
+	});
+
+	describe('linkConnector cover creation', () => {
+		const linkArgs = {
+			idManga: 1,
+			idPlugin: 'fake',
+			idMangaPlugin: '1',
+			titlePlugin: 'Black Clover',
+		};
+		const linked = { idMangaConnector: 7, idManga: 1, idPlugin: 'fake' };
+
+		function arrangeLink() {
+			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(
+				true,
+			);
+			database.query.mockResolvedValueOnce({ rows: [{ idMangaConnector: 7 }] });
+		}
+
+		test('linkConnector fires the cover creation without awaiting it', async () => {
+			arrangeLink();
+			let releaseCover;
+			const coverCreation = vi
+				.spyOn(CoverService, 'refreshLocalCover')
+				.mockReturnValue(
+					new Promise((resolve) => {
+						releaseCover = resolve;
+					}),
+				);
+
+			const result = await MangaAdminService.linkConnector(linkArgs);
+
+			expect(result).toEqual(linked);
+			expect(coverCreation).toHaveBeenCalledTimes(1);
+			expect(coverCreation).toHaveBeenCalledWith({ idManga: 1 });
+			releaseCover(null);
+		});
+
+		test('linkConnector logs a failed cover creation and still resolves', async () => {
+			arrangeLink();
+			vi.spyOn(CoverService, 'refreshLocalCover').mockRejectedValue(
+				new Error('boom'),
+			);
+			const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+
+			const result = await MangaAdminService.linkConnector(linkArgs);
+			await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+
+			expect(result).toEqual(linked);
+			expect(warn).toHaveBeenCalledWith({
+				status: 'capa_falhou',
+				idManga: 1,
+				error: 'boom',
 			});
 		});
 	});

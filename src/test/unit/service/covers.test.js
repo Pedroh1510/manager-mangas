@@ -357,6 +357,35 @@ describe('cover service: local covers', () => {
 	});
 });
 
+describe('cover service: refreshLocalCover', () => {
+	test('retries a manga whose earlier attempt failed', async () => {
+		const connectors = [
+			{
+				idMangaConnector: 10,
+				idPlugin: 'mangeek',
+				idMangaPlugin: '9',
+				isActive: true,
+			},
+		];
+		const { service } = arrangeService({
+			catalogs: { mangeek: mangeekCatalog },
+			connectors,
+			responses: { 'https://h/a.jpg': COVER },
+		});
+		expect(await service.getLocalCover({ idManga: 7 })).toBeNull();
+
+		connectors.push({
+			idMangaConnector: 11,
+			idPlugin: 'mangeek',
+			idMangaPlugin: '1',
+			isActive: true,
+		});
+
+		expect(await service.getLocalCover({ idManga: 7 })).toBeNull();
+		expect(await service.refreshLocalCover({ idManga: 7 })).toEqual(COVER);
+	});
+});
+
 describe('negative cache', () => {
 	test('forgets a key once ttlMs has passed', () => {
 		const clock = new FakeClock();
