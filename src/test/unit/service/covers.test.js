@@ -117,6 +117,24 @@ describe('cover downloader', () => {
 		expect(requests[0].signal).toBeInstanceOf(AbortSignal);
 	});
 
+	test('rejects a failed download without writing a file: downloader aborts a body still streaming past timeoutMs', async () => {
+		const downloadCover = createCoverDownloader({ timeoutMs: 300 });
+		const startedAt = Date.now();
+
+		const outcome = await Promise.race([
+			downloadCover(server.url('/trickle')).then(
+				() => 'resolved',
+				() => 'rejected',
+			),
+			new Promise((resolve) =>
+				setTimeout(() => resolve('still running'), 3000),
+			),
+		]);
+
+		expect(outcome).toBe('rejected');
+		expect(Date.now() - startedAt).toBeLessThan(2000);
+	});
+
 	test('rejects a failed download without writing a file: downloader rejects past the timeout', async () => {
 		const downloadCover = createCoverDownloader({ timeoutMs: 200 });
 		await expect(downloadCover(server.url('/hang'))).rejects.toThrow();

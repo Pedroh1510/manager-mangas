@@ -1,10 +1,10 @@
-import { readFile, rm, stat, writeFile, mkdir } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 import api from '../../../../../infra/api.js';
 import CONFIG_ENV from '../../../../../infra/env.js';
-import orchestrator from '../../../../orchestrator.js';
 import FakeImageServer from '../../../../fakes/FakeImageServer.js';
+import orchestrator from '../../../../orchestrator.js';
 import AdmUtils from '../utils.js';
 
 // The API and this suite share the working directory (same container), so

@@ -14,8 +14,9 @@ function solidPng(width, height) {
 /**
  * Local HTTP server standing in for a connector's cover host. Serves a
  * 600x900 PNG at /cover.png (and /other.png), 404 at /404, an HTML page at
- * /html, an 11 MB body at /huge, and never answers /hang. Counts requests
- * per path.
+ * /html, an 11 MB body at /huge, never answers /hang, and sends one byte
+ * every 50ms forever at /trickle (a socket that is never idle). Counts
+ * requests per path.
  * @example const server = await FakeImageServer.start(); server.url('/cover.png')
  */
 export default class FakeImageServer {
@@ -63,9 +64,17 @@ export default class FakeImageServer {
 					.end('<html></html>'),
 			'/huge': () => res.writeHead(200).end(Buffer.alloc(HUGE_BODY_BYTES)),
 			'/hang': () => this.hanging.push(res),
+			'/trickle': () => this.trickle(res),
 		};
 		const route = routes[req.url] ?? (() => res.writeHead(404).end());
 		route();
+	}
+
+	trickle(res) {
+		res.writeHead(200, { 'content-type': 'image/png' });
+		const timer = setInterval(() => res.write(Buffer.alloc(1)), 50);
+		res.on('close', () => clearInterval(timer));
+		this.hanging.push(res);
 	}
 
 	stop() {
