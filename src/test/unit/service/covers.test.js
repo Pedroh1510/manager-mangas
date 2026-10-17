@@ -131,8 +131,12 @@ describe('cover downloader', () => {
 			),
 		]);
 
+		const elapsedMs = Date.now() - startedAt;
 		expect(outcome).toBe('rejected');
-		expect(Date.now() - startedAt).toBeLessThan(2000);
+		// Tight on both sides: the abort must come from timeoutMs itself, not
+		// from a multiple of it (a 4x signal at the 15s default is a 60s bound).
+		expect(elapsedMs).toBeGreaterThanOrEqual(250);
+		expect(elapsedMs).toBeLessThan(600);
 	});
 
 	test('rejects a failed download without writing a file: downloader rejects past the timeout', async () => {
