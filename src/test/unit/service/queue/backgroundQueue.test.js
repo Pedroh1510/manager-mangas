@@ -21,10 +21,26 @@ vi.mock('../../../../service/kavita/cleanupReadChapters.js', () => ({
 	default: { cleanupReadChapters: vi.fn() },
 }));
 vi.mock('../../../../service/queue/connection.js', () => ({ default: {} }));
+vi.mock('../../../../service/coverSuggestions/index.js', () => ({
+	default: { syncAllIndexes: vi.fn(), matchAll: vi.fn() },
+}));
 
-const { enqueueBackgroundTask, scheduleRecurringCleanup } = await import(
-	'../../../../service/queue/backgroundQueue.js'
-);
+const {
+	enqueueBackgroundTask,
+	scheduleRecurringCleanup,
+	scheduleRecurringCoverIndexSync,
+	scheduleRecurringCoverMatching,
+	startBackgroundWorker,
+} = await import('../../../../service/queue/backgroundQueue.js');
+const { Worker } = await import('bullmq');
+const CoverSuggestions = (
+	await import('../../../../service/coverSuggestions/index.js')
+).default;
+
+function backgroundProcessor() {
+	startBackgroundWorker();
+	return vi.mocked(Worker).mock.calls.at(-1)[1];
+}
 
 describe('backgroundQueue Kavita cleanup wiring', () => {
 	afterEach(() => {
@@ -55,5 +71,29 @@ describe('backgroundQueue Kavita cleanup wiring', () => {
 				jobId: 'job-1',
 			},
 		);
+	});
+
+	test('schedules the daily cover hash index sync for every connector', async () => {
+		await scheduleRecurringCoverIndexSync();
+		await backgroundProcessor()({ name: 'syncCoverHashIndex', data: {} });
+
+		expect(upsertJobSchedulerMock).toHaveBeenCalledWith(
+			'cover-index-sync-daily',
+			{ pattern: '0 3 * * *' },
+			{ name: 'syncCoverHashIndex' },
+		);
+		expect(CoverSuggestions.syncAllIndexes).toHaveBeenCalledTimes(1);
+	});
+
+	test('schedules cover matching at 11:30 and 19:30', async () => {
+		await scheduleRecurringCoverMatching();
+		await backgroundProcessor()({ name: 'matchCoverSuggestions', data: {} });
+
+		expect(upsertJobSchedulerMock).toHaveBeenCalledWith(
+			'cover-matching-every-12h',
+			{ pattern: '30 11,19 * * *' },
+			{ name: 'matchCoverSuggestions' },
+		);
+		expect(CoverSuggestions.matchAll).toHaveBeenCalledTimes(1);
 	});
 });

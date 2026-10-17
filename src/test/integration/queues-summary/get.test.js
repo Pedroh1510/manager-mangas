@@ -34,6 +34,7 @@ describe('GET /queues-summary', () => {
 		expect(response.status).toEqual(200);
 		const expectedNames = [
 			...listConnectorIds().map((id) => `connector-${id}`),
+			...listConnectorIds().map((id) => `cover-hash-${id}`),
 			'background-tasks',
 			'download',
 		].sort();

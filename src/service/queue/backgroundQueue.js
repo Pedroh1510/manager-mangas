@@ -1,5 +1,6 @@
 // src/service/queue/backgroundQueue.js
 import { Queue, Worker } from 'bullmq';
+import CoverSuggestions from '../coverSuggestions/index.js';
 import KavitaCleanupService from '../kavita/cleanupReadChapters.js';
 import MangaAdminService from '../mangaAdmin.js';
 import connection from './connection.js';
@@ -18,6 +19,8 @@ const operations = {
 	downloadMangasBatch: (data) => MangaAdminService.downloadMangasBatch(data),
 	listPagesAndSend: (data) => MangaAdminService.listPagesAndSend(data),
 	cleanupReadChapters: (data) => KavitaCleanupService.cleanupReadChapters(data),
+	syncCoverHashIndex: () => CoverSuggestions.syncAllIndexes(),
+	matchCoverSuggestions: () => CoverSuggestions.matchAll(),
 };
 
 export async function enqueueBackgroundTask(operation, data, jobId) {
@@ -44,6 +47,23 @@ export async function scheduleRecurringCleanup() {
 		'kavita-cleanup-every-6h',
 		{ pattern: '0 2,8,14,20 * * *' },
 		{ name: 'cleanupReadChapters' },
+	);
+}
+
+export async function scheduleRecurringCoverIndexSync() {
+	await queue.upsertJobScheduler(
+		'cover-index-sync-daily',
+		{ pattern: '0 3 * * *' },
+		{ name: 'syncCoverHashIndex' },
+	);
+}
+
+// 30 min after updateAllMangas (11h/19h) so chapter jobs get a head start.
+export async function scheduleRecurringCoverMatching() {
+	await queue.upsertJobScheduler(
+		'cover-matching-every-12h',
+		{ pattern: '30 11,19 * * *' },
+		{ name: 'matchCoverSuggestions' },
 	);
 }
 

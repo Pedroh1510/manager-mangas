@@ -61,3 +61,49 @@ CONFIG_ENV.IMAGE_CONVERSION_CONCURRENCY = parseImageConversionConcurrency(
 	process.env.IMAGE_CONVERSION_CONCURRENCY,
 	availableParallelism(),
 );
+
+/**
+ * Number from the env inside [min, max], else `fallback`.
+ * @example parseBoundedNumber('0.95', 0.9, 0, 1) // 0.95
+ * @param {string | undefined} value
+ * @param {number} fallback
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
+export function parseBoundedNumber(value, fallback, min, max) {
+	const parsed = Number(value);
+	if (value === undefined || Number.isNaN(parsed)) return fallback;
+	return parsed >= min && parsed <= max ? parsed : fallback;
+}
+
+CONFIG_ENV.COVER_HASH_RATE_PER_SEC = parseBoundedNumber(
+	process.env.COVER_HASH_RATE_PER_SEC,
+	1,
+	1,
+	100,
+);
+CONFIG_ENV.COVER_MATCH_STRONG = parseBoundedNumber(
+	process.env.COVER_MATCH_STRONG,
+	0.9,
+	0,
+	1,
+);
+CONFIG_ENV.COVER_MATCH_POSSIBLE = parseBoundedNumber(
+	process.env.COVER_MATCH_POSSIBLE,
+	0.8,
+	0,
+	1,
+);
+CONFIG_ENV.COVER_MATCH_GENERIC_LIMIT = parseBoundedNumber(
+	process.env.COVER_MATCH_GENERIC_LIMIT,
+	10,
+	1,
+	1000,
+);
+CONFIG_ENV.COVER_MATCH_TOP_N = parseBoundedNumber(
+	process.env.COVER_MATCH_TOP_N,
+	3,
+	1,
+	100,
+);
