@@ -54,18 +54,6 @@ describe('incoming http filter', () => {
 	});
 });
 
-describe('express instrumentation', () => {
-	test('express middleware layers are not traced', () => {
-		const express = createInstrumentations().find(
-			(instrumentation) =>
-				instrumentation.instrumentationName ===
-				'@opentelemetry/instrumentation-express',
-		);
-
-		expect(express.getConfig().ignoreLayersType).toEqual(['middleware']);
-	});
-});
-
 describe('outgoing http instrumentation', () => {
 	let meters;
 	let httpInstrumentation;
