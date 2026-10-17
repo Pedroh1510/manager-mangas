@@ -21,4 +21,4 @@ COPY . .
 ENV TZ="America/Sao_Paulo"
 # glibc arenas per thread fragment sharp/libvips buffers and RSS never drops back
 ENV MALLOC_ARENA_MAX=2
-CMD [ "npm", "run","server" ]
+CMD ["node", "--import", "./src/telemetry.js", "src/server.js"]
