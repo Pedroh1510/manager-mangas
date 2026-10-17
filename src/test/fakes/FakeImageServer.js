@@ -53,27 +53,30 @@ export default class FakeImageServer {
 
 	answer(req, res) {
 		this.requests.set(req.url, this.requestCount(req.url) + 1);
-		const routes = {
-			'/cover.png': () =>
-				res.writeHead(200, { 'content-type': 'image/png' }).end(this.png),
-			'/other.png': () =>
-				res.writeHead(200, { 'content-type': 'image/png' }).end(this.png),
-			'/html': () =>
+		// A switch, not a lookup table: dispatching on req.url through an
+		// object is CodeQL's js/unvalidated-dynamic-method-call (PR #18).
+		switch (req.url) {
+			case '/cover.png':
+			case '/other.png':
+				res.writeHead(200, { 'content-type': 'image/png' }).end(this.png);
+				return;
+			case '/html':
 				res
 					.writeHead(200, { 'content-type': 'text/html' })
-					.end('<html></html>'),
-			'/huge': () => res.writeHead(200).end(Buffer.alloc(HUGE_BODY_BYTES)),
-			'/hang': () => this.hanging.push(res),
-			'/trickle': () => this.trickle(res),
-		};
-		if (Object.prototype.hasOwnProperty.call(routes, req.url)) {
-			const route = routes[req.url];
-			if (typeof route === 'function') {
-				route();
+					.end('<html></html>');
 				return;
-			}
+			case '/huge':
+				res.writeHead(200).end(Buffer.alloc(HUGE_BODY_BYTES));
+				return;
+			case '/hang':
+				this.hanging.push(res);
+				return;
+			case '/trickle':
+				this.trickle(res);
+				return;
+			default:
+				res.writeHead(404).end();
 		}
-		res.writeHead(404).end();
 	}
 
 	trickle(res) {
