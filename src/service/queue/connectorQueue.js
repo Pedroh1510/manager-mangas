@@ -3,7 +3,8 @@ import {
 	getConnectorClass,
 	listConnectorIds,
 } from '../../connectors/registry.js';
-import { saveCatalog } from '../../utils/mangaCatalog.js';
+import { loadCatalog, saveCatalog } from '../../utils/mangaCatalog.js';
+import CoverService from '../covers/index.js';
 import connection from './connection.js';
 
 const CONCURRENCY_BY_CONNECTOR = {
@@ -79,7 +80,11 @@ async function refreshCatalog(connector) {
 			`refreshCatalog: connector ${connector.id} returned 0 mangas, expected a non-empty list`,
 		);
 	}
+	const previous = (await loadCatalog(connector.id)) ?? [];
 	await saveCatalog(connector.id, mangas);
+	// Runs after the empty-scrape guard above, so a broken scrape never
+	// deletes cover files (manga-covers AC 17).
+	await CoverService.dropStaleCatalogCovers(connector.id, previous, mangas);
 	return mangas.length;
 }
 

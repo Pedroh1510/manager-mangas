@@ -7,7 +7,10 @@ import {
 	createCoverDownloader,
 } from '../../../service/covers/coverDownloader.js';
 import { createCoverPaths } from '../../../service/covers/coverPaths.js';
-import { createCoverService } from '../../../service/covers/coverService.js';
+import {
+	createCoverService,
+	staleCoverIds,
+} from '../../../service/covers/coverService.js';
 import { createNegativeCache } from '../../../service/covers/negativeCache.js';
 import FakeCoverFetcher from '../../fakes/FakeCoverFetcher.js';
 import FakeCoverStore from '../../fakes/FakeCoverStore.js';
@@ -365,5 +368,27 @@ describe('negative cache', () => {
 		clock.advance(1);
 		expect(failures.has('k')).toBe(false);
 		expect(failures.has('other')).toBe(false);
+	});
+});
+
+describe('staleCoverIds', () => {
+	test('lists ids removed from the catalog or whose coverUrl changed', () => {
+		const previous = [
+			{ id: 'kept', coverUrl: 'u1' },
+			{ id: 'changed', coverUrl: 'u2' },
+			{ id: 'removed', coverUrl: 'u3' },
+			{ id: 'gained', title: 'sem capa antes' },
+		];
+		const next = [
+			{ id: 'kept', coverUrl: 'u1' },
+			{ id: 'changed', coverUrl: 'u2-new' },
+			{ id: 'gained', coverUrl: 'u4' },
+		];
+
+		expect(staleCoverIds(previous, next)).toEqual([
+			'changed',
+			'removed',
+			'gained',
+		]);
 	});
 });

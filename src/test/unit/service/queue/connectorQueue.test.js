@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { createCoverPaths } from '../../../../service/covers/coverPaths.js';
+import FakeCoverStore from '../../../fakes/FakeCoverStore.js';
 
 const addMock = vi.fn();
 const waitUntilFinishedMock = vi.fn();
@@ -17,7 +19,30 @@ vi.mock('bullmq', () => ({
 
 vi.mock('../../../../utils/mangaCatalog.js', () => ({
 	saveCatalog: vi.fn().mockResolvedValue(undefined),
+	loadCatalog: vi.fn().mockResolvedValue(null),
 }));
+
+// The real cover service over an in-memory store, so the assertions read
+// which cover files survive a refresh.
+const covers = vi.hoisted(() => ({ store: null }));
+vi.mock('../../../../service/covers/index.js', async () => {
+	const { createCoverService } = await import(
+		'../../../../service/covers/coverService.js'
+	);
+	const { createCoverPaths } = await import(
+		'../../../../service/covers/coverPaths.js'
+	);
+	return {
+		default: createCoverService({
+			paths: createCoverPaths('/root/appdata'),
+			store: {
+				read: (filePath) => covers.store.read(filePath),
+				write: (filePath, image) => covers.store.write(filePath, image),
+				remove: (filePath) => covers.store.remove(filePath),
+			},
+		}),
+	};
+});
 
 vi.mock('../../../../connectors/registry.js', () => ({
 	getConnectorClass: vi.fn().mockReturnValue(
@@ -121,6 +146,68 @@ describe('connectorQueue', () => {
 			expect(saveCatalog).toHaveBeenCalledWith('mangeek', [
 				{ id: '1', title: 'Black Clover' },
 			]);
+		});
+
+		const coverPaths = createCoverPaths('/root/appdata');
+		const catalogCover = (id) => coverPaths.catalogCover('mangeek', id);
+		const localCover = coverPaths.localCover(7);
+		const LOCAL_BYTES = Buffer.from('local-7');
+
+		async function arrangeCoverFiles() {
+			covers.store = new FakeCoverStore({
+				[catalogCover('a')]: Buffer.from('a'),
+				[catalogCover('b')]: Buffer.from('b'),
+				[catalogCover('c')]: Buffer.from('c'),
+				[localCover]: LOCAL_BYTES,
+			});
+			const { loadCatalog } = await import('../../../../utils/mangaCatalog.js');
+			vi.mocked(loadCatalog).mockResolvedValue([
+				{ id: 'a', title: 'A', coverUrl: 'https://h/a.jpg' },
+				{ id: 'b', title: 'B', coverUrl: 'https://h/b.jpg' },
+				{ id: 'c', title: 'C', coverUrl: 'https://h/c.jpg' },
+			]);
+		}
+
+		const nextCatalog = [
+			{ id: 'a', title: 'A', coverUrl: 'https://h/a.jpg' },
+			{ id: 'b', title: 'B', coverUrl: 'https://h/b-new.jpg' },
+		];
+
+		test('refreshCatalog drops cover files of removed ids and changed cover urls', async () => {
+			await arrangeCoverFiles();
+			FakeCatalogConnector.mangas = nextCatalog;
+
+			await runRefreshCatalogJob();
+
+			const catalogFiles = covers.store
+				.paths()
+				.filter((filePath) => filePath.includes('covers-catalog'));
+			expect(catalogFiles).toEqual([catalogCover('a')]);
+		});
+
+		test('refreshCatalog keeps cover files when the scrape is empty', async () => {
+			await arrangeCoverFiles();
+			FakeCatalogConnector.mangas = [];
+
+			await expect(runRefreshCatalogJob()).rejects.toThrow('mangeek');
+
+			expect(covers.store.paths().toSorted()).toEqual(
+				[
+					catalogCover('a'),
+					catalogCover('b'),
+					catalogCover('c'),
+					localCover,
+				].toSorted(),
+			);
+		});
+
+		test('refreshCatalog never touches local manga covers', async () => {
+			await arrangeCoverFiles();
+			FakeCatalogConnector.mangas = nextCatalog;
+
+			await runRefreshCatalogJob();
+
+			expect(await covers.store.read(localCover)).toEqual(LOCAL_BYTES);
 		});
 
 		test('refreshCatalog rejects an empty list and keeps the catalog', async () => {
