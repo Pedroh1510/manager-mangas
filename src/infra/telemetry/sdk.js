@@ -14,8 +14,19 @@ const EXPORT_INTERVAL_MS = 30_000;
 // Short, so an unreachable collector costs a bounded wait per export, never
 // the request path (AC 19)
 const EXPORT_TIMEOUT_MS = 5_000;
-// bull-board polls this every few seconds; its spans are noise
-const IGNORED_INCOMING_PREFIX = '/queues';
+// bull-board polls its API every few seconds; its spans are noise. Matched as
+// a path segment, so /queues-summary is still traced.
+const BULL_BOARD_PATH = /^\/queues(\/|\?|$)/;
+
+/**
+ * True for bull-board UI and API requests, which are not traced.
+ * @example isBullBoardRequest('/queues/api/queues') // true
+ * @example isBullBoardRequest('/queues-summary') // false
+ * @param {string | undefined} url
+ */
+export function isBullBoardRequest(url) {
+	return url !== undefined && BULL_BOARD_PATH.test(url);
+}
 
 /**
  * The instrumentations the app turns on (plan door 4): HTTP in and out,
@@ -28,8 +39,7 @@ export function createInstrumentations() {
 	process.env.OTEL_SEMCONV_STABILITY_OPT_IN ??= 'http';
 	return [
 		new HttpInstrumentation({
-			ignoreIncomingRequestHook: (request) =>
-				request.url?.startsWith(IGNORED_INCOMING_PREFIX) ?? false,
+			ignoreIncomingRequestHook: (request) => isBullBoardRequest(request.url),
 		}),
 		new UndiciInstrumentation(),
 		new ExpressInstrumentation(),
