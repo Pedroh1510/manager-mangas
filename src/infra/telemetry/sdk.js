@@ -42,7 +42,8 @@ export function createInstrumentations() {
 			ignoreIncomingRequestHook: (request) => isBullBoardRequest(request.url),
 		}),
 		new UndiciInstrumentation(),
-		new ExpressInstrumentation(),
+		// route and handler spans only; every middleware is a span otherwise
+		new ExpressInstrumentation({ ignoreLayersType: ['middleware'] }),
 		new PgInstrumentation({ requireParentSpan: true }),
 		new IORedisInstrumentation({ requireParentSpan: true }),
 	];
