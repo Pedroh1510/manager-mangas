@@ -65,22 +65,25 @@ export function createCoverService({
 		}
 	}
 
-	async function fetchCatalogCover(pluginId, idMangaPlugin, failureKey) {
-		const coverUrl = await findCoverUrl(pluginId, idMangaPlugin);
-		if (!coverUrl) return null;
-		const cover = await download(coverUrl, { pluginId, idMangaPlugin });
-		if (!cover) catalogFailures.add(failureKey);
-		return cover;
-	}
-
-	async function getCatalogCover({ pluginId, idMangaPlugin }) {
+	// `hasSource` tells a failed or remembered download apart from a catalog
+	// that has no coverUrl yet; only the first may be remembered as a failure.
+	async function resolveCatalogCover({ pluginId, idMangaPlugin }) {
 		const coverPath = paths.catalogCover(pluginId, idMangaPlugin);
 		const cached = await store.read(coverPath);
-		if (cached) return cached;
+		if (cached) return { cover: cached, hasSource: true };
 		const failureKey = `${pluginId}\u0000${idMangaPlugin}`;
-		if (catalogFailures.has(failureKey)) return null;
-		const cover = await fetchCatalogCover(pluginId, idMangaPlugin, failureKey);
+		if (catalogFailures.has(failureKey))
+			return { cover: null, hasSource: true };
+		const coverUrl = await findCoverUrl(pluginId, idMangaPlugin);
+		if (!coverUrl) return { cover: null, hasSource: false };
+		const cover = await download(coverUrl, { pluginId, idMangaPlugin });
 		if (cover) await store.write(coverPath, cover);
+		else catalogFailures.add(failureKey);
+		return { cover, hasSource: true };
+	}
+
+	async function getCatalogCover(key) {
+		const { cover } = await resolveCatalogCover(key);
 		return cover;
 	}
 
@@ -88,14 +91,16 @@ export function createCoverService({
 		const connectors = oldestActiveFirst(
 			await listConnectorsByManga({ idManga }),
 		);
+		let hasSource = false;
 		for (const { idPlugin, idMangaPlugin } of connectors) {
-			const cover = await getCatalogCover({
+			const result = await resolveCatalogCover({
 				pluginId: idPlugin,
 				idMangaPlugin,
 			});
-			if (cover) return cover;
+			if (result.cover) return result;
+			hasSource ||= result.hasSource;
 		}
-		return null;
+		return { cover: null, hasSource };
 	}
 
 	async function getLocalCover({ idManga }) {
@@ -103,13 +108,15 @@ export function createCoverService({
 		const stored = await store.read(localPath);
 		if (stored) return stored;
 		if (mangaFailures.has(idManga)) return null;
-		const cover = await firstConnectorCover(idManga);
-		if (!cover) {
-			mangaFailures.add(idManga);
-			return null;
+		const { cover, hasSource } = await firstConnectorCover(idManga);
+		if (cover) {
+			await store.write(localPath, cover);
+			return cover;
 		}
-		await store.write(localPath, cover);
-		return cover;
+		// No connector has a coverUrl yet (e.g. a catalog still in the legacy
+		// format right after deploy): nothing failed, so nothing to remember.
+		if (hasSource) mangaFailures.add(idManga);
+		return null;
 	}
 
 	// A new link is new information, so it gets a fresh attempt even while
