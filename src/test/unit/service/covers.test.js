@@ -413,6 +413,24 @@ describe('cover service: local covers', () => {
 		},
 	);
 
+	test('does not remember a manga whose connectors have no coverUrl yet', async () => {
+		// Regression: right after deploy the catalog is still in the legacy
+		// format (no coverUrl); opening the list then blocked every manga's
+		// cover for 24h even after the catalog refresh brought the urls.
+		const catalogs = { mangeek: [{ id: '1', title: 'A' }] };
+		const { service, fetcher } = arrangeService({
+			catalogs,
+			connectors: [connector(10, 'mangeek')],
+			responses: { 'https://h/a.jpg': COVER },
+		});
+
+		expect(await service.getLocalCover({ idManga: 7 })).toBeNull();
+		catalogs.mangeek = mangeekCatalog;
+
+		expect(await service.getLocalCover({ idManga: 7 })).toEqual(COVER);
+		expect(fetcher.calls).toEqual(['https://h/a.jpg']);
+	});
+
 	test('negative cache skips a manga without cover for 24h', async () => {
 		const { service, fetcher, clock } = arrangeService({
 			catalogs: {
@@ -443,10 +461,20 @@ describe('cover service: refreshLocalCover', () => {
 				isActive: true,
 			},
 		];
+		// Connector '9' has a cover that fails to download: a real failure,
+		// which getLocalCover remembers.
 		const { service } = arrangeService({
-			catalogs: { mangeek: mangeekCatalog },
+			catalogs: {
+				mangeek: [
+					...mangeekCatalog,
+					{ id: '9', title: 'B', coverUrl: 'https://h/broken.jpg' },
+				],
+			},
 			connectors,
-			responses: { 'https://h/a.jpg': COVER },
+			responses: {
+				'https://h/a.jpg': COVER,
+				'https://h/broken.jpg': new Error('down'),
+			},
 		});
 		expect(await service.getLocalCover({ idManga: 7 })).toBeNull();
 
