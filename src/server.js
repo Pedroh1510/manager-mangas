@@ -1,6 +1,5 @@
 import 'express-async-errors';
 import express from 'express';
-import morgan from 'morgan';
 
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
@@ -24,6 +23,7 @@ import {
 import { startConnectorWorkers } from './service/queue/connectorQueue.js';
 import { startCoverHashWorkers } from './service/queue/coverHashQueue.js';
 import { startDownloadWorker } from './service/queue/downloadQueue.js';
+import { registerQueueGauges } from './infra/telemetry/jobs.js';
 
 if (CONFIG_ENV.ENV === 'test') {
 	registerForTests('test-fixture', TestFixtureConnector);
@@ -33,16 +33,6 @@ const server = express();
 server.use(cors('*'));
 server.use(express.json({}));
 server.use(express.urlencoded({ extended: true }));
-server.use(
-	morgan('tiny', {
-		stream: {
-			write: (message) => {
-				if (message.includes('GET /queues/api')) return;
-				logger.http(message.trim());
-			},
-		},
-	}),
-);
 
 server.use(router);
 
@@ -70,6 +60,7 @@ server.use((error, _req, res, _next) => {
 });
 
 startConnectorWorkers();
+registerQueueGauges(listAllQueues);
 
 const serverInstance = server.listen(CONFIG_ENV.PORT, async () => {
 	logger.info(`Server running on port ${CONFIG_ENV.PORT}`);
@@ -85,7 +76,7 @@ const serverInstance = server.listen(CONFIG_ENV.PORT, async () => {
 });
 
 function graceful(code) {
-	console.log(`${code} signal received.`);
+	logger.info(`${code} signal received.`);
 	let status = 0;
 	return (e) => {
 		if (e) {

@@ -1,3 +1,5 @@
+import { countPipelineEvent } from '../../infra/telemetry/business.js';
+
 /**
  * Builds the `hashCover` job: hash the cached catalog cover, or download it
  * inside the domain slot and cache it first; a failure is recorded, never
@@ -13,6 +15,7 @@ export function createHashCoverJob({
 	hashes,
 	now = Date.now,
 	logger,
+	countEvent = countPipelineEvent,
 }) {
 	async function loadCover({ idPlugin, idMangaPlugin, coverUrl }) {
 		const coverPath = paths.catalogCover(idPlugin, idMangaPlugin);
@@ -34,9 +37,11 @@ export function createHashCoverJob({
 		try {
 			hashed = await hashImage(await loadCover(item));
 		} catch (error) {
+			countEvent('mangas.covers.hashed', { source: idPlugin, result: 'fail' });
 			await recordFailure(item, error);
 			return;
 		}
 		await hashes.upsertHash({ ...item, ...hashed, hashedAt: new Date(now()) });
+		countEvent('mangas.covers.hashed', { source: idPlugin, result: 'ok' });
 	};
 }

@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import { listConnectorIds } from '../../connectors/registry.js';
 import CONFIG_ENV from '../../infra/env.js';
 import connection from './connection.js';
+import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
 const RATE_WINDOW_MS = 1000;
 const queues = new Map();
@@ -21,6 +22,7 @@ export function getCoverHashQueue(connectorId) {
 			connectorId,
 			new Queue(queueName(connectorId), {
 				connection,
+				telemetry: jobTelemetry,
 				defaultJobOptions: {
 					removeOnComplete: true,
 					removeOnFail: { age: 3600 },
@@ -47,13 +49,18 @@ export function listCoverHashQueues() {
 export function startCoverHashWorkers(hashCover) {
 	return listConnectorIds().map(
 		(connectorId) =>
-			new Worker(queueName(connectorId), (job) => hashCover(job.data), {
-				connection,
-				concurrency: 1,
-				limiter: {
-					max: CONFIG_ENV.COVER_HASH_RATE_PER_SEC,
-					duration: RATE_WINDOW_MS,
+			new Worker(
+				queueName(connectorId),
+				withJobMetrics(queueName(connectorId), (job) => hashCover(job.data)),
+				{
+					connection,
+					telemetry: jobTelemetry,
+					concurrency: 1,
+					limiter: {
+						max: CONFIG_ENV.COVER_HASH_RATE_PER_SEC,
+						duration: RATE_WINDOW_MS,
+					},
 				},
-			}),
+			),
 	);
 }

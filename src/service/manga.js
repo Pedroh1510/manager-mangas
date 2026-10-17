@@ -9,15 +9,17 @@ import {
 	enqueueAndWait,
 	enqueueCatalogRefresh,
 } from './queue/connectorQueue.js';
+import { countPipelineEvent } from '../infra/telemetry/business.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let cookie = null;
 	let userAgent = null;
+	let source = 'unknown';
 	if (idChapter) {
 		const response = await database
 			.query(
 				sql
-					.select('cookie', 'userAgent')
+					.select('cookie', 'userAgent', '"mangaConnectors"."idPlugin"')
 					.from('chapters')
 					.join('mangaConnectors')
 					.on({
@@ -39,16 +41,26 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 		if (response.length) {
 			cookie = response[0]?.cookie;
 			userAgent = response[0]?.userAgent;
+			source = response[0]?.idPlugin ?? source;
 		}
 	}
 	logger.info({ manga, chapter, status: 'inicio' });
-	await Download.downloadChapter({
-		chapter,
-		pages,
-		cookie,
-		userAgent,
-		manga,
-	});
+	try {
+		await Download.downloadChapter({
+			chapter,
+			pages,
+			cookie,
+			userAgent,
+			manga,
+		});
+	} catch (error) {
+		countPipelineEvent('mangas.chapters.downloaded', {
+			source,
+			result: 'fail',
+		});
+		throw error;
+	}
+	countPipelineEvent('mangas.chapters.downloaded', { source, result: 'ok' });
 
 	if (idChapter) {
 		await database.query(

@@ -3,11 +3,13 @@ import { PageNotFoundError } from '../imageDownloader.js';
 import MangaService from '../manga.js';
 import connection from './connection.js';
 import { RETRY_WITH_BACKOFF } from './retryPolicy.js';
+import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
 const QUEUE_NAME = 'download';
 
 const queue = new Queue(QUEUE_NAME, {
 	connection,
+	telemetry: jobTelemetry,
 	defaultJobOptions: { removeOnComplete: true, removeOnFail: { age: 10 } },
 });
 
@@ -28,11 +30,16 @@ export async function processDownloadJob(job) {
 }
 
 export function startDownloadWorker(concurrency) {
-	return new Worker(QUEUE_NAME, processDownloadJob, {
-		connection,
-		concurrency,
-		useWorkerThreads: false,
-	});
+	return new Worker(
+		QUEUE_NAME,
+		withJobMetrics(QUEUE_NAME, processDownloadJob),
+		{
+			connection,
+			telemetry: jobTelemetry,
+			concurrency,
+			useWorkerThreads: false,
+		},
+	);
 }
 
 export function getDownloadQueue() {
