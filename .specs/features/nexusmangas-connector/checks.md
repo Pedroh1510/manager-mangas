@@ -65,7 +65,7 @@ Proof: `npx vitest run T -t "429 waits retryAfterSeconds and retries"`
 **C14** - Three consecutive 429 answers reject with an error containing `429` after exactly 3 requests (AC 13)
 Proof: `npx vitest run T -t "429 gives up after 2 retries"`
 
-**C17** - A `503` followed by `200` on a Supabase request returns the second answer (existing `fetchJSON` retry reached through the connector) (Flow hop 3, AC 13 sibling)
+**C17** - A `503` followed by `200` on a Supabase request returns the second answer (the connector's own retry loop in `_fetchApi`, 5000 ms delay, at most 2 retries) (Flow hop 3, AC 13 sibling)
 Proof: `npx vitest run T -t "5xx is retried once and the next answer returned"`
 
 **C15** - With `nexusmangas` registered, `startConnectorWorkers()` creates `connector-nexusmangas` with `concurrency: 1`, and `listConnectorIds()` returns `['mangeek', 'nexustoons', 'nexusmangas']` (AC 14)

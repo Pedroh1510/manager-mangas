@@ -14,7 +14,7 @@ conectores.
 
 ## Flow
 
-Reusa a classe base `Connector` (retry de 5xx em `fetchJSON`, `_toCatalogEntry`), a fila por
+Reusa a classe base `Connector` (`wait`, `_toCatalogEntry`), a fila por
 conector, o `imageDownloader` e o registro único que já alimenta plugins, filas, hash de capas e
 sugestões. Nada do `nexustoons` é reaproveitado: a plataforma é outra (Supabase, sem cifra).
 
@@ -152,7 +152,7 @@ Um capítulo real baixa de ponta a ponta.
 
 | Surface | Decision | Landing |
 | --- | --- | --- |
-| API externa Supabase (cliente) | erro e códigos | AC 7, AC 8, AC 13; 5xx via `fetchJSON` existente |
+| API externa Supabase (cliente) | erro e códigos | AC 7, AC 8, AC 13; 5xx no mesmo laço de retry do `_fetchApi` |
 | API externa Supabase (cliente) | rate limit | AC 12, AC 13 |
 | API externa Supabase (cliente) | versionamento | AC 10 (chave), assumption `reader-v4` |
 | lista de plugins / sugestões | coleção nova | existing - `listConnectorIds()` alimenta tudo |

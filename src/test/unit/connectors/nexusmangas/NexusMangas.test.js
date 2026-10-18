@@ -385,5 +385,41 @@ describe('NexusMangas', () => {
 			expect(await result).toHaveLength(chapters.length);
 			expect(site.requestsTo('/rest/v1/chapters')).toHaveLength(2);
 		});
+
+		test('5xx gives up after 2 retries', async () => {
+			vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] });
+			const { connector, site } = await initializedConnector(
+				siteRoutes({ [CHAPTERS]: () => json('', 503) }),
+			);
+
+			const result = connector._getChapters({ id: 'work-1' });
+			const settled = expect(result).rejects.toThrow('503');
+			await vi.advanceTimersByTimeAsync(20_000);
+
+			await settled;
+			expect(site.requestsTo('/rest/v1/chapters')).toHaveLength(3);
+		});
+
+		test('default pacing keeps 2000 ms between requests', async () => {
+			vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] });
+			const site = new FakeNexusMangasSite(
+				siteRoutes({ [CHAPTERS]: json([]) }),
+			);
+			vi.stubGlobal('fetch', site.fetch);
+			const connector = new NexusMangas({ logger: new FakeLogger() });
+			await connector.initialize();
+
+			const both = Promise.all([
+				connector._getChapters({ id: 'a' }),
+				connector._getChapters({ id: 'b' }),
+			]);
+			await vi.advanceTimersByTimeAsync(10_000);
+			await both;
+
+			const [first, second] = site.requests
+				.filter(({ request }) => request.url.includes('/rest/v1/chapters'))
+				.map(({ at }) => at);
+			expect(second - first).toBeGreaterThanOrEqual(2000);
+		});
 	});
 });
