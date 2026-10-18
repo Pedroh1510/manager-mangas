@@ -96,8 +96,11 @@ export default class NexusToons extends Connector {
 			.map((page) => page.url);
 	}
 
+	// Without includeNsfw the API silently drops every +18 work (~1.5k titles).
 	_fetchCatalogPage(page) {
-		return this._fetchApi(`/mangas?page=${page}&limit=${CATALOG_PAGE_SIZE}`);
+		return this._fetchApi(
+			`/mangas?page=${page}&limit=${CATALOG_PAGE_SIZE}&includeNsfw=true`,
+		);
 	}
 
 	// Chains every /api call on the shared instance so concurrent jobs keep
