@@ -168,11 +168,11 @@ describe('NexusToons', () => {
 		test('walks every catalog page with limit=1000 and returns slug ids', async () => {
 			const { connector } = await buildConnector(
 				siteRoutes({
-					'/api/mangas?page=1&limit=1000': {
+					'/api/mangas?page=1&limit=1000&includeNsfw=true': {
 						data: [catalogManga({ slug: 'a', title: 'A' })],
 						pages: 2,
 					},
-					'/api/mangas?page=2&limit=1000': {
+					'/api/mangas?page=2&limit=1000&includeNsfw=true': {
 						data: [catalogManga({ slug: 'b', title: 'B' })],
 						pages: 2,
 					},
@@ -186,8 +186,23 @@ describe('NexusToons', () => {
 
 		const catalogOf = (data) =>
 			buildConnector(
-				siteRoutes({ '/api/mangas?page=1&limit=1000': { pages: 1, data } }),
+				siteRoutes({
+					'/api/mangas?page=1&limit=1000&includeNsfw=true': { pages: 1, data },
+				}),
 			).then(({ connector }) => connector._getMangas());
+
+		// Regression: the API hides isNsfw works unless includeNsfw=true is sent.
+		test('keeps +18 works in the catalog', async () => {
+			const mangas = await catalogOf([
+				catalogManga({
+					slug: 'moby-dick',
+					title: 'Moby Dick',
+					type: 'pornhwa',
+					isNsfw: true,
+				}),
+			]);
+			expect(mangas.map((manga) => manga.id)).toEqual(['moby-dick']);
+		});
 
 		test('maps coverImage to coverUrl', async () => {
 			const mangas = await catalogOf([
@@ -223,7 +238,7 @@ describe('NexusToons', () => {
 		test('drops VIP, licensed and novel titles but keeps NSFW', async () => {
 			const { connector } = await buildConnector(
 				siteRoutes({
-					'/api/mangas?page=1&limit=1000': {
+					'/api/mangas?page=1&limit=1000&includeNsfw=true': {
 						pages: 1,
 						data: [
 							catalogManga({ slug: 'vip', isVipOnly: true }),
