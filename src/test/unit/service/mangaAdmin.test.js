@@ -4,9 +4,15 @@ import logger from '../../../infra/logger.js';
 import CoverService from '../../../service/covers/index.js';
 import * as mangaServiceModule from '../../../service/manga.js';
 import MangaAdminService from '../../../service/mangaAdmin.js';
+import { enqueueCatalogRefresh } from '../../../service/queue/connectorQueue.js';
 
 vi.mock('../../../infra/database.js', () => ({
 	default: { query: vi.fn() },
+}));
+
+vi.mock('../../../service/queue/connectorQueue.js', async (importOriginal) => ({
+	...(await importOriginal()),
+	enqueueCatalogRefresh: vi.fn(),
 }));
 
 describe('MangaAdminService', () => {
@@ -262,6 +268,37 @@ describe('MangaAdminService', () => {
 			});
 
 			expect(database.query).toHaveBeenCalledTimes(2);
+		});
+	});
+
+	describe('refreshConnectorCatalog', () => {
+		test('enqueues a catalog refresh for a registered connector', async () => {
+			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(
+				true,
+			);
+			enqueueCatalogRefresh.mockResolvedValueOnce({});
+
+			const result = await MangaAdminService.refreshConnectorCatalog({
+				idPlugin: 'nexustoons',
+			});
+
+			expect(enqueueCatalogRefresh).toHaveBeenCalledWith('nexustoons');
+			expect(result).toEqual({ idPlugin: 'nexustoons' });
+		});
+
+		test('throws a NotFoundError naming the plugin when it is not registered', async () => {
+			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(
+				false,
+			);
+			enqueueCatalogRefresh.mockClear();
+
+			await expect(
+				MangaAdminService.refreshConnectorCatalog({ idPlugin: 'nope' }),
+			).rejects.toMatchObject({
+				statusCode: 404,
+				message: expect.stringContaining('"nope"'),
+			});
+			expect(enqueueCatalogRefresh).not.toHaveBeenCalled();
 		});
 	});
 });

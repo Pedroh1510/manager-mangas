@@ -428,6 +428,30 @@ mangasAdmController.get('/update-mangas', async (req, res) => {
 
 /**
  * @swagger
+ * /mangas/adm/catalog/{idPlugin}/refresh:
+ *   post:
+ *     tags: [MangaAdm]
+ *     description: Enqueue a catalog re-scrape for one connector, even when the cached catalog is still fresh
+ *     parameters:
+ *       - name: idPlugin
+ *         in: path
+ *         required: true
+ *         type: string
+ *     responses:
+ *       202:
+ *         description: Refresh enqueued; returns the idPlugin
+ *       404:
+ *         description: Unknown idPlugin
+ */
+mangasAdmController.post('/catalog/:idPlugin/refresh', async (req, res) => {
+	const response = await MangaAdminService.refreshConnectorCatalog({
+		idPlugin: req.params.idPlugin,
+	});
+	res.status(202).send(response);
+});
+
+/**
+ * @swagger
  * /mangas/adm/{idManga}/cover:
  *   get:
  *     tags: [MangaAdm]

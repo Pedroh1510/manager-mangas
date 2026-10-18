@@ -8,6 +8,7 @@ import {
 	ValidationError,
 } from '../infra/errors.js';
 import logger from '../infra/logger.js';
+import { countPipelineEvent } from '../infra/telemetry/business.js';
 import ChaptersRepository from '../repository/chapters.js';
 import CoverSuggestionsRepository from '../repository/coverSuggestions.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
@@ -16,8 +17,8 @@ import CoverService from './covers/index.js';
 import Download from './download.js';
 import MangaService from './manga.js';
 import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
+import { enqueueCatalogRefresh } from './queue/connectorQueue.js';
 import { enqueueDownload } from './queue/downloadQueue.js';
-import { countPipelineEvent } from '../infra/telemetry/business.js';
 
 async function createManga({ title }) {
 	const existing = await MangasRepository.findMangaByTitleIncludingDeleted({
@@ -418,6 +419,23 @@ async function downloadManga({ idManga, volume }) {
 	return Download.downloadMangaFromDisk({ title: manga.title, volume });
 }
 
+/**
+ * Re-scrapes a connector's catalog now instead of waiting for the 7-day cache
+ * to go stale, so titles new on the site become searchable (e.g. "Stop Smoking"
+ * on nexustoons). The queue dedupes, so repeated clicks make one job.
+ * @example await refreshConnectorCatalog({ idPlugin: 'nexustoons' }) // { idPlugin: 'nexustoons' }
+ */
+async function refreshConnectorCatalog({ idPlugin }) {
+	if (!MangaService.hasConnector(idPlugin)) {
+		throw new NotFoundError({
+			message: `Plugin "${idPlugin}" not found, expected one of the registered connector ids`,
+			action: 'Verifique o idPlugin em GET /mangas/plugins.',
+		});
+	}
+	await enqueueCatalogRefresh(idPlugin);
+	return { idPlugin };
+}
+
 const MangaAdminService = {
 	createManga,
 	linkConnector,
@@ -432,6 +450,7 @@ const MangaAdminService = {
 	updateMangaChapters,
 	updateMangas,
 	updateMangasBatch,
+	refreshConnectorCatalog,
 	listChapters,
 	deleteChapter,
 	listPagesAndSend,
