@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import Connector from '../../../connectors/Connector.js';
 import Mangeek from '../../../connectors/mangeek/Mangeek.js';
+import NexusMangas from '../../../connectors/nexusmangas/NexusMangas.js';
 import NexusToons from '../../../connectors/nexustoons/NexusToons.js';
 import {
 	getConnectorClass,
@@ -11,7 +12,16 @@ import {
 
 describe('registry', () => {
 	test('lists the production connectors', () => {
-		expect(listConnectorIds()).toEqual(['mangeek', 'nexustoons']);
+		expect(listConnectorIds()).toEqual([
+			'mangeek',
+			'nexustoons',
+			'nexusmangas',
+		]);
+	});
+
+	test('getConnectorClass resolves nexusmangas case-insensitively', () => {
+		expect(getConnectorClass('nexusmangas')).toBe(NexusMangas);
+		expect(getConnectorClass('NexusMangas')).toBe(NexusMangas);
 	});
 
 	test('getConnectorClass resolves nexustoons case-insensitively', () => {
