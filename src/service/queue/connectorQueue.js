@@ -9,7 +9,6 @@ import {
 	readCatalogVersion,
 	saveCatalog,
 } from '../../utils/mangaCatalog.js';
-import CoverSuggestions from '../coverSuggestions/index.js';
 import CoverService from '../covers/index.js';
 import logger from '../../infra/logger.js';
 import connection from './connection.js';
@@ -92,35 +91,51 @@ async function refreshCatalog(connector) {
 	}
 	const previous = (await loadCatalog(connector.id)) ?? [];
 	const previousVersion = await readCatalogVersion(connector.id);
-	await saveCatalog(connector.id, mangas);
-	// The first v3 write is the one moment the links of this connector can
-	// learn their alternative titles (alt-titles door 4).
-	if (previousVersion !== CATALOG_VERSION) {
-		requestAltTitlesBackfill(connector.id);
-	}
 	// Runs after the empty-scrape guard above, so a broken scrape never
 	// deletes cover files (manga-covers AC 17).
 	await CoverService.dropStaleCatalogCovers(connector.id, previous, mangas);
-	await CoverSuggestions.syncConnectorIndex(connector.id);
+	// The catalog file is the job's last write: the refresh dedup key lives
+	// until the job ends, so follow-up work runs as background jobs and a new
+	// refresh request right after the file appears is not swallowed.
+	await saveCatalog(connector.id, mangas);
+	requestPostRefreshJobs(connector.id, previousVersion);
 	return mangas.length;
 }
 
-// Fire-and-forget: the refresh job keeps its catalog dedup key until it
-// finishes, so every extra await here delays the next refresh request.
-function requestAltTitlesBackfill(connectorId) {
+function postRefreshJobs(connectorId, previousVersion) {
+	const jobs = [
+		[
+			'syncConnectorCoverIndex',
+			{ idPlugin: connectorId },
+			`sync-cover-index-${connectorId}`,
+		],
+	];
+	// The first v3 write is the one moment the links of this connector can
+	// learn their alternative titles (alt-titles door 4).
+	if (previousVersion !== CATALOG_VERSION) {
+		jobs.push([
+			'backfillAltTitles',
+			{ idPlugin: connectorId },
+			`backfill-alt-titles-${connectorId}`,
+		]);
+	}
+	return jobs;
+}
+
+// Fire-and-forget: every await after saveCatalog would keep the refresh
+// dedup key alive longer.
+function requestPostRefreshJobs(connectorId, previousVersion) {
 	// Imported lazily: backgroundQueue -> mangaAdmin -> connectorQueue would
 	// otherwise close an import cycle at load time.
 	import('./backgroundQueue.js')
-		.then(({ enqueueBackgroundTask }) =>
-			enqueueBackgroundTask(
-				'backfillAltTitles',
-				{ idPlugin: connectorId },
-				`backfill-alt-titles-${connectorId}`,
-			),
-		)
+		.then(async ({ enqueueBackgroundTask }) => {
+			for (const job of postRefreshJobs(connectorId, previousVersion)) {
+				await enqueueBackgroundTask(...job);
+			}
+		})
 		.catch((error) =>
 			logger.error({
-				status: 'alt_titles_backfill_enqueue_falhou',
+				status: 'pos_refresh_enqueue_falhou',
 				connectorId,
 				error: error.message,
 			}),

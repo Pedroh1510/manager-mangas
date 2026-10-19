@@ -24,6 +24,7 @@ vi.mock('../../../../service/queue/connection.js', () => ({ default: {} }));
 vi.mock('../../../../service/coverSuggestions/index.js', () => ({
 	default: {
 		syncAllIndexes: vi.fn(),
+		syncConnectorIndex: vi.fn(),
 		matchAll: vi.fn(),
 		matchMangaSuggestions: vi.fn(),
 	},
@@ -121,5 +122,16 @@ describe('backgroundQueue Kavita cleanup wiring', () => {
 		expect(CoverSuggestions.matchMangaSuggestions).toHaveBeenCalledWith({
 			idManga: 7,
 		});
+	});
+
+	test('runs the cover index sync of one connector', async () => {
+		await backgroundProcessor()({
+			name: 'syncConnectorCoverIndex',
+			data: { idPlugin: 'nexustoons' },
+		});
+
+		expect(CoverSuggestions.syncConnectorIndex).toHaveBeenCalledWith(
+			'nexustoons',
+		);
 	});
 });

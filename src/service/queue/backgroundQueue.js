@@ -23,6 +23,8 @@ const operations = {
 	listPagesAndSend: (data) => MangaAdminService.listPagesAndSend(data),
 	cleanupReadChapters: (data) => KavitaCleanupService.cleanupReadChapters(data),
 	syncCoverHashIndex: () => CoverSuggestions.syncAllIndexes(),
+	syncConnectorCoverIndex: (data) =>
+		CoverSuggestions.syncConnectorIndex(data.idPlugin),
 	matchCoverSuggestions: () => CoverSuggestions.matchAll(),
 	matchMangaSuggestions: (data) => CoverSuggestions.matchMangaSuggestions(data),
 	backfillAltTitles: (data) => AltTitlesService.backfill(data),
