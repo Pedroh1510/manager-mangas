@@ -1,6 +1,7 @@
 import express from 'express';
 import mangasController from './controller/mangasController.js';
 import routerDoc from './infra/swagger.js';
+import HealthService from './service/health.js';
 import MigrationsService from './service/migrations.js';
 import { listAllQueues } from './service/queue/allQueues.js';
 import { buildQueuesSummary } from './service/queuesSummary.js';
@@ -37,6 +38,24 @@ router.use('/mangas', mangasController);
 router.get('/status', async (_, res) => {
 	const status = await StatusService.getDatabaseStatus();
 	res.status(200).json(status);
+});
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     tags: [Status]
+ *     responses:
+ *       200:
+ *         description: Postgres and Redis reachable
+ *       503:
+ *         description: A dependency is down; body lists each check
+ */
+router.get('/health', async (_, res) => {
+	const { healthy, checks } = await HealthService.check();
+	res
+		.status(healthy ? 200 : 503)
+		.json({ status: healthy ? 'ok' : 'error', checks });
 });
 
 /**
