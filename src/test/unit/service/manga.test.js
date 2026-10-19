@@ -52,7 +52,7 @@ describe('MangaService', () => {
 
 			const result = await MangaService.listMangas({ pluginId: 'fake' });
 
-			expect(result).toEqual([{ id: '1', title: 'A' }]);
+			expect(result).toEqual([{ id: '1', title: 'A', altTitles: [] }]);
 		});
 
 		test('returns the fresh cached catalog without enqueueing a refresh', async () => {
@@ -68,7 +68,9 @@ describe('MangaService', () => {
 
 			const result = await MangaService.listMangas({ pluginId: 'fake' });
 
-			expect(result).toEqual([{ id: '9', title: 'Cached Manga' }]);
+			expect(result).toEqual([
+				{ id: '9', title: 'Cached Manga', altTitles: [] },
+			]);
 			expect(enqueueSpy).not.toHaveBeenCalled();
 			expect(enqueueAndWaitSpy).not.toHaveBeenCalled();
 		});
@@ -85,7 +87,7 @@ describe('MangaService', () => {
 
 			const result = await MangaService.listMangas({ pluginId: 'fake' });
 
-			expect(result).toEqual([{ id: '9', title: 'Old Manga' }]);
+			expect(result).toEqual([{ id: '9', title: 'Old Manga', altTitles: [] }]);
 		});
 
 		test('filters the stale catalog by title', async () => {
@@ -102,7 +104,9 @@ describe('MangaService', () => {
 				title: 'black',
 			});
 
-			expect(result).toEqual([{ id: '1', title: 'Black Clover' }]);
+			expect(result).toEqual([
+				{ id: '1', title: 'Black Clover', altTitles: [] },
+			]);
 		});
 
 		test('enqueues exactly one refreshCatalog job when the cache is stale', async () => {
@@ -133,7 +137,7 @@ describe('MangaService', () => {
 
 			const result = await MangaService.listMangas({ pluginId: 'fake' });
 
-			expect(result).toEqual([{ id: '9', title: 'Old Manga' }]);
+			expect(result).toEqual([{ id: '9', title: 'Old Manga', altTitles: [] }]);
 			await vi.waitFor(() =>
 				expect(logger.error).toHaveBeenCalledWith(
 					'catalog refresh enqueue failed',
@@ -241,7 +245,43 @@ describe('MangaService', () => {
 				title: 'black',
 			});
 
-			expect(result).toEqual([{ id: '1', title: 'Black Clover' }]);
+			expect(result).toEqual([
+				{ id: '1', title: 'Black Clover', altTitles: [] },
+			]);
+		});
+
+		test('catalog search normalizes the term and matches alternative titles', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(false);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue([
+				{ id: '1', title: 'Caçador Suicida' },
+				{ id: '2', title: 'Solo Leveling', altTitles: ['Upando Sozinho'] },
+			]);
+
+			const search = (title) =>
+				MangaService.listMangas({ pluginId: 'fake', title });
+
+			expect(await search('cacador')).toEqual([
+				{ id: '1', title: 'Caçador Suicida', altTitles: [] },
+			]);
+			expect(await search('upando')).toEqual([
+				{ id: '2', title: 'Solo Leveling', altTitles: ['Upando Sozinho'] },
+			]);
+			expect(await search('zzz')).toEqual([]);
+		});
+
+		test('catalog list exposes altTitles as an empty list when missing', async () => {
+			arrangeFakePlugin();
+			vi.spyOn(mangaCatalog, 'isStale').mockResolvedValue(false);
+			vi.spyOn(mangaCatalog, 'loadCatalog').mockResolvedValue([
+				{ id: '1', title: 'A', coverUrl: 'https://h/a.jpg' },
+				{ id: '2', title: 'B', altTitles: ['C'] },
+			]);
+
+			expect(await MangaService.listMangas({ pluginId: 'fake' })).toEqual([
+				{ id: '1', title: 'A', altTitles: [] },
+				{ id: '2', title: 'B', altTitles: ['C'] },
+			]);
 		});
 
 		test('throws when the plugin id is not registered', async () => {

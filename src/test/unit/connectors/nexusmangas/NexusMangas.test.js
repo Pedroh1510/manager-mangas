@@ -167,6 +167,27 @@ describe('NexusMangas', () => {
 			});
 			expect(withoutCover).toEqual({ id: 'work-2', title: 'Obra 2' });
 		});
+		test('catalog requests and maps alternative_title', async () => {
+			const { connector, site } = await initializedConnector(
+				siteRoutes({
+					[`GET ${SUPABASE}/rest/v1/works`]: json([
+						{ ...work(1), alternative_title: 'Boss Mopdapge' },
+						{ ...work(2), alternative_title: null },
+						{ ...work(3), alternative_title: '' },
+					]),
+				}),
+			);
+
+			const [withAlt, withNull, withEmpty] = await connector._getMangas();
+
+			const [request] = site.requestsTo('/rest/v1/works');
+			expect(new URL(request.url).searchParams.get('select')).toBe(
+				'id,slug,title,cover_url,alternative_title',
+			);
+			expect(withAlt.altTitles).toEqual(['Boss Mopdapge']);
+			expect('altTitles' in withNull).toBe(false);
+			expect('altTitles' in withEmpty).toBe(false);
+		});
 	});
 
 	describe('chapters', () => {

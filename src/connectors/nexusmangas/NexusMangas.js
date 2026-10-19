@@ -21,7 +21,7 @@ const DEFAULT_RETRY_AFTER_MS = 2000;
 const REQUEST_TIMEOUT_MS = 60_000;
 const BROWSER_USER_AGENT =
 	'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0';
-const CATALOG_SELECT = 'id,slug,title,cover_url';
+const CATALOG_SELECT = 'id,slug,title,cover_url,alternative_title';
 const CHAPTER_SELECT = 'id,work_id,number,chapter_label,title,published_at';
 
 export default class NexusMangas extends Connector {
@@ -60,7 +60,9 @@ export default class NexusMangas extends Connector {
 			if (page.length < CATALOG_PAGE_SIZE) break;
 		}
 		return works.map((work) =>
-			this._toCatalogEntry(work.id, work.title, work.cover_url),
+			this._toCatalogEntry(work.id, work.title, work.cover_url, [
+				work.alternative_title,
+			]),
 		);
 	}
 

@@ -13,6 +13,7 @@ import ChaptersRepository from '../repository/chapters.js';
 import CoverSuggestionsRepository from '../repository/coverSuggestions.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 import MangasRepository from '../repository/mangas.js';
+import AltTitlesService from './altTitles.js';
 import CoverService from './covers/index.js';
 import Download from './download.js';
 import MangaService from './manga.js';
@@ -43,6 +44,19 @@ async function createManga({ title }) {
 function createLocalCoverInBackground(idManga) {
 	CoverService.refreshLocalCover({ idManga }).catch((error) =>
 		logger.warn({ status: 'capa_falhou', idManga, error: error.message }),
+	);
+}
+
+// The link is already stored: a failed title merge must not turn it into an
+// error response, the backfill or the next link merges the titles again.
+async function mergeAltTitlesOrWarn(link) {
+	await AltTitlesService.mergeFromLink(link).catch((error) =>
+		logger.warn({
+			status: 'alt_titles_falhou',
+			idManga: link.idManga,
+			idPlugin: link.idPlugin,
+			error: error.message,
+		}),
 	);
 }
 
@@ -79,6 +93,7 @@ async function linkConnector({
 		idManga,
 		idPlugin,
 	});
+	await mergeAltTitlesOrWarn({ idManga, idPlugin, idMangaPlugin, titlePlugin });
 	createLocalCoverInBackground(idManga);
 	return { idMangaConnector, idManga, idPlugin };
 }

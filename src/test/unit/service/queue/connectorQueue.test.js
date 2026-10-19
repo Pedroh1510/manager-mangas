@@ -18,8 +18,14 @@ vi.mock('bullmq', () => ({
 }));
 
 vi.mock('../../../../utils/mangaCatalog.js', () => ({
+	CATALOG_VERSION: 3,
 	saveCatalog: vi.fn().mockResolvedValue(undefined),
 	loadCatalog: vi.fn().mockResolvedValue(null),
+	readCatalogVersion: vi.fn().mockResolvedValue(3),
+}));
+
+vi.mock('../../../../service/queue/backgroundQueue.js', () => ({
+	enqueueBackgroundTask: vi.fn().mockResolvedValue(undefined),
 }));
 
 // The real cover service over an in-memory store, so the assertions read
@@ -229,20 +235,34 @@ describe('connectorQueue', () => {
 			);
 		});
 
-		test('refreshCatalog syncs the cover hash index after saving', async () => {
+		test('refreshCatalog drops stale covers, saves, then enqueues the index sync', async () => {
 			await arrangeCoverFiles();
 			FakeCatalogConnector.mangas = nextCatalog;
 			calls.order = [];
 			const { saveCatalog } = await import('../../../../utils/mangaCatalog.js');
 			vi.mocked(saveCatalog).mockImplementation(async (id) => {
 				calls.order.push(`save:${id}`);
+				calls.coverFilesAtSave = covers.store.paths().toSorted();
 			});
+			const { enqueueBackgroundTask } = await import(
+				'../../../../service/queue/backgroundQueue.js'
+			);
+			vi.mocked(enqueueBackgroundTask).mockImplementation(
+				async (name, data) => {
+					calls.order.push(`${name}:${data.idPlugin}`);
+				},
+			);
 
 			await runRefreshCatalogJob();
+			await new Promise((resolve) => setTimeout(resolve, 0));
 
-			expect(calls.order).toEqual(['save:mangeek', 'sync:mangeek']);
-			// Stale catalog covers are gone before the index sync reads the cache.
-			expect(calls.coverFilesAtSync).toEqual(
+			expect(calls.order).toEqual([
+				'save:mangeek',
+				'syncConnectorCoverIndex:mangeek',
+			]);
+			// The catalog file is the job's last write: the index sync runs in its
+			// own background job, so the refresh dedup key is released right away.
+			expect(calls.coverFilesAtSave).toEqual(
 				[catalogCover('a'), localCover].toSorted(),
 			);
 		});
@@ -250,13 +270,14 @@ describe('connectorQueue', () => {
 		test('refreshCatalog does not sync the index on an empty scrape', async () => {
 			await arrangeCoverFiles();
 			FakeCatalogConnector.mangas = [];
-			const CoverSuggestions = (
-				await import('../../../../service/coverSuggestions/index.js')
-			).default;
+			const { enqueueBackgroundTask } = await import(
+				'../../../../service/queue/backgroundQueue.js'
+			);
 
 			await expect(runRefreshCatalogJob()).rejects.toThrow('mangeek');
+			await new Promise((resolve) => setTimeout(resolve, 0));
 
-			expect(CoverSuggestions.syncConnectorIndex).not.toHaveBeenCalled();
+			expect(enqueueBackgroundTask).not.toHaveBeenCalled();
 		});
 
 		test('refreshCatalog never touches local manga covers', async () => {
@@ -266,6 +287,40 @@ describe('connectorQueue', () => {
 			await runRefreshCatalogJob();
 
 			expect(await covers.store.read(localCover)).toEqual(LOCAL_BYTES);
+		});
+
+		async function refreshFromVersion(previousVersion) {
+			FakeCatalogConnector.mangas = [{ id: '1', title: 'Black Clover' }];
+			const { readCatalogVersion } = await import(
+				'../../../../utils/mangaCatalog.js'
+			);
+			vi.mocked(readCatalogVersion).mockResolvedValue(previousVersion);
+			const { enqueueBackgroundTask } = await import(
+				'../../../../service/queue/backgroundQueue.js'
+			);
+			await runRefreshCatalogJob();
+			// The backfill enqueue is fire-and-forget; let it settle.
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			return vi
+				.mocked(enqueueBackgroundTask)
+				.mock.calls.filter(([name]) => name === 'backfillAltTitles');
+		}
+
+		test('upgrade to catalog v3 enqueues the alt titles backfill', async () => {
+			for (const previousVersion of [null, 2]) {
+				vi.clearAllMocks();
+				expect(await refreshFromVersion(previousVersion)).toEqual([
+					[
+						'backfillAltTitles',
+						{ idPlugin: 'mangeek' },
+						'backfill-alt-titles-mangeek',
+					],
+				]);
+			}
+		});
+
+		test('v3 to v3 refresh does not enqueue the backfill', async () => {
+			expect(await refreshFromVersion(3)).toEqual([]);
 		});
 
 		test('refreshCatalog rejects an empty list and keeps the catalog', async () => {

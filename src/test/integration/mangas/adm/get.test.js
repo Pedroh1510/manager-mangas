@@ -107,6 +107,7 @@ describe('GET /mangas/adm', () => {
 			{
 				idManga: blackClover.idManga,
 				title: 'Black Clover',
+				altTitles: [],
 				createdAt: expect.any(String),
 				updatedAt: expect.any(String),
 				connectors: [
@@ -119,6 +120,37 @@ describe('GET /mangas/adm', () => {
 				],
 			},
 		]);
+	});
+
+	test('matches by alternative title', async () => {
+		const idManga = await createMangaWithLinks('Solo Leveling', []);
+		await api.patch(`/mangas/adm/${idManga}`, {
+			altTitles: ['Upando Sozinho'],
+		});
+
+		const response = await api.get('/mangas/adm', {
+			params: { title: 'upando' },
+		});
+
+		expect(response.status).toEqual(200);
+		expect(response.data).toEqual([
+			expect.objectContaining({
+				idManga,
+				title: 'Solo Leveling',
+				altTitles: ['Upando Sozinho'],
+			}),
+		]);
+	});
+
+	test('matches without accents', async () => {
+		const idManga = await createMangaWithLinks('Caçador Suicida', []);
+
+		const response = await api.get('/mangas/adm', {
+			params: { title: 'cacador' },
+		});
+
+		expect(response.status).toEqual(200);
+		expect(response.data.map((manga) => manga.idManga)).toEqual([idManga]);
 	});
 
 	test('omits soft-deleted mangas', async () => {

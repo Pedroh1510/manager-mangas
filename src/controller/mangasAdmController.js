@@ -1,4 +1,5 @@
 import express from 'express';
+import AltTitlesService from '../service/altTitles.js';
 import CoverService from '../service/covers/index.js';
 import MangaAdminService from '../service/mangaAdmin.js';
 import MangasAdmValidator from '../validators/mangasAdmValidator.js';
@@ -95,6 +96,50 @@ mangasAdmController.delete(
 		const idManga = Number(req.params.idManga);
 		await MangaAdminService.deleteManga({ idManga });
 		res.status(200).send();
+	},
+);
+
+/**
+ * @swagger
+ * /mangas/adm/{idManga}:
+ *   patch:
+ *     tags: [MangaAdm]
+ *     description: Replace a manga's alternative titles (trimmed, deduplicated, without the main title); searches and connector suggestions use them
+ *     parameters:
+ *       - name: idManga
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               altTitles:
+ *                 type: array
+ *                 maxItems: 50
+ *                 items:
+ *                   type: string
+ *                   maxLength: 255
+ *     responses:
+ *       200:
+ *         description: Returns { idManga, title, altTitles }
+ *       400:
+ *         description: altTitles is not an array of up to 50 non-empty strings
+ *       404:
+ *         description: Manga not found
+ */
+mangasAdmController.patch(
+	'/:idManga',
+	MangasAdmValidator.replaceAltTitles,
+	async (req, res) => {
+		const response = await AltTitlesService.replace({
+			idManga: Number(req.params.idManga),
+			altTitles: req.body.altTitles,
+		});
+		res.status(200).send(response);
 	},
 );
 

@@ -22,7 +22,15 @@ vi.mock('../../../../service/kavita/cleanupReadChapters.js', () => ({
 }));
 vi.mock('../../../../service/queue/connection.js', () => ({ default: {} }));
 vi.mock('../../../../service/coverSuggestions/index.js', () => ({
-	default: { syncAllIndexes: vi.fn(), matchAll: vi.fn() },
+	default: {
+		syncAllIndexes: vi.fn(),
+		syncConnectorIndex: vi.fn(),
+		matchAll: vi.fn(),
+		matchMangaSuggestions: vi.fn(),
+	},
+}));
+vi.mock('../../../../service/altTitles.js', () => ({
+	default: { backfill: vi.fn() },
 }));
 
 const {
@@ -36,6 +44,8 @@ const { Worker } = await import('bullmq');
 const CoverSuggestions = (
 	await import('../../../../service/coverSuggestions/index.js')
 ).default;
+const AltTitlesService = (await import('../../../../service/altTitles.js'))
+	.default;
 
 function backgroundProcessor() {
 	startBackgroundWorker();
@@ -95,5 +105,33 @@ describe('backgroundQueue Kavita cleanup wiring', () => {
 			{ name: 'matchCoverSuggestions' },
 		);
 		expect(CoverSuggestions.matchAll).toHaveBeenCalledTimes(1);
+	});
+
+	test('registers backfillAltTitles and matchMangaSuggestions', async () => {
+		const processJob = backgroundProcessor();
+
+		await processJob({
+			name: 'backfillAltTitles',
+			data: { idPlugin: 'nexustoons' },
+		});
+		await processJob({ name: 'matchMangaSuggestions', data: { idManga: 7 } });
+
+		expect(AltTitlesService.backfill).toHaveBeenCalledWith({
+			idPlugin: 'nexustoons',
+		});
+		expect(CoverSuggestions.matchMangaSuggestions).toHaveBeenCalledWith({
+			idManga: 7,
+		});
+	});
+
+	test('runs the cover index sync of one connector', async () => {
+		await backgroundProcessor()({
+			name: 'syncConnectorCoverIndex',
+			data: { idPlugin: 'nexustoons' },
+		});
+
+		expect(CoverSuggestions.syncConnectorIndex).toHaveBeenCalledWith(
+			'nexustoons',
+		);
 	});
 });

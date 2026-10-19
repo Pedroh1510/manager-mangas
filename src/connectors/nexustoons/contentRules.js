@@ -63,3 +63,19 @@ export function assertPlainImageChapter(chapterId, reader) {
 		);
 	}
 }
+
+/**
+ * Titles inside the catalog's `alternativeTitles`, a JSON-encoded string of
+ * `{ lang, title }`; blank, null or malformed values yield no titles.
+ * @example alternativeTitlesOf({ alternativeTitles: '[{"lang":"other","title":"Upando Sozinho"}]' }) // ['Upando Sozinho']
+ * @param {{alternativeTitles?: string|null}} manga
+ * @returns {string[]}
+ */
+export function alternativeTitlesOf(manga) {
+	try {
+		const parsed = JSON.parse(manga.alternativeTitles || '[]');
+		return Array.isArray(parsed) ? parsed.map((entry) => entry?.title) : [];
+	} catch {
+		return [];
+	}
+}
