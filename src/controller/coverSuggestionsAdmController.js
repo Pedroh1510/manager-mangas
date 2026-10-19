@@ -1,5 +1,7 @@
 import express from 'express';
-import SuggestionService from '../service/coverSuggestions/admin.js';
+import SuggestionService, {
+	requestCoverSync,
+} from '../service/coverSuggestions/admin.js';
 import CoverSuggestionsValidator from '../validators/coverSuggestionsValidator.js';
 
 const coverSuggestionsAdmController = express.Router();
@@ -117,5 +119,33 @@ coverSuggestionsAdmController.post(
 	async (req, res) => {
 		const idManga = Number(req.params.idManga);
 		res.status(200).send(await SuggestionService.refresh({ idManga }));
+	},
+);
+
+/**
+ * @swagger
+ * /mangas/adm/covers/sync:
+ *   post:
+ *     tags: [MangaAdm]
+ *     description: Enqueue the cover hash index sync of one connector, or of every connector when idPlugin is omitted
+ *     parameters:
+ *       - name: idPlugin
+ *         in: query
+ *         required: false
+ *         type: string
+ *     responses:
+ *       202:
+ *         description: Sync enqueued; returns { idPlugin } (null for every connector)
+ *       400:
+ *         description: Invalid query
+ *       404:
+ *         description: Unknown idPlugin
+ */
+coverSuggestionsAdmController.post(
+	'/covers/sync',
+	CoverSuggestionsValidator.coverSyncQuery,
+	async (req, res) => {
+		const idPlugin = req.query.idPlugin || undefined;
+		res.status(202).send(await requestCoverSync({ idPlugin }));
 	},
 );

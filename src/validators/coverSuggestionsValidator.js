@@ -28,9 +28,18 @@ async function idMangaParam({ params }, _, next) {
 	return next();
 }
 
+async function coverSyncQuery({ query }, _, next) {
+	const schema = Joi.object().keys({
+		idPlugin: Joi.string().trim().min(1).optional(),
+	});
+	await schema.validateAsync(query);
+	return next();
+}
+
 const CoverSuggestionsValidator = {
 	listQuery,
 	idSuggestionParam,
 	idMangaParam,
+	coverSyncQuery,
 };
 export default CoverSuggestionsValidator;
