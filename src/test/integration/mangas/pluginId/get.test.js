@@ -17,7 +17,7 @@ describe('GET /mangas/:pluginId', () => {
 		// so they see the same appdata/ catalog file.
 		const catalogPath = path.resolve('appdata', 'mangas.test-fixture.json');
 		const fixtureCatalog = JSON.stringify({
-			version: 2,
+			version: 3,
 			mangas: [{ id: '1', title: 'Black Clover' }],
 		});
 		const legacyCatalog = JSON.stringify([{ id: '1', title: 'Black Clover' }]);
@@ -38,7 +38,9 @@ describe('GET /mangas/:pluginId', () => {
 				({ status, data }) => ({ status, data }),
 			);
 			expect(response.status).toEqual(200);
-			expect(response.data).toEqual([{ id: '1', title: 'Black Clover' }]);
+			expect(response.data).toEqual([
+				{ id: '1', title: 'Black Clover', altTitles: [] },
+			]);
 		});
 
 		test('responds 202 with an empty body when there is no cached catalog', async () => {
@@ -61,21 +63,25 @@ describe('GET /mangas/:pluginId', () => {
 			await waitForRewrittenCatalog();
 			const second = await api('/mangas/test-fixture/');
 			expect(second.status).toEqual(200);
-			expect(second.data).toEqual([{ id: '1', title: 'Black Clover' }]);
+			expect(second.data).toEqual([
+				{ id: '1', title: 'Black Clover', altTitles: [] },
+			]);
 		});
 
-		test('serves an unversioned catalog and rewrites it as version 2', async () => {
+		test('serves an unversioned catalog and rewrites it as version 3', async () => {
 			await waitForRewrittenCatalog();
 			await writeFile(catalogPath, legacyCatalog);
 
 			const response = await api('/mangas/test-fixture/');
 
 			expect(response.status).toEqual(200);
-			expect(response.data).toEqual([{ id: '1', title: 'Black Clover' }]);
+			expect(response.data).toEqual([
+				{ id: '1', title: 'Black Clover', altTitles: [] },
+			]);
 			await vi.waitFor(
 				async () => {
 					const rewritten = JSON.parse(await readFile(catalogPath, 'utf8'));
-					expect(rewritten.version).toEqual(2);
+					expect(rewritten.version).toEqual(3);
 				},
 				{ timeout: 10000, interval: 200 },
 			);
@@ -85,7 +91,7 @@ describe('GET /mangas/:pluginId', () => {
 			await writeFile(
 				catalogPath,
 				JSON.stringify({
-					version: 2,
+					version: 3,
 					mangas: [
 						{ id: '1', title: 'Black Clover', coverUrl: 'https://h/bc.jpg' },
 					],
@@ -96,7 +102,42 @@ describe('GET /mangas/:pluginId', () => {
 			await freshCatalog();
 
 			expect(response.status).toEqual(200);
-			expect(response.data).toEqual([{ id: '1', title: 'Black Clover' }]);
+			expect(response.data).toEqual([
+				{ id: '1', title: 'Black Clover', altTitles: [] },
+			]);
+		});
+
+		const altTitlesCatalog = JSON.stringify({
+			version: 3,
+			mangas: [
+				{ id: '1', title: 'Black Clover' },
+				{ id: '2', title: 'Solo Leveling', altTitles: ['Upando Sozinho'] },
+			],
+		});
+
+		test('matches by alternative title', async () => {
+			await writeFile(catalogPath, altTitlesCatalog);
+
+			const response = await api('/mangas/test-fixture/?title=upando sozinho');
+			await freshCatalog();
+
+			expect(response.status).toEqual(200);
+			expect(response.data).toEqual([
+				{ id: '2', title: 'Solo Leveling', altTitles: ['Upando Sozinho'] },
+			]);
+		});
+
+		test('lists altTitles for every item', async () => {
+			await writeFile(catalogPath, altTitlesCatalog);
+
+			const response = await api('/mangas/test-fixture/');
+			await freshCatalog();
+
+			expect(response.status).toEqual(200);
+			expect(response.data).toEqual([
+				{ id: '1', title: 'Black Clover', altTitles: [] },
+				{ id: '2', title: 'Solo Leveling', altTitles: ['Upando Sozinho'] },
+			]);
 		});
 
 		test('responds 500 when there is no cached catalog and redis is unreachable', async () => {

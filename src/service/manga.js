@@ -3,6 +3,7 @@ import * as registry from '../connectors/registry.js';
 import database from '../infra/database.js';
 import logger from '../infra/logger.js';
 import { formatChapters } from '../utils/chapterFormat.js';
+import { titlesMatch } from '../utils/altTitles.js';
 import * as mangaCatalog from '../utils/mangaCatalog.js';
 import Download from './download.js';
 import {
@@ -197,15 +198,15 @@ async function listMangas({ pluginId, title }) {
 	const mangas = await getCatalog(instance.id);
 	if (!mangas) return null;
 
-	const data = mangas.map((manga) => ({ id: manga.id, title: manga.title }));
-	if (title) {
-		return data.filter(
-			(item) =>
-				item.title.toLowerCase() === title.toLowerCase() ||
-				item.title.toLowerCase().includes(title.toLowerCase().trim()),
-		);
-	}
-	return data;
+	const items = mangas.map((manga) => ({
+		id: manga.id,
+		title: manga.title,
+		altTitles: manga.altTitles ?? [],
+	}));
+	if (!title) return items;
+	return items.filter((item) =>
+		titlesMatch(title, [item.title, ...item.altTitles]),
+	);
 }
 
 /**

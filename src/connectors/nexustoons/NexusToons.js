@@ -2,6 +2,7 @@ import defaultLogger from '../../infra/logger.js';
 import Connector from '../Connector.js';
 import { findBundlePath, findCipherSecret } from './bundleSecret.js';
 import {
+	alternativeTitlesOf,
 	assertPlainImageChapter,
 	isDownloadableManga,
 	isFreeChapter,
@@ -65,7 +66,12 @@ export default class NexusToons extends Connector {
 			.flatMap((catalogPage) => catalogPage.data)
 			.filter(isDownloadableManga)
 			.map((manga) =>
-				this._toCatalogEntry(manga.slug, manga.title, manga.coverImage),
+				this._toCatalogEntry(
+					manga.slug,
+					manga.title,
+					manga.coverImage,
+					alternativeTitlesOf(manga),
+				),
 			);
 	}
 

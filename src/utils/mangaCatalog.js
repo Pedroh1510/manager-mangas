@@ -10,7 +10,7 @@ function cachePath(connectorId) {
 
 // Bumped when the cached item shape changes; an older file is still served
 // but counts as stale, so the existing refresh rewrites it (manga-covers door 1).
-const CATALOG_VERSION = 2;
+const CATALOG_VERSION = 3;
 
 async function readCatalogFile(connectorId) {
 	try {
@@ -21,18 +21,23 @@ async function readCatalogFile(connectorId) {
 	}
 }
 
+function isEnvelope(parsed) {
+	return Number.isInteger(parsed?.version) && Array.isArray(parsed.mangas);
+}
+
 function isCurrentFormat(parsed) {
-	return parsed?.version === CATALOG_VERSION && Array.isArray(parsed.mangas);
+	return isEnvelope(parsed) && parsed.version === CATALOG_VERSION;
 }
 
 /**
- * Cached catalog items, from the versioned envelope or the legacy raw array.
+ * Cached catalog items, from any versioned envelope or the legacy raw array;
+ * an older envelope is still served while its refresh is pending (alt-titles AC 6).
  * @example await loadCatalog('mangeek') // [{ id: '1', title: 'A', coverUrl: '...' }] or null
  */
 export async function loadCatalog(connectorId) {
 	const parsed = await readCatalogFile(connectorId);
 	if (Array.isArray(parsed)) return parsed;
-	return isCurrentFormat(parsed) ? parsed.mangas : null;
+	return isEnvelope(parsed) ? parsed.mangas : null;
 }
 
 export async function saveCatalog(connectorId, mangas) {

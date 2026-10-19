@@ -59,7 +59,7 @@ describe('mangaCatalog', () => {
 			expect(fs.writeFile).toHaveBeenCalledWith(
 				expect.stringContaining('mangas.mangeek.json'),
 				JSON.stringify({
-					version: 2,
+					version: 3,
 					mangas: [{ id: '1', title: 'Black Clover' }],
 				}),
 			);
@@ -76,7 +76,7 @@ describe('mangaCatalog', () => {
 			const [writtenPath, written] = fs.writeFile.mock.calls[0];
 			expect(writtenPath).toMatch(/mangas\.x\.json\.tmp$/);
 			expect(written).toBe(
-				'{"version":2,"mangas":[{"id":"1","title":"A","coverUrl":"https://h/a.jpg"}]}',
+				'{"version":3,"mangas":[{"id":"1","title":"A","coverUrl":"https://h/a.jpg"}]}',
 			);
 			fs.readFile.mockResolvedValue(written);
 			expect(await loadCatalog('x')).toEqual(mangas);
@@ -103,9 +103,9 @@ describe('mangaCatalog', () => {
 	});
 
 	describe('isStale', () => {
-		const versionedCatalog = JSON.stringify({ version: 2, mangas: [] });
+		const versionedCatalog = JSON.stringify({ version: 3, mangas: [] });
 
-		test('treats a catalog without version 2 as stale', async () => {
+		test('treats a catalog without version 3 as stale', async () => {
 			fs.stat.mockResolvedValue({ mtimeMs: Date.now() });
 
 			fs.readFile.mockResolvedValue('[{"id":"1","title":"A"}]');
@@ -116,6 +116,20 @@ describe('mangaCatalog', () => {
 			expect(await isStale('x')).toBe(false);
 
 			fs.readFile.mockResolvedValue(JSON.stringify({ version: 1, mangas: [] }));
+			expect(await isStale('x')).toBe(true);
+		});
+
+		test('saves version 3 and treats version 2 as stale', async () => {
+			fs.mkdir.mockResolvedValue(undefined);
+			fs.writeFile.mockResolvedValue(undefined);
+			fs.rename.mockResolvedValue(undefined);
+			await saveCatalog('x', []);
+			expect(JSON.parse(fs.writeFile.mock.calls[0][1]).version).toBe(3);
+
+			fs.stat.mockResolvedValue({ mtimeMs: Date.now() });
+			const v2 = { version: 2, mangas: [{ id: '1', title: 'A' }] };
+			fs.readFile.mockResolvedValue(JSON.stringify(v2));
+			expect(await loadCatalog('x')).toEqual([{ id: '1', title: 'A' }]);
 			expect(await isStale('x')).toBe(true);
 		});
 

@@ -222,6 +222,37 @@ describe('NexusToons', () => {
 			]);
 		});
 
+		test('catalog entry carries alternative titles', async () => {
+			const mangas = await catalogOf([
+				catalogManga({
+					slug: 'solo-leveling',
+					title: 'Solo Leveling',
+					alternativeTitles: '[{"lang":"other","title":"Upando Sozinho"}]',
+				}),
+			]);
+
+			expect(mangas).toEqual([
+				{
+					id: 'solo-leveling',
+					title: 'Solo Leveling',
+					altTitles: ['Upando Sozinho'],
+				},
+			]);
+		});
+
+		test('catalog entry without usable alternative titles has no altTitles', async () => {
+			const mangas = await catalogOf([
+				catalogManga({ slug: 'vazio', alternativeTitles: '' }),
+				catalogManga({ slug: 'nulo', alternativeTitles: null }),
+				catalogManga({ slug: 'invalido', alternativeTitles: 'not json' }),
+			]);
+
+			expect(mangas).toHaveLength(3);
+			for (const manga of mangas) {
+				expect('altTitles' in manga).toBe(false);
+			}
+		});
+
 		test('omits coverUrl when coverImage is missing, null or empty', async () => {
 			const mangas = await catalogOf([
 				catalogManga({ slug: 'sem-campo' }),
