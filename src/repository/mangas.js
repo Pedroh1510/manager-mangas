@@ -1,9 +1,14 @@
 import sql from 'sql-bricks-postgres';
 import database from '../infra/database.js';
+import { searchTitlesOf } from '../utils/altTitles.js';
+import { normalizeTitle } from '../service/coverSuggestions/titleSimilarity.js';
 
 async function createManga({ title }) {
 	const { rows } = await database.query(
-		sql.insertInto('mangas', { title }).returning('idManga').toParams(),
+		sql
+			.insertInto('mangas', { title, searchTitles: searchTitlesOf(title, []) })
+			.returning('idManga')
+			.toParams(),
 	);
 	return rows[0];
 }
@@ -22,7 +27,14 @@ async function findMangaByTitleIncludingDeleted({ title }) {
 async function findMangaById({ idManga }) {
 	const { rows } = await database.query(
 		sql
-			.select('idManga', 'title', 'createdAt', 'updatedAt', 'deletedAt')
+			.select(
+				'idManga',
+				'title',
+				'altTitles',
+				'createdAt',
+				'updatedAt',
+				'deletedAt',
+			)
 			.from('mangas')
 			.where({ idManga })
 			.toParams(),
@@ -47,9 +59,14 @@ const CONNECTORS_JSON = `COALESCE(
 async function listMangas({ title } = {}) {
 	let where = { '"mangas"."deletedAt"': null };
 	if (title) {
+		// The normalized term has only letters, digits and spaces, so it
+		// carries no LIKE wildcard.
 		where = sql.and(
 			where,
-			sql.like('lower("mangas"."title")', `%${title.toLowerCase()}%`),
+			sql(
+				'EXISTS (SELECT 1 FROM unnest("mangas"."searchTitles") AS t WHERE t LIKE $)',
+				`%${normalizeTitle(title)}%`,
+			),
 		);
 	}
 	const { rows } = await database.query(
@@ -57,6 +74,7 @@ async function listMangas({ title } = {}) {
 			.select(
 				'"mangas"."idManga"',
 				'"mangas"."title"',
+				'"mangas"."altTitles"',
 				'"mangas"."createdAt"',
 				'"mangas"."updatedAt"',
 				CONNECTORS_JSON,
@@ -81,11 +99,31 @@ async function softDeleteManga({ idManga }) {
 	);
 }
 
+/**
+ * Replaces the alternative titles and recomputes `searchTitles` with them.
+ * @example await updateAltTitles({ idManga: 1, title: 'Solo Leveling', altTitles: ['Upando Sozinho'] })
+ */
+async function updateAltTitles({ idManga, title, altTitles }) {
+	const { rows } = await database.query(
+		sql
+			.update('mangas', {
+				altTitles,
+				searchTitles: searchTitlesOf(title, altTitles),
+				updatedAt: new Date(),
+			})
+			.where({ idManga })
+			.returning('idManga', 'title', 'altTitles')
+			.toParams(),
+	);
+	return rows[0] ?? null;
+}
+
 const MangasRepository = {
 	createManga,
 	findMangaByTitleIncludingDeleted,
 	findMangaById,
 	listMangas,
 	softDeleteManga,
+	updateAltTitles,
 };
 export default MangasRepository;

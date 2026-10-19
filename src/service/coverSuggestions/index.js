@@ -5,6 +5,7 @@ import logger from '../../infra/logger.js';
 import CatalogCoverHashesRepository from '../../repository/catalogCoverHashes.js';
 import CoverSuggestionsRepository from '../../repository/coverSuggestions.js';
 import MangaConnectorsRepository from '../../repository/mangaConnectors.js';
+import MangasRepository from '../../repository/mangas.js';
 import { loadCatalog } from '../../utils/mangaCatalog.js';
 import { createCoverDownloader } from '../covers/coverDownloader.js';
 import { createCoverPaths } from '../covers/coverPaths.js';
@@ -14,6 +15,7 @@ import { getCoverHashQueue } from '../queue/coverHashQueue.js';
 import { createHashCoverJob } from './hashCoverJob.js';
 import { hashCoverImage } from './hashing.js';
 import { createIndexSync } from './indexSync.js';
+import { createMangaMatchJob } from './mangaMatchJob.js';
 import { createMatcher, matchConfigFrom } from './matching.js';
 
 // Same appdata/ folder as the covers service (service/covers/index.js).
@@ -52,5 +54,9 @@ const CoverSuggestions = {
 	}),
 	matchManga: matcher.matchManga,
 	matchAll: matcher.matchAll,
+	matchMangaSuggestions: createMangaMatchJob({
+		findMangaById: MangasRepository.findMangaById,
+		matchManga: matcher.matchManga,
+	}),
 };
 export default CoverSuggestions;

@@ -3,9 +3,15 @@ import {
 	getConnectorClass,
 	listConnectorIds,
 } from '../../connectors/registry.js';
-import { loadCatalog, saveCatalog } from '../../utils/mangaCatalog.js';
+import {
+	CATALOG_VERSION,
+	loadCatalog,
+	readCatalogVersion,
+	saveCatalog,
+} from '../../utils/mangaCatalog.js';
 import CoverSuggestions from '../coverSuggestions/index.js';
 import CoverService from '../covers/index.js';
+import logger from '../../infra/logger.js';
 import connection from './connection.js';
 import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
@@ -85,12 +91,40 @@ async function refreshCatalog(connector) {
 		);
 	}
 	const previous = (await loadCatalog(connector.id)) ?? [];
+	const previousVersion = await readCatalogVersion(connector.id);
 	await saveCatalog(connector.id, mangas);
+	// The first v3 write is the one moment the links of this connector can
+	// learn their alternative titles (alt-titles door 4).
+	if (previousVersion !== CATALOG_VERSION) {
+		requestAltTitlesBackfill(connector.id);
+	}
 	// Runs after the empty-scrape guard above, so a broken scrape never
 	// deletes cover files (manga-covers AC 17).
 	await CoverService.dropStaleCatalogCovers(connector.id, previous, mangas);
 	await CoverSuggestions.syncConnectorIndex(connector.id);
 	return mangas.length;
+}
+
+// Fire-and-forget: the refresh job keeps its catalog dedup key until it
+// finishes, so every extra await here delays the next refresh request.
+function requestAltTitlesBackfill(connectorId) {
+	// Imported lazily: backgroundQueue -> mangaAdmin -> connectorQueue would
+	// otherwise close an import cycle at load time.
+	import('./backgroundQueue.js')
+		.then(({ enqueueBackgroundTask }) =>
+			enqueueBackgroundTask(
+				'backfillAltTitles',
+				{ idPlugin: connectorId },
+				`backfill-alt-titles-${connectorId}`,
+			),
+		)
+		.catch((error) =>
+			logger.error({
+				status: 'alt_titles_backfill_enqueue_falhou',
+				connectorId,
+				error: error.message,
+			}),
+		);
 }
 
 const operations = {

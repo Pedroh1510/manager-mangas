@@ -1,5 +1,6 @@
 // src/service/queue/backgroundQueue.js
 import { Queue, Worker } from 'bullmq';
+import AltTitlesService from '../altTitles.js';
 import CoverSuggestions from '../coverSuggestions/index.js';
 import KavitaCleanupService from '../kavita/cleanupReadChapters.js';
 import MangaAdminService from '../mangaAdmin.js';
@@ -23,6 +24,8 @@ const operations = {
 	cleanupReadChapters: (data) => KavitaCleanupService.cleanupReadChapters(data),
 	syncCoverHashIndex: () => CoverSuggestions.syncAllIndexes(),
 	matchCoverSuggestions: () => CoverSuggestions.matchAll(),
+	matchMangaSuggestions: (data) => CoverSuggestions.matchMangaSuggestions(data),
+	backfillAltTitles: (data) => AltTitlesService.backfill(data),
 };
 
 export async function enqueueBackgroundTask(operation, data, jobId) {

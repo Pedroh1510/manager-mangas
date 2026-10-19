@@ -84,6 +84,33 @@ async function listActiveConnectors({ idPlugin } = {}) {
 	return rows;
 }
 
+/**
+ * Every link of one connector to a live manga, active or not (alt-titles
+ * backfill, AC 22).
+ * @example await listLinksByPlugin({ idPlugin: 'nexustoons' }) // [{ idManga, idPlugin, idMangaPlugin, titlePlugin }]
+ */
+async function listLinksByPlugin({ idPlugin }) {
+	const { rows } = await database.query(
+		sql
+			.select(
+				'"mangaConnectors"."idManga"',
+				'"mangaConnectors"."idPlugin"',
+				'"mangaConnectors"."idMangaPlugin"',
+				'"mangaConnectors"."titlePlugin"',
+			)
+			.from('mangaConnectors')
+			.join('mangas')
+			.on({ '"mangas"."idManga"': '"mangaConnectors"."idManga"' })
+			.where({
+				'lower("mangaConnectors"."idPlugin")': idPlugin.toLowerCase(),
+				'"mangas"."deletedAt"': null,
+			})
+			.orderBy('"mangaConnectors"."idManga"')
+			.toParams(),
+	);
+	return rows;
+}
+
 async function setConnectorActive({ idManga, idPlugin, isActive }) {
 	const { rows } = await database.query(
 		sql
@@ -115,6 +142,7 @@ const MangaConnectorsRepository = {
 	findConnector,
 	listConnectorsByManga,
 	listActiveConnectors,
+	listLinksByPlugin,
 	setConnectorActive,
 	setAllConnectorsActive,
 	deactivateAllForManga,

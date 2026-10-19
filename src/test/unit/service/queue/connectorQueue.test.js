@@ -18,8 +18,14 @@ vi.mock('bullmq', () => ({
 }));
 
 vi.mock('../../../../utils/mangaCatalog.js', () => ({
+	CATALOG_VERSION: 3,
 	saveCatalog: vi.fn().mockResolvedValue(undefined),
 	loadCatalog: vi.fn().mockResolvedValue(null),
+	readCatalogVersion: vi.fn().mockResolvedValue(3),
+}));
+
+vi.mock('../../../../service/queue/backgroundQueue.js', () => ({
+	enqueueBackgroundTask: vi.fn().mockResolvedValue(undefined),
 }));
 
 // The real cover service over an in-memory store, so the assertions read
@@ -266,6 +272,38 @@ describe('connectorQueue', () => {
 			await runRefreshCatalogJob();
 
 			expect(await covers.store.read(localCover)).toEqual(LOCAL_BYTES);
+		});
+
+		async function refreshFromVersion(previousVersion) {
+			FakeCatalogConnector.mangas = [{ id: '1', title: 'Black Clover' }];
+			const { readCatalogVersion } = await import(
+				'../../../../utils/mangaCatalog.js'
+			);
+			vi.mocked(readCatalogVersion).mockResolvedValue(previousVersion);
+			const { enqueueBackgroundTask } = await import(
+				'../../../../service/queue/backgroundQueue.js'
+			);
+			await runRefreshCatalogJob();
+			// The backfill enqueue is fire-and-forget; let it settle.
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			return vi.mocked(enqueueBackgroundTask).mock.calls;
+		}
+
+		test('upgrade to catalog v3 enqueues the alt titles backfill', async () => {
+			for (const previousVersion of [null, 2]) {
+				vi.clearAllMocks();
+				expect(await refreshFromVersion(previousVersion)).toEqual([
+					[
+						'backfillAltTitles',
+						{ idPlugin: 'mangeek' },
+						'backfill-alt-titles-mangeek',
+					],
+				]);
+			}
+		});
+
+		test('v3 to v3 refresh does not enqueue the backfill', async () => {
+			expect(await refreshFromVersion(3)).toEqual([]);
 		});
 
 		test('refreshCatalog rejects an empty list and keeps the catalog', async () => {

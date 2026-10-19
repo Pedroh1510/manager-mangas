@@ -10,7 +10,7 @@ function cachePath(connectorId) {
 
 // Bumped when the cached item shape changes; an older file is still served
 // but counts as stale, so the existing refresh rewrites it (manga-covers door 1).
-const CATALOG_VERSION = 3;
+export const CATALOG_VERSION = 3;
 
 async function readCatalogFile(connectorId) {
 	try {
@@ -38,6 +38,18 @@ export async function loadCatalog(connectorId) {
 	const parsed = await readCatalogFile(connectorId);
 	if (Array.isArray(parsed)) return parsed;
 	return isEnvelope(parsed) ? parsed.mangas : null;
+}
+
+/**
+ * Envelope version of the cached catalog file; null for a missing file or
+ * the legacy raw array.
+ * @example await readCatalogVersion('mangeek') // 3 or null
+ * @param {string} connectorId
+ * @returns {Promise<number|null>}
+ */
+export async function readCatalogVersion(connectorId) {
+	const parsed = await readCatalogFile(connectorId);
+	return isEnvelope(parsed) ? parsed.version : null;
 }
 
 export async function saveCatalog(connectorId, mangas) {

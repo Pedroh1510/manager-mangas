@@ -32,3 +32,15 @@ export function titlesMatch(term, titles) {
 	const needle = normalizeTitle(term);
 	return titles.some((title) => normalizeTitle(title).includes(needle));
 }
+
+/**
+ * Normalized `title` and `altTitles`, the form `mangas.searchTitles` stores
+ * so the SQL search matches like `titlesMatch` (alt-titles door 2).
+ * @example searchTitlesOf('Caçador', ['Hunter']) // ['cacador', 'hunter']
+ * @param {string} title
+ * @param {string[]} altTitles
+ * @returns {string[]}
+ */
+export function searchTitlesOf(title, altTitles) {
+	return [title, ...altTitles].map(normalizeTitle);
+}

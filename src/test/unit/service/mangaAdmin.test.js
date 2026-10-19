@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import database from '../../../infra/database.js';
 import logger from '../../../infra/logger.js';
+import AltTitlesService from '../../../service/altTitles.js';
 import CoverService from '../../../service/covers/index.js';
 import * as mangaServiceModule from '../../../service/manga.js';
 import MangaAdminService from '../../../service/mangaAdmin.js';
@@ -10,12 +11,21 @@ vi.mock('../../../infra/database.js', () => ({
 	default: { query: vi.fn() },
 }));
 
+vi.mock('../../../service/altTitles.js', () => ({
+	default: { mergeFromLink: vi.fn() },
+}));
+
 vi.mock('../../../service/queue/connectorQueue.js', async (importOriginal) => ({
 	...(await importOriginal()),
 	enqueueCatalogRefresh: vi.fn(),
 }));
 
 describe('MangaAdminService', () => {
+	// restoreAllMocks also drops the mock's implementation after each test.
+	beforeEach(() => {
+		vi.mocked(AltTitlesService.mergeFromLink).mockResolvedValue(undefined);
+	});
+
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -91,6 +101,52 @@ describe('MangaAdminService', () => {
 				idMangaConnector: 7,
 				idManga: 1,
 				idPlugin: 'fake',
+			});
+		});
+	});
+
+	describe('linkConnector alternative titles', () => {
+		const linkArgs = {
+			idManga: 1,
+			idPlugin: 'fake',
+			idMangaPlugin: '1',
+			titlePlugin: 'Black Clover',
+		};
+
+		function arrangeLink() {
+			vi.spyOn(mangaServiceModule.default, 'hasConnector').mockReturnValue(
+				true,
+			);
+			database.query.mockResolvedValueOnce({ rows: [{ idMangaConnector: 7 }] });
+		}
+
+		test('linkConnector merges the linked item titles', async () => {
+			arrangeLink();
+
+			await MangaAdminService.linkConnector(linkArgs);
+
+			expect(AltTitlesService.mergeFromLink).toHaveBeenCalledWith(linkArgs);
+		});
+
+		test('linkConnector logs a failed merge and still resolves', async () => {
+			arrangeLink();
+			vi.mocked(AltTitlesService.mergeFromLink).mockRejectedValueOnce(
+				new Error('boom'),
+			);
+			const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+
+			const result = await MangaAdminService.linkConnector(linkArgs);
+
+			expect(result).toEqual({
+				idMangaConnector: 7,
+				idManga: 1,
+				idPlugin: 'fake',
+			});
+			expect(warn).toHaveBeenCalledWith({
+				status: 'alt_titles_falhou',
+				idManga: 1,
+				idPlugin: 'fake',
+				error: 'boom',
 			});
 		});
 	});

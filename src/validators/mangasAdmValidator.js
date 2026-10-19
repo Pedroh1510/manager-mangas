@@ -50,6 +50,40 @@ async function setConnectorActive(req, _, next) {
 	return next();
 }
 
+const MAX_ALT_TITLES = 50;
+const MAX_ALT_TITLE_LENGTH = 255;
+
+async function replaceAltTitles(req, _, next) {
+	const schema = Joi.object().keys({
+		params: Joi.object().keys({
+			idManga: Joi.number().integer().required(),
+		}),
+		body: Joi.object()
+			.keys({
+				altTitles: Joi.array()
+					.items(Joi.string().trim().min(1).max(MAX_ALT_TITLE_LENGTH))
+					.max(MAX_ALT_TITLES)
+					.required(),
+			})
+			.messages({
+				'any.required':
+					'"altTitles" is required, expected an array of up to 50 non-empty strings',
+				'array.base':
+					'"altTitles" must be an array, received {{#value}}; expected up to 50 non-empty strings',
+				'array.max':
+					'"altTitles" has more than 50 items, expected up to 50 non-empty strings',
+				'string.base':
+					'{{#label}} must be a string, received {{#value}}; expected a non-empty string up to 255 characters',
+				'string.empty':
+					'{{#label}} is empty, expected a non-empty string up to 255 characters',
+				'string.max':
+					'{{#label}} has more than 255 characters, received "{{#value}}"',
+			}),
+	});
+	await schema.validateAsync(req, { allowUnknown: true });
+	return next();
+}
+
 async function idMangaParam({ params }, _, next) {
 	const schema = Joi.object().keys({
 		idManga: Joi.number().integer().required(),
@@ -132,6 +166,7 @@ async function cleanupQuery({ query }, _, next) {
 
 const MangasAdmValidator = {
 	createManga,
+	replaceAltTitles,
 	linkConnector,
 	setConnectorActive,
 	setAllConnectorsActive,
