@@ -107,3 +107,21 @@ CONFIG_ENV.COVER_MATCH_TOP_N = parseBoundedNumber(
 	1,
 	100,
 );
+CONFIG_ENV.TITLE_MATCH_ENTRY = parseBoundedNumber(
+	process.env.TITLE_MATCH_ENTRY,
+	0.9,
+	0,
+	1,
+);
+CONFIG_ENV.TITLE_MATCH_PROMOTE = parseBoundedNumber(
+	process.env.TITLE_MATCH_PROMOTE,
+	0.8,
+	0,
+	1,
+);
+CONFIG_ENV.TITLE_MATCH_TOP_N = parseBoundedNumber(
+	process.env.TITLE_MATCH_TOP_N,
+	1,
+	1,
+	100,
+);

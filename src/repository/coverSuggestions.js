@@ -1,7 +1,7 @@
 import database from '../infra/database.js';
 
 const SUGGESTION_COLUMNS = `s."idCoverSuggestion" AS "idSuggestion", s."idManga", m."title",
-	s."idPlugin", s."idMangaPlugin", s."titlePlugin", s."band", s."status",
+	s."idPlugin", s."idMangaPlugin", s."titlePlugin", s."band", s."origin", s."status",
 	greatest(s."dSimilarity", s."pSimilarity") AS "score", s."titleSimilarity",
 	other."idManga" AS "conflictIdManga", otherManga."title" AS "conflictTitle"`;
 
@@ -21,7 +21,7 @@ const SUGGESTION_JOINS = `FROM "coverSuggestions" s
 async function listMangasMissingConnectors({ connectorIds }) {
 	const ids = connectorIds.map((id) => id.toLowerCase());
 	const { rows } = await database.query({
-		text: `SELECT m."idManga", m."title" FROM "mangas" m
+		text: `SELECT m."idManga", m."title", m."altTitles" FROM "mangas" m
 			WHERE m."deletedAt" IS NULL AND (
 				SELECT count(DISTINCT lower(mc."idPlugin")) FROM "mangaConnectors" mc
 				WHERE mc."idManga" = m."idManga" AND lower(mc."idPlugin") = ANY($1::text[])
@@ -35,7 +35,7 @@ async function listMangasMissingConnectors({ connectorIds }) {
 /**
  * Swaps the pending suggestions of a manga for `suggestions` in one
  * transaction; decided pairs are left as they are.
- * @example await replacePending({ idManga: 7, suggestions: [{ idPlugin, idMangaPlugin, titlePlugin, dSimilarity, pSimilarity, titleSimilarity, band }] })
+ * @example await replacePending({ idManga: 7, suggestions: [{ idPlugin, idMangaPlugin, titlePlugin, dSimilarity, pSimilarity, titleSimilarity, band, origin }] })
  */
 async function replacePending({ idManga, suggestions }) {
 	const client = await database.getNewClient();
@@ -48,8 +48,8 @@ async function replacePending({ idManga, suggestions }) {
 		for (const suggestion of suggestions) {
 			await client.query({
 				text: `INSERT INTO "coverSuggestions"
-						("idManga", "idPlugin", "idMangaPlugin", "titlePlugin", "dSimilarity", "pSimilarity", "titleSimilarity", "band")
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+						("idManga", "idPlugin", "idMangaPlugin", "titlePlugin", "dSimilarity", "pSimilarity", "titleSimilarity", "band", "origin")
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 					ON CONFLICT ("idManga", "idPlugin", "idMangaPlugin") DO NOTHING`,
 				values: [
 					idManga,
@@ -60,6 +60,7 @@ async function replacePending({ idManga, suggestions }) {
 					suggestion.pSimilarity,
 					suggestion.titleSimilarity,
 					suggestion.band,
+					suggestion.origin,
 				],
 			});
 		}
@@ -73,14 +74,15 @@ async function replacePending({ idManga, suggestions }) {
 }
 
 /**
- * Suggestions with `status`, strong first, best score first.
+ * Suggestions with `status`, strong first, best score first; title-only
+ * suggestions have no score and come after the cover ones of their band.
  * @example await listByStatus({ status: 'pending' })
  */
 async function listByStatus({ status, idManga = null }) {
 	const { rows } = await database.query({
 		text: `SELECT ${SUGGESTION_COLUMNS} ${SUGGESTION_JOINS}
 			WHERE s."status" = $1 AND ($2::integer IS NULL OR s."idManga" = $2)
-			ORDER BY (s."band" = 'strong') DESC, "score" DESC, s."titleSimilarity" DESC, s."idCoverSuggestion"`,
+			ORDER BY (s."band" = 'strong') DESC, "score" DESC NULLS LAST, s."titleSimilarity" DESC, s."idCoverSuggestion"`,
 		values: [status, idManga],
 	});
 	return rows;

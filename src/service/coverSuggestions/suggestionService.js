@@ -10,6 +10,7 @@ function toSuggestion(row) {
 		titlePlugin: row.titlePlugin,
 		score: row.score,
 		band: row.band,
+		origin: row.origin,
 		titleSimilarity: row.titleSimilarity,
 	};
 }
@@ -122,7 +123,11 @@ export function createSuggestionService({
 				message: `Manga ${idManga} not found`,
 				action: 'Check idManga',
 			});
-		await matchManga({ idManga, title: manga.title });
+		await matchManga({
+			idManga,
+			title: manga.title,
+			altTitles: manga.altTitles ?? [],
+		});
 		const pending = await repository.listByStatus({
 			status: 'pending',
 			idManga,

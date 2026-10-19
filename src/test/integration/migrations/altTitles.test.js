@@ -74,4 +74,33 @@ describe('alt titles migration', () => {
 			},
 		]);
 	});
+
+	test('adds origin and nullable similarities to coverSuggestions', async () => {
+		const count = await migrationsFrom('1760900000000_add-suggestion-origin');
+		await migrate('down', count);
+		const { rows } = await database.query({
+			text: `INSERT INTO mangas (title) VALUES ('Origin migration') RETURNING "idManga"`,
+		});
+		const idManga = rows[0].idManga;
+		await database.query({
+			text: `INSERT INTO "coverSuggestions" ("idManga", "idPlugin", "idMangaPlugin", "titlePlugin", "dSimilarity", "pSimilarity", "titleSimilarity", "band")
+				VALUES ($1, 'mangeek', 'old', 't', 0.9, 0.9, 0, 'strong')`,
+			values: [idManga],
+		});
+		await migrate('up', count);
+
+		const { rows: stored } = await database.query({
+			text: `SELECT "origin" FROM "coverSuggestions" WHERE "idManga" = $1`,
+			values: [idManga],
+		});
+		expect(stored).toEqual([{ origin: 'cover' }]);
+		const insert = (idMangaPlugin, origin) =>
+			database.query({
+				text: `INSERT INTO "coverSuggestions" ("idManga", "idPlugin", "idMangaPlugin", "titlePlugin", "dSimilarity", "pSimilarity", "titleSimilarity", "band", "origin")
+					VALUES ($1, 'mangeek', $2, 't', NULL, NULL, 0.95, 'possible', $3)`,
+				values: [idManga, idMangaPlugin, origin],
+			});
+		await expect(insert('by-title', 'title')).resolves.toBeDefined();
+		await expect(insert('bad', 'other')).rejects.toThrow(/check constraint/);
+	});
 });

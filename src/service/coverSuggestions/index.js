@@ -32,6 +32,7 @@ const matcher = createMatcher({
 	getConfig: () => matchConfigFrom(CONFIG_ENV),
 	listConnectorIds,
 	listConnectorsByManga: MangaConnectorsRepository.listConnectorsByManga,
+	listLinksByPlugin: MangaConnectorsRepository.listLinksByPlugin,
 	hashes: CatalogCoverHashesRepository,
 	suggestions: CoverSuggestionsRepository,
 	readLocalCover: (idManga) => coverStore.read(paths.localCover(idManga)),
