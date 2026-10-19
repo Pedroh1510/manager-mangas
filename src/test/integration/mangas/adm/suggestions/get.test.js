@@ -86,6 +86,18 @@ describe('GET /mangas/adm/suggestions', () => {
 			band: 'possible',
 			origin: 'title',
 		});
+		const titleOnlyWeaker = await seedSuggestion(
+			idManga,
+			'mangeek',
+			'by-title-2',
+			{
+				dSimilarity: null,
+				pSimilarity: null,
+				titleSimilarity: 0.91,
+				band: 'possible',
+				origin: 'title',
+			},
+		);
 		const byCover = await seedSuggestion(idManga, 'mangeek', 'by-cover', {
 			dSimilarity: 0.85,
 			pSimilarity: 0.5,
@@ -99,6 +111,7 @@ describe('GET /mangas/adm/suggestions', () => {
 		expect(ofManga.map((s) => [s.idSuggestion, s.origin, s.score])).toEqual([
 			[byCover, 'cover', expect.closeTo(0.85, 5)],
 			[titleOnly, 'title', null],
+			[titleOnlyWeaker, 'title', null],
 		]);
 	});
 

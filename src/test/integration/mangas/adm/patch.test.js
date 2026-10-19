@@ -65,7 +65,9 @@ describe('PATCH /mangas/adm/:idManga', () => {
 		for (const body of invalidBodies) {
 			const response = await patchAltTitles(idManga, body);
 			expect(response.status, JSON.stringify(body)).toBe(400);
-			expect(response.data.message).toMatch(/expected|received/);
+			// AC 15: the message cites what came in and the expected shape.
+			expect(response.data.message).toMatch(/received/);
+			expect(response.data.message).toMatch(/expected/);
 		}
 	});
 

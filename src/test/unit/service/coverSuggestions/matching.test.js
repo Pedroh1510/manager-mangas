@@ -423,9 +423,9 @@ describe('title matching', () => {
 			connectorIds: ['nexustoons'],
 			catalogs: {
 				nexustoons: [
-					{ id: 'a', title: 'Upando Sozinho' },
-					{ id: 'b', title: 'Upando Sozinho!' },
 					{ id: 'c', title: 'Upando Sozinho Rank' },
+					{ id: 'b', title: 'Upando Sozinho Rank SSS' },
+					{ id: 'a', title: 'Upando Sozinho' },
 					{ id: 'cover', title: 'Outra Obra' },
 				],
 			},
