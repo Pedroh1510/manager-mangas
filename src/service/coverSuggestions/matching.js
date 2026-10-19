@@ -1,9 +1,14 @@
 import { maxDistanceFor, similarity } from './hashing.js';
-import { bestTitleSimilarity } from './titleSimilarity.js';
+import {
+	bestFormSimilarity,
+	buildTitleIndex,
+	selectTitleSuggestions,
+	toTitleForms,
+} from './titleMatching.js';
 
 /**
- * Matching thresholds from the env (`COVER_MATCH_*`).
- * @example matchConfigFrom(CONFIG_ENV) // { strong: 0.9, possible: 0.8, genericLimit: 10, topN: 3 }
+ * Matching thresholds from the env (`COVER_MATCH_*`, `TITLE_MATCH_*`).
+ * @example matchConfigFrom(CONFIG_ENV) // { strong: 0.9, possible: 0.8, genericLimit: 10, topN: 3, titleEntry: 0.9, titlePromote: 0.8, titleTopN: 1 }
  */
 export function matchConfigFrom(env) {
 	return {
@@ -11,6 +16,9 @@ export function matchConfigFrom(env) {
 		possible: env.COVER_MATCH_POSSIBLE,
 		genericLimit: env.COVER_MATCH_GENERIC_LIMIT,
 		topN: env.COVER_MATCH_TOP_N,
+		titleEntry: env.TITLE_MATCH_ENTRY,
+		titlePromote: env.TITLE_MATCH_PROMOTE,
+		titleTopN: env.TITLE_MATCH_TOP_N,
 	};
 }
 
@@ -23,9 +31,15 @@ function bandOf(score, config) {
 const byScoreThenTitle = (a, b) =>
 	b.score - a.score || b.titleSimilarity - a.titleSimilarity;
 
+// A possible cover match whose title also agrees is promoted (alt-titles AC 26).
 function withBand(candidate, config) {
 	const score = Math.max(candidate.dSimilarity, candidate.pSimilarity);
-	return { ...candidate, score, band: bandOf(score, config) };
+	const band = bandOf(score, config);
+	const promoted =
+		band === 'possible' && candidate.titleSimilarity >= config.titlePromote;
+	return promoted
+		? { ...candidate, score, band: 'strong', origin: 'both' }
+		: { ...candidate, score, band, origin: 'cover' };
 }
 
 /**
@@ -56,13 +70,15 @@ function bestAgainst(references, field, hash) {
 }
 
 /**
- * Builds the matcher that turns the hash index into pending suggestions.
- * @example await createMatcher(deps).matchManga({ idManga: 7, title: 'Solo Leveling' })
+ * Builds the matcher that turns the hash index and the titles into pending
+ * suggestions.
+ * @example await createMatcher(deps).matchManga({ idManga: 7, title: 'Solo Leveling', altTitles: [] })
  */
 export function createMatcher({
 	getConfig,
 	listConnectorIds,
 	listConnectorsByManga,
+	listLinksByPlugin,
 	hashes,
 	suggestions,
 	readLocalCover,
@@ -79,30 +95,79 @@ export function createMatcher({
 		return localCover ? [await hashImage(localCover)] : [];
 	}
 
-	async function catalogTitles(idPlugin) {
-		const catalog = (await loadCatalog(idPlugin)) ?? [];
-		return new Map(catalog.map((item) => [String(item.id), item.title]));
+	async function loadContext(idPlugin) {
+		const index = buildTitleIndex((await loadCatalog(idPlugin)) ?? []);
+		const linked = await listLinksByPlugin({ idPlugin });
+		return {
+			index,
+			byId: new Map(index.map((entry) => [entry.idMangaPlugin, entry])),
+			linkedIds: new Set(linked.map((link) => String(link.idMangaPlugin))),
+		};
 	}
 
-	async function candidatesFor(idPlugin, references, referenceTitles) {
+	// One catalog read and title index per connector for the whole matchAll
+	// run, not per manga (alt-titles AC 33).
+	function contextOf(idPlugin, contexts) {
+		if (!contexts.has(idPlugin)) contexts.set(idPlugin, loadContext(idPlugin));
+		return contexts.get(idPlugin);
+	}
+
+	async function coverCandidates(
+		idPlugin,
+		references,
+		context,
+		referenceForms,
+	) {
+		if (!references.length) return [];
 		const rows = await hashes.findCandidates({
 			idPlugin,
 			references,
 			maxDistance: maxDistanceFor(getConfig().possible),
 		});
-		const titles = await catalogTitles(idPlugin);
 		return rows.map((row) => {
-			const titlePlugin = titles.get(row.idMangaPlugin) ?? row.idMangaPlugin;
+			const entry = context.byId.get(row.idMangaPlugin);
 			return {
 				idPlugin,
 				idMangaPlugin: row.idMangaPlugin,
-				titlePlugin,
+				titlePlugin: entry?.title ?? row.idMangaPlugin,
 				dSimilarity: bestAgainst(references, 'dHash', row.dHash),
 				pSimilarity: bestAgainst(references, 'pHash', row.pHash),
-				titleSimilarity: bestTitleSimilarity(titlePlugin, referenceTitles),
+				titleSimilarity: entry
+					? bestFormSimilarity(entry.forms, referenceForms)
+					: 0,
 				conflict: row.linkedIdManga !== null && row.linkedIdManga !== undefined,
 			};
 		});
+	}
+
+	async function suggestionsFor(
+		idPlugin,
+		references,
+		referenceForms,
+		contexts,
+	) {
+		const config = getConfig();
+		const context = await contextOf(idPlugin, contexts);
+		const candidates = await coverCandidates(
+			idPlugin,
+			references,
+			context,
+			referenceForms,
+		);
+		const skipIds = new Set([
+			...context.linkedIds,
+			...candidates.map((candidate) => candidate.idMangaPlugin),
+		]);
+		return [
+			...selectSuggestions(candidates, config),
+			...selectTitleSuggestions({
+				idPlugin,
+				index: context.index,
+				references: referenceForms,
+				skipIds,
+				config,
+			}),
+		];
 	}
 
 	function missingConnectors(links) {
@@ -110,19 +175,27 @@ export function createMatcher({
 		return listConnectorIds().filter((id) => !linked.has(id.toLowerCase()));
 	}
 
-	async function matchManga({ idManga, title }) {
+	async function matchManga(
+		{ idManga, title, altTitles = [] },
+		contexts = new Map(),
+	) {
 		const links = await listConnectorsByManga({ idManga });
 		const references = await referencesOf(idManga, links);
-		if (!references.length) return [];
-		const referenceTitles = [title, ...links.map((link) => link.titlePlugin)];
+		const referenceForms = toTitleForms([
+			title,
+			...altTitles,
+			...links.map((link) => link.titlePlugin),
+		]);
 		const selected = [];
 		for (const idPlugin of missingConnectors(links)) {
-			const candidates = await candidatesFor(
-				idPlugin,
-				references,
-				referenceTitles,
+			selected.push(
+				...(await suggestionsFor(
+					idPlugin,
+					references,
+					referenceForms,
+					contexts,
+				)),
 			);
-			selected.push(...selectSuggestions(candidates, getConfig()));
 		}
 		await suggestions.replacePending({ idManga, suggestions: selected });
 		return selected;
@@ -132,8 +205,9 @@ export function createMatcher({
 		const mangas = await suggestions.listMangasMissingConnectors({
 			connectorIds: listConnectorIds(),
 		});
+		const contexts = new Map();
 		for (const manga of mangas) {
-			await matchManga(manga).catch((error) =>
+			await matchManga(manga, contexts).catch((error) =>
 				logger.error({
 					status: 'matching_falhou',
 					idManga: manga.idManga,

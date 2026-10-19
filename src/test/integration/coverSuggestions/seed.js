@@ -13,7 +13,12 @@ export async function seedManga(title, { deleted = false } = {}) {
 	return rows[0].idManga;
 }
 
-export async function seedLink(idManga, idPlugin, idMangaPlugin, { isActive = true, titlePlugin = 'T' } = {}) {
+export async function seedLink(
+	idManga,
+	idPlugin,
+	idMangaPlugin,
+	{ isActive = true, titlePlugin = 'T' } = {},
+) {
 	await database.query({
 		text: `INSERT INTO "mangaConnectors" ("idManga", "idPlugin", "idMangaPlugin", "titlePlugin", "isActive")
 			VALUES ($1, $2, $3, $4, $5)`,
@@ -35,7 +40,12 @@ export async function seedHash(idPlugin, idMangaPlugin, { dHash, pHash }) {
 	});
 }
 
-export async function seedSuggestion(idManga, idPlugin, idMangaPlugin, overrides = {}) {
+export async function seedSuggestion(
+	idManga,
+	idPlugin,
+	idMangaPlugin,
+	overrides = {},
+) {
 	const values = {
 		titlePlugin: `Title ${idMangaPlugin}`,
 		dSimilarity: 0.95,
@@ -43,12 +53,13 @@ export async function seedSuggestion(idManga, idPlugin, idMangaPlugin, overrides
 		titleSimilarity: 0,
 		band: 'strong',
 		status: 'pending',
+		origin: 'cover',
 		...overrides,
 	};
 	const { rows } = await database.query({
 		text: `INSERT INTO "coverSuggestions"
-				("idManga", "idPlugin", "idMangaPlugin", "titlePlugin", "dSimilarity", "pSimilarity", "titleSimilarity", "band", "status")
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING "idCoverSuggestion"`,
+				("idManga", "idPlugin", "idMangaPlugin", "titlePlugin", "dSimilarity", "pSimilarity", "titleSimilarity", "band", "status", "origin")
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING "idCoverSuggestion"`,
 		values: [
 			idManga,
 			idPlugin,
@@ -59,6 +70,7 @@ export async function seedSuggestion(idManga, idPlugin, idMangaPlugin, overrides
 			values.titleSimilarity,
 			values.band,
 			values.status,
+			values.origin,
 		],
 	});
 	return rows[0].idCoverSuggestion;

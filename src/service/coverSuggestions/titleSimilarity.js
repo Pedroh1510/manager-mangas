@@ -13,8 +13,14 @@ export function normalizeTitle(title) {
 		.trim();
 }
 
-// Same padding as pg_trgm: two spaces before each word, one after.
-function trigrams(title) {
+/**
+ * Trigram set of a title, with the same padding as pg_trgm: two spaces
+ * before each word, one after.
+ * @example trigrams('ab') // Set { '  a', ' ab', 'ab ' }
+ * @param {string} title
+ * @returns {Set<string>}
+ */
+export function trigrams(title) {
 	const grams = new Set();
 	for (const word of normalizeTitle(title).split(' ').filter(Boolean)) {
 		const padded = `  ${word} `;
@@ -33,10 +39,21 @@ function trigrams(title) {
  * @returns {number}
  */
 export function titleSimilarity(a, b) {
-	const first = trigrams(a);
-	const second = trigrams(b);
+	return gramSimilarity(trigrams(a), trigrams(b));
+}
+
+/**
+ * Shared / union of two precomputed trigram sets, 0 to 1; lets a caller
+ * build each catalog title's set once (alt-titles AC 33).
+ * @example gramSimilarity(trigrams('a b'), trigrams('a b')) // 1
+ * @param {Set<string>} first
+ * @param {Set<string>} second
+ * @returns {number}
+ */
+export function gramSimilarity(first, second) {
 	if (!first.size || !second.size) return 0;
-	const shared = [...first].filter((gram) => second.has(gram)).length;
+	let shared = 0;
+	for (const gram of first) if (second.has(gram)) shared += 1;
 	return shared / (first.size + second.size - shared);
 }
 

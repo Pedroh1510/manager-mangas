@@ -67,17 +67,17 @@ async function replaceAltTitles(req, _, next) {
 			})
 			.messages({
 				'any.required':
-					'"altTitles" is required, expected an array of up to 50 non-empty strings',
+					'"altTitles" is required, received none; expected an array of up to 50 non-empty strings',
 				'array.base':
-					'"altTitles" must be an array, received {{#value}}; expected up to 50 non-empty strings',
+					'"altTitles" must be an array, received {{#value}}; expected an array of up to 50 non-empty strings',
 				'array.max':
-					'"altTitles" has more than 50 items, expected up to 50 non-empty strings',
+					'"altTitles" received more than {{#limit}} items; expected an array of up to 50 non-empty strings',
 				'string.base':
 					'{{#label}} must be a string, received {{#value}}; expected a non-empty string up to 255 characters',
 				'string.empty':
-					'{{#label}} is empty, expected a non-empty string up to 255 characters',
+					'{{#label}} received an empty string; expected a non-empty string up to 255 characters',
 				'string.max':
-					'{{#label}} has more than 255 characters, received "{{#value}}"',
+					'{{#label}} received "{{#value}}"; expected a non-empty string up to 255 characters',
 			}),
 	});
 	await schema.validateAsync(req, { allowUnknown: true });
