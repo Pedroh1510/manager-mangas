@@ -1,8 +1,12 @@
 node_modules
-Dockerfile
-.dockerignore
-.gitignore
 downloads
 appdata
-.env*
+coverage
 .git
+.github
+.specs
+.claude
+.env
+.env.*
+compose*.yml
+*.log
