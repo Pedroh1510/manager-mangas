@@ -50,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           auth="Authorization: Bearer $COOLIFY_TOKEN"
-          dep=$(curl -fsS -H "$auth" "$COOLIFY_URL/api/v1/deploy?uuid=$COOLIFY_APP_UUID&force=false" | jq -r '.deployments[0].deployment_uuid')
+          dep=$(curl -fsS -X POST -H "$auth" "$COOLIFY_URL/api/v1/deploy?uuid=$COOLIFY_APP_UUID&force=false" | jq -r '.deployments[0].deployment_uuid')
           echo "Coolify deployment $dep for $SHA"
           status=queued
           for _ in $(seq 1 90); do
