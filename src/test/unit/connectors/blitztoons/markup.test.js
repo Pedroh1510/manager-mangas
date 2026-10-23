@@ -23,12 +23,14 @@ describe('parseHtmlDocument', () => {
 });
 
 describe('readCatalogCards', () => {
-	test('skips a card whose title link is not an /obra/ path', () => {
+	test('keeps a card whose title link is not an /obra/ path, without slug', () => {
 		const doc = parseHtmlDocument(
 			'<article class="card"><h3 class="card-title"><a href="/vip">VIP</a></h3></article>',
 		);
 
-		expect(readCatalogCards(doc)).toEqual([]);
+		expect(readCatalogCards(doc)).toEqual([
+			{ slug: undefined, title: 'VIP', coverUrl: '' },
+		]);
 	});
 });
 

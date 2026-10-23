@@ -161,6 +161,23 @@ describe('BlitzToons', () => {
 			expect(mangas.map((manga) => manga.id)).toEqual(['a', 'b', 'c']);
 		});
 
+		test('catalog keeps paging past a page of unreadable cards', async () => {
+			const unreadable =
+				'<article class="card"><h3 class="card-title"><a href="/vip">VIP</a></h3></article>';
+			const { connector, site } = buildConnector({
+				[CATALOG]: [
+					html(catalogPage(unreadable)),
+					html(catalogPage(card('a'))),
+					html(catalogPage()),
+				],
+			});
+
+			const mangas = await connector._getMangas();
+
+			expect(site.requestsTo('/obras')).toHaveLength(3);
+			expect(mangas.map((manga) => manga.id)).toEqual(['a']);
+		});
+
 		test('catalog stops at the 200 page limit', async () => {
 			const { connector, site } = buildConnector({
 				[CATALOG]: (request) =>

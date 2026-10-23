@@ -43,7 +43,7 @@ export default class BlitzToons extends Connector {
 			const cards = await this._fetchCatalogPage(page);
 			if (!cards.length) return [...bySlug.values()];
 			for (const card of cards) {
-				if (bySlug.has(card.slug)) continue;
+				if (!card.slug || bySlug.has(card.slug)) continue;
 				bySlug.set(
 					card.slug,
 					this._toCatalogEntry(card.slug, card.title, card.coverUrl),

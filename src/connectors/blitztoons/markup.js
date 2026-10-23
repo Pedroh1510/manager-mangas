@@ -2,16 +2,15 @@ const OBRA_HREF = /^\/obra\/([^/?#]+)/;
 const CHAPTER_NUMBER = /^\d+$/;
 
 /**
- * Reads the series cards of an `/obras` listing page.
+ * Reads every series card of an `/obras` listing page; `slug` is undefined
+ * when the title link is not an `/obra/` path, so callers can still tell an
+ * empty page (plan AC 1) from one with unreadable cards.
  * @example readCatalogCards(doc) // [{ slug: 'doutor-i-a', title: 'Doutor I.A', coverUrl: 'https://…webp' }]
  * @param {{select: Function}} doc parsed page
- * @returns {{slug: string, title: string, coverUrl: string}[]}
+ * @returns {{slug: string | undefined, title: string, coverUrl: string}[]}
  */
 export function readCatalogCards(doc) {
-	return doc
-		.select('article.card')
-		.map(readCatalogCard)
-		.filter((card) => card.slug);
+	return doc.select('article.card').map(readCatalogCard);
 }
 
 function readCatalogCard(card) {
