@@ -1,0 +1,69 @@
+# Deploys main to Coolify after CI passes. Coolify is LAN-only, so the job runs on the
+# self-hosted `coolify-deploy` runner; it only ever triggers on workflow_run (never on PRs).
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: [self-hosted, coolify-deploy]
+    environment: production
+    timeout-minutes: 20
+    env:
+      COOLIFY_URL: http://10.0.0.2:8000
+      COOLIFY_APP_UUID: zequ8o0lz3lulwwzeel7vh35
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      REPO: ${{ github.repository }}
+    steps:
+      # /deploy always builds the branch HEAD, so only deploy when the tested commit still is HEAD;
+      # otherwise the CI run of the newer commit deploys it.
+      - name: Check tested commit is still main HEAD
+        id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          head=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$REPO/commits/main" | jq -r .sha)
+          if [ "$head" = "$SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "main moved to $head; skipping $SHA"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy via Coolify
+        if: steps.head.outputs.current == 'true'
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_DEPLOY_TOKEN }}
+        run: |
+          set -euo pipefail
+          auth="Authorization: Bearer $COOLIFY_TOKEN"
+          dep=$(curl -fsS -X POST -H "$auth" "$COOLIFY_URL/api/v1/deploy?uuid=$COOLIFY_APP_UUID&force=false" | jq -r '.deployments[0].deployment_uuid')
+          echo "Coolify deployment $dep for $SHA"
+          status=queued
+          for _ in $(seq 1 90); do
+            body=$(curl -fsS -H "$auth" "$COOLIFY_URL/api/v1/deployments/$dep")
+            status=$(jq -r .status <<<"$body")
+            case "$status" in
+              finished)
+                deployed=$(jq -r .commit <<<"$body")
+                [ "$deployed" = "$SHA" ] || echo "::warning::deployed $deployed, expected $SHA"
+                exit 0 ;;
+              failed|cancelled*)
+                echo "::error::deployment $dep ended as $status"; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::deployment $dep still $status after 15 min"; exit 1

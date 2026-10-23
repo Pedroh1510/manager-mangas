@@ -161,9 +161,11 @@ npm run biome:check:fix
 
 ## Build e Deploy
 
+Produção roda no Coolify, que builda este `Dockerfile` a partir da `main` depois que o CI passa (`.github/workflows/deploy.yml`). Nenhuma imagem é publicada no Docker Hub.
+
 ```bash
-# Build e push da imagem Docker
-npm run docker:build:push
+# Build local da imagem
+docker build -t mangas .
 ```
 
 O arquivo `compose.prod.yml` pode ser usado para ambiente de produção.
