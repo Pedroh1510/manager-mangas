@@ -18,6 +18,7 @@ const CONCURRENCY_BY_CONNECTOR = {
 	mangeek: 1,
 	nexustoons: 2,
 	nexusmangas: 1,
+	blitztoons: 1,
 };
 const DEFAULT_CONCURRENCY = 1;
 
