@@ -59,11 +59,13 @@ class FakeIndexStore {
 		return structuredClone(this.entries);
 	}
 
+	// Records the save only a macrotask later, so a caller that does not await
+	// it resolves first and C11 sees 'resolved' before 'save'.
 	async save(entries) {
-		this.saves.push({
-			entries: structuredClone(entries),
-			seen: this.observe(),
-		});
+		const snapshot = structuredClone(entries);
+		const seen = this.observe();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		this.saves.push({ entries: snapshot, seen });
 		this.events.push('save');
 	}
 
