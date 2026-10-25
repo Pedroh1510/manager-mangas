@@ -9,7 +9,9 @@ import { registerForTests } from './connectors/registry.js';
 import TestFixtureConnector from './connectors/testFixture/TestFixtureConnector.js';
 import CONFIG_ENV from './infra/env.js';
 import { ValidationError } from './infra/errors.js';
+import { listenHttp } from './infra/httpServer.js';
 import logger from './infra/logger.js';
+import { registerQueueGauges } from './infra/telemetry/jobs.js';
 import router from './routes.js';
 import CoverSuggestions from './service/coverSuggestions/index.js';
 import { listAllQueues } from './service/queue/allQueues.js';
@@ -23,7 +25,6 @@ import {
 import { startConnectorWorkers } from './service/queue/connectorQueue.js';
 import { startCoverHashWorkers } from './service/queue/coverHashQueue.js';
 import { startDownloadWorker } from './service/queue/downloadQueue.js';
-import { registerQueueGauges } from './infra/telemetry/jobs.js';
 
 if (CONFIG_ENV.ENV === 'test') {
 	registerForTests('test-fixture', TestFixtureConnector);
@@ -62,7 +63,7 @@ server.use((error, _req, res, _next) => {
 startConnectorWorkers();
 registerQueueGauges(listAllQueues);
 
-const serverInstance = server.listen(CONFIG_ENV.PORT, async () => {
+const serverInstance = listenHttp(server, CONFIG_ENV.PORT, async () => {
 	logger.info(`Server running on port ${CONFIG_ENV.PORT}`);
 	startDownloadWorker(CONFIG_ENV.CONCURRENCY);
 	if (CONFIG_ENV.ENABLE_JOB) {
