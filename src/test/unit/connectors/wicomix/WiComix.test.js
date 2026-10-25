@@ -579,6 +579,23 @@ describe('WiComix', () => {
 			]);
 		});
 
+		// capitulo-106 serves pages from another host (cdn.noxmangas.org/paginas/),
+		// still failing in production after #41 on 2026-10-25.
+		test('chapters with pages on another CDN are pages', async () => {
+			const { connector } = buildConnector({
+				[`GET ${SITE}/read/diario/capitulo-106`]: answer(
+					readFixture('read-diario-de-dominancia-capitulo-106.html'),
+				),
+			});
+
+			const pages = await connector._getPages({ id: 'diario/capitulo-106' });
+
+			expect(pages).toHaveLength(115);
+			expect(pages[0]).toBe(
+				'https://cdn.noxmangas.org/paginas/2026/10/1792630402393785_e769e158fd27d0f2934c779f.webp',
+			);
+		});
+
 		test('work cover in /temp/ outside the pages section is not a page', async () => {
 			const { connector } = buildConnector({
 				[`GET ${SITE}/read/x/capitulo-1`]: answer(

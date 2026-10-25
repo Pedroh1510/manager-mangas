@@ -16,11 +16,10 @@ const INDEX_CHECKPOINT_EVERY = 100;
 const MAX_FAILURE_RATIO = 0.1;
 const MANGA_SITEMAP_PATH = /^\/sitemaps\/manga-\d+\.xml$/;
 const MANGA_PATH = /^\/manga\/([^/?#]+)$/;
-// Older chapters serve pages from /chapters/<slug>/<n>/, newer ones (2026-10,
-// e.g. capitulo-102+) from /temp/*.webp. The work cover also lives in /temp/
-// but outside the pages <section>, so both the selector and the path filter it.
+// Page images have moved between hosts and paths (/chapters/<slug>/<n>/,
+// /temp/*.webp, cdn.noxmangas.org/paginas/ by 2026-10, #41), so the reader's
+// pages <section> is the stable marker; the work cover sits outside it.
 const PAGE_IMAGE_SELECTOR = 'section > img';
-const PAGE_IMAGE_PATH = /^\/(chapters|temp)\//;
 const BROWSER_USER_AGENT =
 	'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0';
 
@@ -76,12 +75,10 @@ export default class WiComix extends Connector {
 			.select(PAGE_IMAGE_SELECTOR)
 			.map((image) => image.attr('src'))
 			.filter(Boolean)
-			.map((src) => new URL(src, this.url))
-			.filter((url) => PAGE_IMAGE_PATH.test(url.pathname))
-			.map((url) => url.href);
+			.map((src) => new URL(src, this.url).href);
 		if (!pages.length) {
 			throw new Error(
-				`WiComix: chapter ${chapter.id} has no pages, expected at least one /chapters/ or /temp/ image`,
+				`WiComix: chapter ${chapter.id} has no pages, expected at least one '${PAGE_IMAGE_SELECTOR}' image`,
 			);
 		}
 		return pages;
