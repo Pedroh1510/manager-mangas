@@ -8,6 +8,8 @@
     "GHSA-vfj7-8cjw-p6xm",
     // tinypool via vitest: fixed only in vitest 5 (major). Runs in CI with the workflow token, so it gets the short review. revisar até 2026-11-11
     "GHSA-5gmw-xhrv-c9v3",
-    "GHSA-85c8-ppgw-ccpr"
+    "GHSA-85c8-ppgw-ccpr",
+    // body-parser 1.20.8 via express: the fix (1.20.9, published 2026-10-22) is still inside the 7-day min-release-age window of .npmrc. Internal API only. Bump body-parser and drop this entry. revisar até 2026-10-29
+    "GHSA-27r3-jxmh-p828"
   ]
 }
