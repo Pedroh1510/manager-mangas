@@ -2,12 +2,14 @@ import BlitzToons from './blitztoons/BlitzToons.js';
 import Mangeek from './mangeek/Mangeek.js';
 import NexusMangas from './nexusmangas/NexusMangas.js';
 import NexusToons from './nexustoons/NexusToons.js';
+import WiComix from './wicomix/WiComix.js';
 
 const connectors = {
 	mangeek: Mangeek,
 	nexustoons: NexusToons,
 	nexusmangas: NexusMangas,
 	blitztoons: BlitzToons,
+	wicomix: WiComix,
 };
 
 export function getConnectorClass(id) {

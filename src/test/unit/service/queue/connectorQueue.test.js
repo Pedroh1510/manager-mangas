@@ -161,6 +161,22 @@ describe('connectorQueue', () => {
 		);
 	});
 
+	test('wicomix worker runs with concurrency 1', async () => {
+		const registry = await import('../../../../connectors/registry.js');
+		registry.listConnectorIds.mockReturnValueOnce(['wicomix']);
+		const { startConnectorWorkers } = await import(
+			'../../../../service/queue/connectorQueue.js'
+		);
+
+		startConnectorWorkers();
+
+		expect(WorkerMock).toHaveBeenCalledWith(
+			'connector-wicomix',
+			expect.any(Function),
+			expect.objectContaining({ concurrency: 1 }),
+		);
+	});
+
 	describe('refreshCatalog operation', () => {
 		class FakeCatalogConnector {
 			constructor() {
