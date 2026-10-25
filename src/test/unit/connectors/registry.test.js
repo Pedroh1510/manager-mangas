@@ -17,6 +17,7 @@ describe('registry', () => {
 			'nexustoons',
 			'nexusmangas',
 			'blitztoons',
+			'wicomix',
 		]);
 	});
 

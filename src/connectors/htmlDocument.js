@@ -19,6 +19,17 @@ export function parseHtmlDocument(html) {
 	return { select: (selector) => toHtmlNodes($, $(selector)) };
 }
 
+/**
+ * Same interface as `parseHtmlDocument`, parsed as XML (sitemaps).
+ * @example parseXmlDocument('<urlset><url><loc>x</loc></url></urlset>').select('url > loc')[0].text() // 'x'
+ * @param {string} xml
+ * @returns {{select: (selector: string) => HtmlNode[]}}
+ */
+export function parseXmlDocument(xml) {
+	const $ = load(xml, { xml: true });
+	return { select: (selector) => toHtmlNodes($, $(selector)) };
+}
+
 function toHtmlNodes($, selection) {
 	return selection.toArray().map((element) => toHtmlNode($, $(element)));
 }
