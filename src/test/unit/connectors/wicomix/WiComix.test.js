@@ -550,6 +550,23 @@ describe('WiComix', () => {
 			);
 		});
 
+		// Newer chapters (e.g. capitulo-102+) serve pages from /temp/*.webp,
+		// which failed connector-wicomix listPages jobs on 2026-10-25.
+		test('newer chapters with /temp/ images are pages', async () => {
+			const { connector } = buildConnector({
+				[`GET ${SITE}/read/diario/capitulo-103`]: answer(
+					readFixture('read-diario-de-dominancia-capitulo-103.html'),
+				),
+			});
+
+			const pages = await connector._getPages({ id: 'diario/capitulo-103' });
+
+			expect(pages).toHaveLength(25);
+			expect(pages[0]).toBe(
+				'https://picture.mangalivre.org/temp/1790836268691634_3b7a6f0798acf89a924936c1.webp',
+			);
+		});
+
 		test('only chapter images are pages, made absolute', async () => {
 			const { connector } = buildConnector({
 				[`GET ${SITE}/read/x/capitulo-1`]: answer(
@@ -559,6 +576,19 @@ describe('WiComix', () => {
 
 			expect(await connector._getPages({ id: 'x/capitulo-1' })).toEqual([
 				'https://loobyt.org/chapters/x/1/1.jpg',
+			]);
+		});
+
+		test('work cover in /temp/ outside the pages section is not a page', async () => {
+			const { connector } = buildConnector({
+				[`GET ${SITE}/read/x/capitulo-1`]: answer(
+					'<div><img class="ap-leitor__obra-capa" src="/temp/cover.jpg"></div>' +
+						'<section><img src="/temp/1.webp"></section>',
+				),
+			});
+
+			expect(await connector._getPages({ id: 'x/capitulo-1' })).toEqual([
+				'https://loobyt.org/temp/1.webp',
 			]);
 		});
 
@@ -580,7 +610,7 @@ describe('WiComix', () => {
 				{
 					...oneSitemap(['a']),
 					[`GET ${SITE}/read/a/capitulo-1`]: answer(
-						'<img src="/chapters/a/1/1.jpg">',
+						'<section><img src="/chapters/a/1/1.jpg"></section>',
 					),
 				},
 				{ fallback: comicFallback },
