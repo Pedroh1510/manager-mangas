@@ -1,6 +1,6 @@
 import defaultLogger from '../../infra/logger.js';
 import Connector from '../Connector.js';
-import { parseHtmlDocument } from './htmlDocument.js';
+import { parseHtmlDocument } from '../htmlDocument.js';
 import {
 	isChapterNumber,
 	readCatalogCards,

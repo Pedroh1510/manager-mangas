@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { parseHtmlDocument } from '../../../../connectors/blitztoons/htmlDocument.js';
 import {
 	isChapterNumber,
 	readCatalogCards,
 	readChapterItems,
 	readPageSources,
 } from '../../../../connectors/blitztoons/markup.js';
+import { parseHtmlDocument } from '../../../../connectors/htmlDocument.js';
 
 describe('parseHtmlDocument', () => {
 	test('selects nodes and reads attributes, classes and trimmed text', () => {
