@@ -20,6 +20,9 @@ const { enqueueDownload, processDownloadJob } = await import(
 const { PageNotFoundError } = await import(
 	'../../../../service/imageDownloader.js'
 );
+const { PlaceholderChapterError } = await import(
+	'../../../../service/placeholderChapter.js'
+);
 const MangaService = (await import('../../../../service/manga.js')).default;
 
 describe('processDownloadJob', () => {
@@ -57,6 +60,21 @@ describe('processDownloadJob', () => {
 		const job = fakeJob();
 
 		await expect(processDownloadJob(job)).rejects.toThrow(PageNotFoundError);
+		expect(job.discard).toHaveBeenCalledTimes(1);
+	});
+
+	test('discards the job when every page is the same placeholder image', async () => {
+		const error = new PlaceholderChapterError({
+			manga: 'Test Manga',
+			chapter: 54,
+			pageCount: 51,
+		});
+		MangaService.downloadMangas.mockRejectedValue(error);
+		const job = fakeJob();
+
+		await expect(processDownloadJob(job)).rejects.toThrow(
+			PlaceholderChapterError,
+		);
 		expect(job.discard).toHaveBeenCalledTimes(1);
 	});
 
