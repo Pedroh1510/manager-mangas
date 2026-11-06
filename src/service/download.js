@@ -9,6 +9,11 @@ import { createConcurrencyLimiter } from './concurrencyLimiter.js';
 import { withDomainSlot } from './domainConcurrency.js';
 import { PageNotFoundError, downloadImage } from './imageDownloader.js';
 import { convertImage } from './imageProcessor.js';
+import {
+	PlaceholderChapterError,
+	assertNotPlaceholderChapter,
+	hashPageBytes,
+} from './placeholderChapter.js';
 
 // Bounds memory: each page in flight holds its downloaded and converted bytes.
 const MAX_PAGES_IN_FLIGHT_PER_CHAPTER = 4;
@@ -79,6 +84,7 @@ async function appendPageToArchive({
 	if (page.endsWith('.zip')) {
 		await appendZipBundlePages(archive, image, state);
 	} else {
+		state.pageHashes.push(hashPageBytes(image));
 		const { imageFormatted, type } = await convertImage(image);
 		if (state.aborted) return;
 		archive.append(imageFormatted, { name: `${index + 1}.${type}` });
@@ -122,6 +128,9 @@ async function abortChapterDownload({
 			status: 'capitulo_ignorado_404',
 		});
 	}
+	if (error instanceof PlaceholderChapterError) {
+		logger.warn({ manga, chapter, status: 'capitulo_placeholder' });
+	}
 	archive.abort();
 	output.destroy();
 	await rm(chapterPath, { recursive: true }).catch(() => {});
@@ -137,7 +146,7 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 	logger.info({ manga, chapter, status: 'inicio' });
 
 	const { archive, output, finished } = createChapterArchive(chapterPath);
-	const state = { aborted: false };
+	const state = { aborted: false, pageHashes: [] };
 	const runPageLimited = createConcurrencyLimiter(
 		MAX_PAGES_IN_FLIGHT_PER_CHAPTER,
 	);
@@ -158,6 +167,7 @@ async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
 
 	try {
 		await Promise.all(tasks);
+		assertNotPlaceholderChapter({ manga, chapter, hashes: state.pageHashes });
 	} catch (error) {
 		state.aborted = true;
 		for (const task of tasks) {

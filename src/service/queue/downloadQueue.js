@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq';
 import { PageNotFoundError } from '../imageDownloader.js';
 import MangaService from '../manga.js';
+import { PlaceholderChapterError } from '../placeholderChapter.js';
 import connection from './connection.js';
 import { RETRY_WITH_BACKOFF } from './retryPolicy.js';
 import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
@@ -17,12 +18,20 @@ export async function enqueueDownload(data, jobId) {
 	await queue.add('teste', data, { ...RETRY_WITH_BACKOFF, jobId });
 }
 
+function isPermanentChapterError(error) {
+	return (
+		error instanceof PageNotFoundError ||
+		error instanceof PlaceholderChapterError
+	);
+}
+
 export async function processDownloadJob(job) {
 	const { manga, chapter, pages, idChapter } = job.data;
 	try {
 		await MangaService.downloadMangas({ manga, chapter, pages, idChapter });
 	} catch (error) {
-		if (error instanceof PageNotFoundError) {
+		// Retrying re-fetches the same pages; only a source fix can change them.
+		if (isPermanentChapterError(error)) {
 			job.discard();
 		}
 		throw error;

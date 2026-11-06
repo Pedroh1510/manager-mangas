@@ -39,6 +39,9 @@ const { downloadImage, PageNotFoundError } = await import(
 	'../../../service/imageDownloader.js'
 );
 const { convertImage } = await import('../../../service/imageProcessor.js');
+const { PlaceholderChapterError } = await import(
+	'../../../service/placeholderChapter.js'
+);
 
 describe('Download.downloadChapter', () => {
 	afterEach(async () => {
@@ -193,6 +196,35 @@ describe('Download.downloadChapter', () => {
 			expect.stringContaining('4.cbz'),
 			{ recursive: true },
 		);
+	});
+	test('rejects a chapter whose pages are all the same image and deletes the file', async () => {
+		withFsPromisesReady();
+		// Mangeek served the leituramanga anti-scraping banner for every page of
+		// "Start With 13 Hidden Traits" ch. 54: distinct URLs, identical bytes.
+		downloadImage.mockResolvedValue(Buffer.from('placeholder-banner'));
+		const pages = [1, 2, 3].map((page) => `https://a.example/${page}.webp`);
+
+		await expect(
+			Download.downloadChapter({ manga: 'Test Manga', chapter: 54, pages }),
+		).rejects.toThrow(PlaceholderChapterError);
+
+		expect(fsPromises.rm).toHaveBeenLastCalledWith(
+			expect.stringContaining('54.cbz'),
+			{ recursive: true },
+		);
+	});
+
+	test('accepts a two-page chapter even when both pages are identical', async () => {
+		withFsPromisesReady();
+		downloadImage.mockResolvedValue(Buffer.from('same'));
+
+		await Download.downloadChapter({
+			manga: 'Test Manga',
+			chapter: 8,
+			pages: ['https://a.example/1.jpg', 'https://a.example/2.jpg'],
+		});
+
+		expect(new AdmZip(tempZipPath).getEntries()).toHaveLength(2);
 	});
 });
 
