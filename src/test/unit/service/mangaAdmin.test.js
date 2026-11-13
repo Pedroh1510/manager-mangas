@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import database from '../../../infra/database.js';
 import logger from '../../../infra/logger.js';
+import ChaptersRepository from '../../../repository/chapters.js';
+import MangaConnectorsRepository from '../../../repository/mangaConnectors.js';
 import AltTitlesService from '../../../service/altTitles.js';
 import CoverService from '../../../service/covers/index.js';
 import * as mangaServiceModule from '../../../service/manga.js';
@@ -355,6 +357,75 @@ describe('MangaAdminService', () => {
 				message: expect.stringContaining('"nope"'),
 			});
 			expect(enqueueCatalogRefresh).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('listChaptersMissing', () => {
+		function arrangeConnectors() {
+			vi.spyOn(
+				MangaConnectorsRepository,
+				'listConnectorsByManga',
+			).mockResolvedValue([
+				{
+					idMangaConnector: 1,
+					idPlugin: 'broken',
+					idMangaPlugin: 'b',
+					isActive: true,
+				},
+				{
+					idMangaConnector: 2,
+					idPlugin: 'healthy',
+					idMangaPlugin: 'h',
+					isActive: true,
+				},
+			]);
+			vi.spyOn(ChaptersRepository, 'listChaptersByManga').mockResolvedValue([
+				{ volume: '1.0000' },
+			]);
+			vi.spyOn(
+				mangaServiceModule.default,
+				'listChaptersByManga',
+			).mockImplementation(async ({ idPlugin }) => {
+				if (idPlugin === 'broken') throw new Error('paywall');
+				return [
+					{ id: 'h/1', title: 'Cap. 1', volume: '1.0000' },
+					{ id: 'h/2', title: 'Cap. 2', volume: '2.0000' },
+				];
+			});
+		}
+
+		test('keeps chapters from healthy connectors when another connector fails', async () => {
+			arrangeConnectors();
+			vi.spyOn(logger, 'error').mockImplementation(() => {});
+
+			const result = await MangaAdminService.listChaptersMissing({
+				idManga: 9,
+			});
+
+			expect(result).toEqual([
+				{
+					id: 'h/2',
+					title: 'Cap. 2',
+					volume: '2.0000',
+					idMangaConnector: 2,
+					idPlugin: 'healthy',
+				},
+			]);
+		});
+
+		test('logs the failing connector instead of throwing', async () => {
+			arrangeConnectors();
+			const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
+
+			await MangaAdminService.listChaptersMissing({ idManga: 9 });
+
+			expect(errorSpy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					idManga: 9,
+					idPlugin: 'broken',
+					status: 'listChaptersMissing_connector_failed',
+				}),
+			);
 		});
 	});
 });
