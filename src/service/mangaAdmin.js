@@ -232,6 +232,32 @@ async function registerCredentials({ idPlugin, login, password }) {
 	await database.query(sql.insertInto('pluginConfig', data).toParams());
 }
 
+/**
+ * Lists one connector's chapters, returning [] when the source fails so a
+ * single broken connector (e.g. WiComix behind a paywall since 2026-11-11)
+ * does not abort chapter discovery for the whole manga.
+ * @example await listConnectorChaptersOrEmpty({ idManga: 1, connector })
+ * @param {{ idManga: number, connector: { idPlugin: string, idMangaPlugin: string } }} params
+ * @returns {Promise<Array<{ id: string, title: string, volume: string }>>}
+ */
+async function listConnectorChaptersOrEmpty({ idManga, connector }) {
+	try {
+		return await MangaService.listChaptersByManga({
+			idPlugin: connector.idPlugin,
+			mangaId: connector.idMangaPlugin,
+		});
+	} catch (error) {
+		logger.error({
+			idManga,
+			idPlugin: connector.idPlugin,
+			idMangaPlugin: connector.idMangaPlugin,
+			status: 'listChaptersMissing_connector_failed',
+			error: error.message,
+		});
+		return [];
+	}
+}
+
 async function listChaptersMissing({ idManga }) {
 	const connectors = (
 		await MangaConnectorsRepository.listConnectorsByManga({ idManga })
@@ -247,10 +273,7 @@ async function listChaptersMissing({ idManga }) {
 
 	const chaptersMissing = [];
 	for (const connector of connectors) {
-		const chapters = await MangaService.listChaptersByManga({
-			idPlugin: connector.idPlugin,
-			mangaId: connector.idMangaPlugin,
-		});
+		const chapters = await listConnectorChaptersOrEmpty({ idManga, connector });
 		for (const chapter of chapters) {
 			if (knownVolumes.has(`${chapter.volume}`)) continue;
 			knownVolumes.add(`${chapter.volume}`);
