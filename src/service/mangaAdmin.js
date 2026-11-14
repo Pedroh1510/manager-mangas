@@ -1,5 +1,4 @@
-import { mkdir, rm } from 'node:fs/promises';
-import path from 'node:path';
+import { rm } from 'node:fs/promises';
 import sql from 'sql-bricks';
 import database from '../infra/database.js';
 import {
@@ -14,6 +13,10 @@ import CoverSuggestionsRepository from '../repository/coverSuggestions.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 import MangasRepository from '../repository/mangas.js';
 import AltTitlesService from './altTitles.js';
+import {
+	listChaptersMissing,
+	updateMangaChapters,
+} from './chapterDiscovery.js';
 import CoverService from './covers/index.js';
 import Download from './download.js';
 import MangaService from './manga.js';
@@ -230,92 +233,6 @@ async function registerCredentials({ idPlugin, login, password }) {
 	}
 	data.idPlugin = idPlugin;
 	await database.query(sql.insertInto('pluginConfig', data).toParams());
-}
-
-/**
- * Lists one connector's chapters, returning [] when the source fails so a
- * single broken connector (e.g. WiComix behind a paywall since 2026-11-11)
- * does not abort chapter discovery for the whole manga.
- * @example await listConnectorChaptersOrEmpty({ idManga: 1, connector })
- * @param {{ idManga: number, connector: { idPlugin: string, idMangaPlugin: string } }} params
- * @returns {Promise<Array<{ id: string, title: string, volume: string }>>}
- */
-async function listConnectorChaptersOrEmpty({ idManga, connector }) {
-	try {
-		return await MangaService.listChaptersByManga({
-			idPlugin: connector.idPlugin,
-			mangaId: connector.idMangaPlugin,
-		});
-	} catch (error) {
-		logger.error({
-			idManga,
-			idPlugin: connector.idPlugin,
-			idMangaPlugin: connector.idMangaPlugin,
-			status: 'listChaptersMissing_connector_failed',
-			error: error.message,
-		});
-		return [];
-	}
-}
-
-async function listChaptersMissing({ idManga }) {
-	const connectors = (
-		await MangaConnectorsRepository.listConnectorsByManga({ idManga })
-	).filter((connector) => connector.isActive);
-	if (!connectors.length) return [];
-
-	const knownChapters = await ChaptersRepository.listChaptersByManga({
-		idManga,
-	});
-	const knownVolumes = new Set(
-		knownChapters.map((chapter) => `${chapter.volume}`),
-	);
-
-	const chaptersMissing = [];
-	for (const connector of connectors) {
-		const chapters = await listConnectorChaptersOrEmpty({ idManga, connector });
-		for (const chapter of chapters) {
-			if (knownVolumes.has(`${chapter.volume}`)) continue;
-			knownVolumes.add(`${chapter.volume}`);
-			chaptersMissing.push({
-				...chapter,
-				idMangaConnector: connector.idMangaConnector,
-				idPlugin: connector.idPlugin,
-			});
-		}
-	}
-	return chaptersMissing;
-}
-
-async function updateMangaChapters({ idManga }) {
-	logger.info({ idManga, status: 'updateMangaChapters' });
-	const manga = await MangasRepository.findMangaById({ idManga });
-	if (!manga || manga.deletedAt) return [];
-	const pathFolder = path.resolve('downloads', manga.title);
-	await mkdir(pathFolder, { recursive: true }).catch(() => {});
-
-	const chaptersMissing = await listChaptersMissing({ idManga });
-	for (const chapter of chaptersMissing) {
-		await ChaptersRepository.insertChapter({
-			idManga,
-			idMangaConnector: chapter.idMangaConnector,
-			idChapterPlugin: chapter.id,
-			name: chapter.title,
-			volume: chapter.volume,
-		});
-		countPipelineEvent('mangas.chapters.discovered', {
-			source: chapter.idPlugin,
-			result: 'ok',
-		});
-	}
-	if (chaptersMissing.length) {
-		await enqueueBackgroundTask(
-			'downloadMangasBatch',
-			{ idManga },
-			`downloadMangasBatch-${idManga}`,
-		);
-	}
-	return chaptersMissing;
 }
 
 async function updateMangas({ idPlugin }) {
