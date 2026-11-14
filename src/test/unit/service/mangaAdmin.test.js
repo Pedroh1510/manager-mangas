@@ -1,12 +1,16 @@
+import { mkdir } from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import database from '../../../infra/database.js';
 import logger from '../../../infra/logger.js';
+import { countPipelineEvent } from '../../../infra/telemetry/business.js';
 import ChaptersRepository from '../../../repository/chapters.js';
 import MangaConnectorsRepository from '../../../repository/mangaConnectors.js';
+import MangasRepository from '../../../repository/mangas.js';
 import AltTitlesService from '../../../service/altTitles.js';
 import CoverService from '../../../service/covers/index.js';
 import * as mangaServiceModule from '../../../service/manga.js';
 import MangaAdminService from '../../../service/mangaAdmin.js';
+import { enqueueBackgroundTask } from '../../../service/queue/backgroundQueue.js';
 import { enqueueCatalogRefresh } from '../../../service/queue/connectorQueue.js';
 
 vi.mock('../../../infra/database.js', () => ({
@@ -15,6 +19,20 @@ vi.mock('../../../infra/database.js', () => ({
 
 vi.mock('../../../service/altTitles.js', () => ({
 	default: { mergeFromLink: vi.fn() },
+}));
+
+// updateMangaChapters creates the manga's download folder; keep tests off disk.
+vi.mock('node:fs/promises', async (importOriginal) => ({
+	...(await importOriginal()),
+	mkdir: vi.fn(),
+}));
+
+vi.mock('../../../infra/telemetry/business.js', () => ({
+	countPipelineEvent: vi.fn(),
+}));
+
+vi.mock('../../../service/queue/backgroundQueue.js', () => ({
+	enqueueBackgroundTask: vi.fn(),
 }));
 
 vi.mock('../../../service/queue/connectorQueue.js', async (importOriginal) => ({
@@ -426,6 +444,227 @@ describe('MangaAdminService', () => {
 					status: 'listChaptersMissing_connector_failed',
 				}),
 			);
+		});
+	});
+
+	describe('updateMangaChapters', () => {
+		const FAST = {
+			idMangaConnector: 1,
+			idPlugin: 'fast',
+			idMangaPlugin: 'f',
+			isActive: true,
+		};
+		const SLOW = {
+			idMangaConnector: 2,
+			idPlugin: 'slow',
+			idMangaPlugin: 's',
+			isActive: true,
+		};
+
+		function deferred() {
+			let resolve;
+			const promise = new Promise((done) => {
+				resolve = done;
+			});
+			return { promise, resolve };
+		}
+
+		// Each connector answers through its own factory so a test can hold the
+		// slow one back while the fast one has already responded.
+		function arrangeManga({ answers, existingVolumes = [] }) {
+			vi.spyOn(MangasRepository, 'findMangaById').mockResolvedValue({
+				idManga: 9,
+				title: 'Solo Leveling',
+				deletedAt: null,
+			});
+			vi.spyOn(
+				MangaConnectorsRepository,
+				'listConnectorsByManga',
+			).mockResolvedValue([FAST, SLOW]);
+			vi.spyOn(ChaptersRepository, 'listChaptersByManga').mockResolvedValue(
+				existingVolumes.map((volume) => ({ volume })),
+			);
+			vi.spyOn(
+				mangaServiceModule.default,
+				'listChaptersByManga',
+			).mockImplementation(({ idPlugin }) => answers[idPlugin]());
+		}
+
+		// Mirrors UNIQUE(idManga, volume): the second insert of a volume
+		// resolves undefined, like the swallowed duplicate-key error.
+		function arrangeChaptersTable() {
+			const taken = new Set();
+			let nextId = 100;
+			return vi
+				.spyOn(ChaptersRepository, 'insertChapter')
+				.mockImplementation(async ({ volume }) => {
+					if (taken.has(volume)) return undefined;
+					taken.add(volume);
+					return { idChapter: nextId++ };
+				});
+		}
+
+		function downloadsEnqueued() {
+			return vi
+				.mocked(enqueueBackgroundTask)
+				.mock.calls.filter(([operation]) => operation === 'listPagesAndSend');
+		}
+
+		beforeEach(() => {
+			vi.mocked(enqueueBackgroundTask).mockReset();
+			vi.mocked(countPipelineEvent).mockReset();
+			vi.mocked(mkdir).mockResolvedValue(undefined);
+		});
+
+		test('downloads a fast connector chapter before a slow connector answers', async () => {
+			const slow = deferred();
+			arrangeManga({
+				answers: {
+					fast: () =>
+						Promise.resolve([{ id: 'f/1', title: 'Cap. 1', volume: '1' }]),
+					slow: () => slow.promise,
+				},
+			});
+			arrangeChaptersTable();
+
+			const running = MangaAdminService.updateMangaChapters({ idManga: 9 });
+
+			await vi.waitFor(() =>
+				expect(enqueueBackgroundTask).toHaveBeenCalledWith(
+					'listPagesAndSend',
+					{ idChapter: 100 },
+					'listPagesAndSend-100',
+				),
+			);
+			slow.resolve([]);
+			await running;
+		});
+
+		test('keeps the chapter of the first connector to answer when volumes collide', async () => {
+			const slow = deferred();
+			arrangeManga({
+				answers: {
+					fast: () =>
+						Promise.resolve([{ id: 'f/1', title: 'Cap. 1', volume: '1' }]),
+					slow: () => slow.promise,
+				},
+			});
+			const insertSpy = arrangeChaptersTable();
+
+			const running = MangaAdminService.updateMangaChapters({ idManga: 9 });
+			await vi.waitFor(() => expect(insertSpy).toHaveBeenCalledTimes(1));
+			slow.resolve([{ id: 's/1', title: 'Cap. 1', volume: '1' }]);
+			const inserted = await running;
+
+			expect(inserted).toEqual([
+				expect.objectContaining({ idChapter: 100, idPlugin: 'fast' }),
+			]);
+			expect(downloadsEnqueued()).toHaveLength(1);
+			expect(countPipelineEvent).toHaveBeenCalledTimes(1);
+		});
+
+		test('skips volumes the manga already has', async () => {
+			arrangeManga({
+				answers: {
+					fast: () =>
+						Promise.resolve([
+							{ id: 'f/1', title: 'Cap. 1', volume: '1.0000' },
+							{ id: 'f/2', title: 'Cap. 2', volume: '2.0000' },
+						]),
+					slow: () => Promise.resolve([]),
+				},
+				existingVolumes: ['1.0000'],
+			});
+			const insertSpy = arrangeChaptersTable();
+
+			await MangaAdminService.updateMangaChapters({ idManga: 9 });
+
+			expect(insertSpy).toHaveBeenCalledTimes(1);
+			expect(insertSpy).toHaveBeenCalledWith(
+				expect.objectContaining({ idChapterPlugin: 'f/2' }),
+			);
+		});
+
+		test('still inserts the healthy connector chapters when another fails', async () => {
+			vi.spyOn(logger, 'error').mockImplementation(() => {});
+			arrangeManga({
+				answers: {
+					fast: () =>
+						Promise.resolve([{ id: 'f/1', title: 'Cap. 1', volume: '1' }]),
+					slow: () => Promise.reject(new Error('paywall')),
+				},
+			});
+			arrangeChaptersTable();
+
+			const inserted = await MangaAdminService.updateMangaChapters({
+				idManga: 9,
+			});
+
+			expect(inserted).toHaveLength(1);
+		});
+
+		test('enqueues one download batch at the end to retry older failed downloads', async () => {
+			arrangeManga({
+				answers: {
+					fast: () =>
+						Promise.resolve([{ id: 'f/1', title: 'Cap. 1', volume: '1' }]),
+					slow: () =>
+						Promise.resolve([{ id: 's/2', title: 'Cap. 2', volume: '2' }]),
+				},
+			});
+			arrangeChaptersTable();
+
+			await MangaAdminService.updateMangaChapters({ idManga: 9 });
+
+			const batches = vi
+				.mocked(enqueueBackgroundTask)
+				.mock.calls.filter(
+					([operation]) => operation === 'downloadMangasBatch',
+				);
+			expect(batches).toEqual([
+				['downloadMangasBatch', { idManga: 9 }, 'downloadMangasBatch-9'],
+			]);
+		});
+
+		test('fails the job naming the manga when a link cannot record its chapters, after the other links finish', async () => {
+			arrangeManga({
+				answers: {
+					fast: () =>
+						Promise.resolve([{ id: 'f/1', title: 'Cap. 1', volume: '1' }]),
+					slow: () =>
+						Promise.resolve([{ id: 's/2', title: 'Cap. 2', volume: '2' }]),
+				},
+			});
+			vi.spyOn(ChaptersRepository, 'insertChapter').mockImplementation(
+				async ({ volume }) => {
+					if (volume === '2') throw new Error('connection reset');
+					return { idChapter: 100 };
+				},
+			);
+
+			await expect(
+				MangaAdminService.updateMangaChapters({ idManga: 9 }),
+			).rejects.toThrow(/idManga 9.*connection reset/);
+			expect(downloadsEnqueued()).toHaveLength(1);
+			expect(enqueueBackgroundTask).toHaveBeenCalledWith(
+				'downloadMangasBatch',
+				{ idManga: 9 },
+				'downloadMangasBatch-9',
+			);
+		});
+
+		test('enqueues no download batch when nothing new was inserted', async () => {
+			arrangeManga({
+				answers: {
+					fast: () => Promise.resolve([]),
+					slow: () => Promise.resolve([]),
+				},
+			});
+			arrangeChaptersTable();
+
+			await MangaAdminService.updateMangaChapters({ idManga: 9 });
+
+			expect(enqueueBackgroundTask).not.toHaveBeenCalled();
 		});
 	});
 });
