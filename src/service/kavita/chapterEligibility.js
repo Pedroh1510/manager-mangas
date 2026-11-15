@@ -142,10 +142,7 @@ export function selectChaptersToDelete({ localChapters, kavitaChapters }) {
 		});
 		return kavitaChapter !== null && isFullyRead(kavitaChapter);
 	});
-	const orphanEligible = selectOrphanChapters({
-		localChapters,
-		kavitaChapters,
-	});
+	const orphanEligible = selectOrphanChapters({ localChapters, kavitaChapters });
 
 	const eligible = [...localEligible, ...orphanEligible];
 	if (eligible.length === 0) return [];

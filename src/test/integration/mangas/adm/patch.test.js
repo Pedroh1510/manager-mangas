@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import database from '../../../../infra/database.js';
-import CONFIG_ENV from '../../../../infra/env.js';
-import { normalizeTitle } from '../../../../service/coverSuggestions/titleSimilarity.js';
 import orchestrator from '../../../orchestrator.js';
+import { normalizeTitle } from '../../../../service/coverSuggestions/titleSimilarity.js';
+import CONFIG_ENV from '../../../../infra/env.js';
 import AdmUtils from './utils.js';
 
 const admUtils = new AdmUtils();

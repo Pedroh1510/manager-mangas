@@ -4,10 +4,10 @@ import {
 	matchConfigFrom,
 	selectSuggestions,
 } from '../../../../service/coverSuggestions/matching.js';
-import { titleSimilarity } from '../../../../service/coverSuggestions/titleSimilarity.js';
 import FakeCatalogCoverHashes from '../../../fakes/FakeCatalogCoverHashes.js';
 import FakeCoverSuggestions from '../../../fakes/FakeCoverSuggestions.js';
 import FakeLogger from '../../../fakes/FakeLogger.js';
+import { titleSimilarity } from '../../../../service/coverSuggestions/titleSimilarity.js';
 
 const CONFIG = {
 	strong: 0.9,

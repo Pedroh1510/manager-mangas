@@ -1,12 +1,12 @@
 // src/service/queue/backgroundQueue.js
 import { Queue, Worker } from 'bullmq';
-import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 import AltTitlesService from '../altTitles.js';
 import CoverSuggestions from '../coverSuggestions/index.js';
 import KavitaCleanupService from '../kavita/cleanupReadChapters.js';
 import MangaAdminService from '../mangaAdmin.js';
 import connection from './connection.js';
 import { RETRY_WITH_BACKOFF } from './retryPolicy.js';
+import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
 const QUEUE_NAME = 'background-tasks';
 

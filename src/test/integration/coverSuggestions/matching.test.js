@@ -5,13 +5,7 @@ import CatalogCoverHashesRepository from '../../../repository/catalogCoverHashes
 import CoverSuggestionsRepository from '../../../repository/coverSuggestions.js';
 import CoverSuggestions from '../../../service/coverSuggestions/index.js';
 import orchestrator from '../../orchestrator.js';
-import {
-	seedHash,
-	seedLink,
-	seedManga,
-	seedSuggestion,
-	suggestionRows,
-} from './seed.js';
+import { seedHash, seedLink, seedManga, seedSuggestion, suggestionRows } from './seed.js';
 
 const BIT_63 = 1n << 63n;
 const bitsOff = (bits) => (1n << BigInt(bits)) - 1n;
@@ -39,11 +33,9 @@ describe('cover matching on Postgres', () => {
 		const deleted = await seedManga('Deleted', { deleted: true });
 		await seedLink(deleted, 'mangeek', 'e4');
 
-		const mangas = await CoverSuggestionsRepository.listMangasMissingConnectors(
-			{
-				connectorIds: ['mangeek', 'nexustoons'],
-			},
-		);
+		const mangas = await CoverSuggestionsRepository.listMangasMissingConnectors({
+			connectorIds: ['mangeek', 'nexustoons'],
+		});
 
 		expect(mangas.map((manga) => manga.idManga)).toEqual([onlyMangeek, noLink]);
 	});
@@ -51,14 +43,8 @@ describe('cover matching on Postgres', () => {
 	test('finds candidates by hamming distance in postgres', async () => {
 		const reference = { dHash: BIT_63, pHash: BIT_63 };
 		// Both differ from the reference only in pHash; dHash is far away.
-		await seedHash('nexustoons', 'six-bits', {
-			dHash: bitsOff(40),
-			pHash: BIT_63 | bitsOff(6),
-		});
-		await seedHash('nexustoons', 'thirteen-bits', {
-			dHash: bitsOff(40),
-			pHash: BIT_63 | bitsOff(13),
-		});
+		await seedHash('nexustoons', 'six-bits', { dHash: bitsOff(40), pHash: BIT_63 | bitsOff(6) });
+		await seedHash('nexustoons', 'thirteen-bits', { dHash: bitsOff(40), pHash: BIT_63 | bitsOff(13) });
 
 		const candidates = await CatalogCoverHashesRepository.findCandidates({
 			idPlugin: 'nexustoons',
@@ -74,8 +60,7 @@ describe('cover matching on Postgres', () => {
 		const idManga = await seedManga('Rerun manga');
 		await seedLink(idManga, 'mangeek', 'ref', { titlePlugin: 'Rerun manga' });
 		await seedHash('mangeek', 'ref', { dHash: 7n, pHash: 7n });
-		for (const id of ['a', 'b', 'd'])
-			await seedHash('test-fixture', id, { dHash: 7n, pHash: 7n });
+		for (const id of ['a', 'b', 'd']) await seedHash('test-fixture', id, { dHash: 7n, pHash: 7n });
 		await seedSuggestion(idManga, 'test-fixture', 'a', { status: 'dismissed' });
 		await seedSuggestion(idManga, 'test-fixture', 'b', { status: 'accepted' });
 		await seedSuggestion(idManga, 'test-fixture', 'c', { status: 'pending' });
@@ -85,9 +70,7 @@ describe('cover matching on Postgres', () => {
 		const testFixtureRows = (await suggestionRows(idManga)).filter(
 			(row) => row.idPlugin === 'test-fixture',
 		);
-		expect(
-			testFixtureRows.map((row) => [row.idMangaPlugin, row.status]),
-		).toEqual([
+		expect(testFixtureRows.map((row) => [row.idMangaPlugin, row.status])).toEqual([
 			['a', 'dismissed'],
 			['b', 'accepted'],
 			['d', 'pending'],

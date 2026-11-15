@@ -1,8 +1,8 @@
 import { Queue, Worker } from 'bullmq';
 import { listConnectorIds } from '../../connectors/registry.js';
 import CONFIG_ENV from '../../infra/env.js';
-import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 import connection from './connection.js';
+import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
 const RATE_WINDOW_MS = 1000;
 const queues = new Map();
