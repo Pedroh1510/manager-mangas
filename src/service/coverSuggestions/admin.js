@@ -1,6 +1,7 @@
 import CoverSuggestionsRepository from '../../repository/coverSuggestions.js';
 import MangaConnectorsRepository from '../../repository/mangaConnectors.js';
 import MangasRepository from '../../repository/mangas.js';
+import ConnectorSwitch from '../connectorSwitch.js';
 import MangaService from '../manga.js';
 import MangaAdminService from '../mangaAdmin.js';
 import { enqueueBackgroundTask } from '../queue/backgroundQueue.js';
@@ -22,5 +23,7 @@ export default SuggestionService;
 
 export const requestCoverSync = createCoverSyncRequest({
 	hasConnector: (idPlugin) => MangaService.hasConnector(idPlugin),
+	assertConnectorEnabled: (idPlugin) =>
+		ConnectorSwitch.assertConnectorEnabled(idPlugin),
 	enqueue: (...job) => enqueueBackgroundTask(...job),
 });

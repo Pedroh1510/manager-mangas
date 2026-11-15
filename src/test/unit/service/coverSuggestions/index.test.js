@@ -7,6 +7,14 @@ vi.mock('../../../../utils/mangaCatalog.js', () => ({
 vi.mock('../../../../connectors/registry.js', () => ({
 	listConnectorIds: vi.fn().mockReturnValue(['mangeek', 'nexustoons']),
 }));
+vi.mock('../../../../service/connectorSwitch.js', () => ({
+	default: {
+		isConnectorEnabled: vi.fn().mockResolvedValue(true),
+		listEnabledConnectorIds: vi
+			.fn()
+			.mockResolvedValue(['mangeek', 'nexustoons']),
+	},
+}));
 vi.mock('../../../../service/queue/coverHashQueue.js', () => ({
 	getCoverHashQueue: vi.fn(),
 }));

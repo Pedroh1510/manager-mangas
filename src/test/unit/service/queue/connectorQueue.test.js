@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { CatalogRefreshStoppedError } from '../../../../connectors/catalogRefreshStopped.js';
 import { createCoverPaths } from '../../../../service/covers/coverPaths.js';
 import FakeCoverStore from '../../../fakes/FakeCoverStore.js';
 
@@ -15,6 +16,17 @@ vi.mock('bullmq', () => ({
 	Queue: QueueMock,
 	QueueEvents: QueueEventsMock,
 	Worker: WorkerMock,
+	UnrecoverableError: class UnrecoverableError extends Error {
+		name = 'UnrecoverableError';
+	},
+}));
+
+// Every connector is on unless a test turns it off.
+const switches = vi.hoisted(() => ({ isConnectorEnabled: null }));
+vi.mock('../../../../service/connectorSwitch.js', () => ({
+	default: {
+		isConnectorEnabled: (id) => switches.isConnectorEnabled(id),
+	},
 }));
 
 vi.mock('../../../../utils/mangaCatalog.js', () => ({
@@ -72,6 +84,10 @@ vi.mock('../../../../connectors/registry.js', () => ({
 }));
 
 describe('connectorQueue', () => {
+	beforeEach(() => {
+		switches.isConnectorEnabled = async () => true;
+	});
+
 	afterEach(() => {
 		vi.clearAllMocks();
 		vi.resetModules();
@@ -360,6 +376,82 @@ describe('connectorQueue', () => {
 			const { saveCatalog } = await import('../../../../utils/mangaCatalog.js');
 
 			await expect(runRefreshCatalogJob()).rejects.toThrow('mangeek');
+			expect(saveCatalog).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('disabled connector', () => {
+		class FakeSwitchedConnector {
+			static calls = [];
+			id = 'mangeek';
+			async initialize() {}
+			async _getMangas({ shouldStop } = {}) {
+				FakeSwitchedConnector.calls.push('getMangas');
+				if (await shouldStop?.()) {
+					throw new CatalogRefreshStoppedError('mangeek');
+				}
+				return [{ id: '1', title: 'Black Clover' }];
+			}
+			async _getChapters() {
+				FakeSwitchedConnector.calls.push('getChapters');
+				return [{ id: 'c1' }];
+			}
+			async _getPages() {
+				FakeSwitchedConnector.calls.push('getPages');
+				return ['p1'];
+			}
+		}
+
+		async function runJob(name) {
+			FakeSwitchedConnector.calls = [];
+			const registry = await import('../../../../connectors/registry.js');
+			vi.mocked(registry.getConnectorClass).mockReturnValue(
+				FakeSwitchedConnector,
+			);
+			const { startConnectorWorkers } = await import(
+				'../../../../service/queue/connectorQueue.js'
+			);
+			startConnectorWorkers();
+			const processJob = WorkerMock.mock.calls[0][1];
+			return processJob({ name, data: { manga: {}, chapter: {} } });
+		}
+
+		test('refreshCatalog job is an empty success when connector disabled', async () => {
+			switches.isConnectorEnabled = async () => false;
+			const { saveCatalog } = await import('../../../../utils/mangaCatalog.js');
+
+			const result = await runJob('refreshCatalog');
+
+			expect(result).toBe(0);
+			expect(saveCatalog).not.toHaveBeenCalled();
+			expect(FakeSwitchedConnector.calls).toEqual([]);
+		});
+
+		test('listChapters job returns [] when disabled', async () => {
+			switches.isConnectorEnabled = async () => false;
+
+			expect(await runJob('listChapters')).toEqual([]);
+			expect(FakeSwitchedConnector.calls).toEqual([]);
+		});
+
+		test('listPages job fails unrecoverably when disabled', async () => {
+			switches.isConnectorEnabled = async () => false;
+
+			await expect(runJob('listPages')).rejects.toMatchObject({
+				name: 'UnrecoverableError',
+				message: 'Connector mangeek is disabled',
+			});
+		});
+
+		test('refreshCatalog stops mid-run without saving catalog', async () => {
+			const answers = [true, false];
+			switches.isConnectorEnabled = async () => answers.shift();
+			const { saveCatalog } = await import('../../../../utils/mangaCatalog.js');
+
+			const result = await runJob('refreshCatalog');
+
+			expect(result).toBe(0);
+			expect(FakeSwitchedConnector.calls).toEqual(['getMangas']);
 			expect(saveCatalog).not.toHaveBeenCalled();
 		});
 	});

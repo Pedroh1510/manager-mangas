@@ -1,8 +1,10 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Connector from '../../../connectors/Connector.js';
 import * as registry from '../../../connectors/registry.js';
 import database from '../../../infra/database.js';
+import { ConflictError } from '../../../infra/errors.js';
 import logger from '../../../infra/logger.js';
+import ConnectorSwitch from '../../../service/connectorSwitch.js';
 import MangaService from '../../../service/manga.js';
 import * as connectorQueue from '../../../service/queue/connectorQueue.js';
 import * as mangaCatalog from '../../../utils/mangaCatalog.js';
@@ -319,6 +321,30 @@ describe('MangaService', () => {
 	});
 
 	describe('downloadMangas', () => {
+		beforeEach(() => {
+			vi.spyOn(ConnectorSwitch, 'assertConnectorEnabled').mockResolvedValue();
+		});
+
+		test('refuses to download pages of a disabled connector', async () => {
+			database.query.mockResolvedValueOnce({
+				rows: [{ cookie: null, userAgent: null, idPlugin: 'mangeek' }],
+			});
+			const assertSpy = vi
+				.spyOn(ConnectorSwitch, 'assertConnectorEnabled')
+				.mockRejectedValue(new ConflictError({ message: 'disabled' }));
+
+			await expect(
+				MangaService.downloadMangas({
+					manga: 'Black Clover',
+					chapter: '1',
+					pages: ['https://img/1.jpg'],
+					idChapter: 42,
+				}),
+			).rejects.toMatchObject({ statusCode: 409 });
+			expect(assertSpy).toHaveBeenCalledWith('mangeek');
+			expect(database.query).toHaveBeenCalledTimes(1);
+		});
+
 		test('looks up cookie/userAgent through mangaConnectors, not a chapters.pluginId column', async () => {
 			database.query
 				.mockResolvedValueOnce({

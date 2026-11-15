@@ -1,10 +1,10 @@
 import { Queue, Worker } from 'bullmq';
+import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 import { PageNotFoundError } from '../imageDownloader.js';
 import MangaService from '../manga.js';
 import { PlaceholderChapterError } from '../placeholderChapter.js';
 import connection from './connection.js';
 import { RETRY_WITH_BACKOFF } from './retryPolicy.js';
-import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
 const QUEUE_NAME = 'download';
 
@@ -18,10 +18,15 @@ export async function enqueueDownload(data, jobId) {
 	await queue.add('teste', data, { ...RETRY_WITH_BACKOFF, jobId });
 }
 
+// HTTP 409 = connector disabled (GLOSSARY: Conector desligado): retrying
+// would hit the site it was turned off for; the chapter stays pending.
+const CONNECTOR_DISABLED_STATUS = 409;
+
 function isPermanentChapterError(error) {
 	return (
 		error instanceof PageNotFoundError ||
-		error instanceof PlaceholderChapterError
+		error instanceof PlaceholderChapterError ||
+		error?.statusCode === CONNECTOR_DISABLED_STATUS
 	);
 }
 

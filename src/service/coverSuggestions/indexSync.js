@@ -48,6 +48,7 @@ export function createIndexSync({
 	suggestions,
 	getHashQueue,
 	now = Date.now,
+	isConnectorEnabled = async () => true,
 }) {
 	async function dropRemovedItems(idPlugin, catalog) {
 		const removed = await hashes.deleteMissing({
@@ -84,6 +85,9 @@ export function createIndexSync({
 	}
 
 	async function syncConnector(idPlugin) {
+		// Queued syncs (post-refresh, manual) of a disabled connector do nothing.
+		if (!(await isConnectorEnabled(idPlugin)))
+			return { enqueued: 0, removed: 0 };
 		const catalog = await loadCatalog(idPlugin);
 		if (!catalog) return { enqueued: 0, removed: 0 };
 		const removed = await dropRemovedItems(idPlugin, catalog);

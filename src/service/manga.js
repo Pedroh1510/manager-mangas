@@ -2,15 +2,16 @@ import sql from 'sql-bricks';
 import * as registry from '../connectors/registry.js';
 import database from '../infra/database.js';
 import logger from '../infra/logger.js';
-import { formatChapters } from '../utils/chapterFormat.js';
+import { countPipelineEvent } from '../infra/telemetry/business.js';
 import { titlesMatch } from '../utils/altTitles.js';
+import { formatChapters } from '../utils/chapterFormat.js';
 import * as mangaCatalog from '../utils/mangaCatalog.js';
+import ConnectorSwitch from './connectorSwitch.js';
 import Download from './download.js';
 import {
 	enqueueAndWait,
 	enqueueCatalogRefresh,
 } from './queue/connectorQueue.js';
-import { countPipelineEvent } from '../infra/telemetry/business.js';
 
 async function downloadMangas({ manga, chapter, pages, idChapter }) {
 	let cookie = null;
@@ -43,6 +44,9 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			cookie = response[0]?.cookie;
 			userAgent = response[0]?.userAgent;
 			source = response[0]?.idPlugin ?? source;
+			// A download job queued before the connector was disabled must not
+			// fetch its pages; a disabled connector always has a pluginConfig row.
+			await ConnectorSwitch.assertConnectorEnabled(source);
 		}
 	}
 	logger.info({ manga, chapter, status: 'inicio' });
@@ -75,12 +79,14 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 }
 
 async function listPlugins({ name }) {
+	const enabledIds = new Set(await ConnectorSwitch.listEnabledConnectorIds());
 	const data = registry.listConnectorIds().map((id) => {
 		const ConnectorClass = registry.getConnectorClass(id);
 		const instance = new ConnectorClass();
 		return {
 			url: instance.url,
 			id: instance.id,
+			enabled: enabledIds.has(id),
 		};
 	});
 	if (name) {
@@ -95,6 +101,9 @@ async function getInstancePlugin(pluginId) {
 	if (!registry.hasConnector(pluginId)) {
 		throw new Error(`Plugin with id ${pluginId} not found`);
 	}
+	// Every site access (catalog, chapters, pages, downloads) builds its
+	// instance here, so this one check keeps a disabled connector untouched.
+	await ConnectorSwitch.assertConnectorEnabled(pluginId);
 	const ConnectorClass = registry.getConnectorClass(pluginId);
 	const instance = new ConnectorClass();
 	const id = instance.id;

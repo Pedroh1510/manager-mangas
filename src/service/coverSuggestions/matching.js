@@ -170,9 +170,10 @@ export function createMatcher({
 		];
 	}
 
-	function missingConnectors(links) {
+	async function missingConnectors(links) {
 		const linked = new Set(links.map((link) => link.idPlugin.toLowerCase()));
-		return listConnectorIds().filter((id) => !linked.has(id.toLowerCase()));
+		const ids = await listConnectorIds();
+		return ids.filter((id) => !linked.has(id.toLowerCase()));
 	}
 
 	async function matchManga(
@@ -187,7 +188,7 @@ export function createMatcher({
 			...links.map((link) => link.titlePlugin),
 		]);
 		const selected = [];
-		for (const idPlugin of missingConnectors(links)) {
+		for (const idPlugin of await missingConnectors(links)) {
 			selected.push(
 				...(await suggestionsFor(
 					idPlugin,
@@ -203,7 +204,7 @@ export function createMatcher({
 
 	async function matchAll() {
 		const mangas = await suggestions.listMangasMissingConnectors({
-			connectorIds: listConnectorIds(),
+			connectorIds: await listConnectorIds(),
 		});
 		const contexts = new Map();
 		for (const manga of mangas) {

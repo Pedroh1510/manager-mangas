@@ -46,7 +46,12 @@ export default class Connector {
 		return cleaned.length ? { ...withCover, altTitles: cleaned } : withCover;
 	}
 
-	async _getMangas() {
+	/**
+	 * Full catalog sweep. A long sweep may poll options.shouldStop() and throw
+	 * CatalogRefreshStoppedError when it answers true (connector disabled).
+	 * @param {{ shouldStop?: () => Promise<boolean> }} [_options]
+	 */
+	async _getMangas(_options) {
 		throw new Error(`${this.constructor.name} does not implement _getMangas()`);
 	}
 

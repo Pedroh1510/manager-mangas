@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { listConnectorIds } from '../../connectors/registry.js';
 import CONFIG_ENV from '../../infra/env.js';
 import logger from '../../infra/logger.js';
 import CatalogCoverHashesRepository from '../../repository/catalogCoverHashes.js';
@@ -7,6 +6,7 @@ import CoverSuggestionsRepository from '../../repository/coverSuggestions.js';
 import MangaConnectorsRepository from '../../repository/mangaConnectors.js';
 import MangasRepository from '../../repository/mangas.js';
 import { loadCatalog } from '../../utils/mangaCatalog.js';
+import ConnectorSwitch from '../connectorSwitch.js';
 import { createCoverDownloader } from '../covers/coverDownloader.js';
 import { createCoverPaths } from '../covers/coverPaths.js';
 import { coverStore } from '../covers/coverStore.js';
@@ -26,11 +26,13 @@ const indexSync = createIndexSync({
 	hashes: CatalogCoverHashesRepository,
 	suggestions: CoverSuggestionsRepository,
 	getHashQueue: getCoverHashQueue,
+	isConnectorEnabled: (id) => ConnectorSwitch.isConnectorEnabled(id),
 });
 
 const matcher = createMatcher({
 	getConfig: () => matchConfigFrom(CONFIG_ENV),
-	listConnectorIds,
+	// Async: a disabled connector gets no suggestions (GLOSSARY: Conector desligado).
+	listConnectorIds: () => ConnectorSwitch.listEnabledConnectorIds(),
 	listConnectorsByManga: MangaConnectorsRepository.listConnectorsByManga,
 	listLinksByPlugin: MangaConnectorsRepository.listLinksByPlugin,
 	hashes: CatalogCoverHashesRepository,
@@ -43,7 +45,8 @@ const matcher = createMatcher({
 
 const CoverSuggestions = {
 	syncConnectorIndex: indexSync.syncConnector,
-	syncAllIndexes: () => indexSync.syncAll(listConnectorIds()),
+	syncAllIndexes: async () =>
+		indexSync.syncAll(await ConnectorSwitch.listEnabledConnectorIds()),
 	hashCover: createHashCoverJob({
 		paths,
 		store: coverStore,
@@ -52,6 +55,7 @@ const CoverSuggestions = {
 		hashImage: hashCoverImage,
 		hashes: CatalogCoverHashesRepository,
 		logger,
+		isConnectorEnabled: (id) => ConnectorSwitch.isConnectorEnabled(id),
 	}),
 	matchManga: matcher.matchManga,
 	matchAll: matcher.matchAll,

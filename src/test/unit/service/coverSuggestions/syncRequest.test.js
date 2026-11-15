@@ -1,18 +1,31 @@
 import { describe, expect, test } from 'vitest';
-import { NotFoundError } from '../../../../infra/errors.js';
+import { ConflictError, NotFoundError } from '../../../../infra/errors.js';
 import { createCoverSyncRequest } from '../../../../service/coverSuggestions/syncRequest.js';
 import FakeBackgroundQueue from '../../../fakes/FakeBackgroundQueue.js';
 
-function arrange() {
+function arrange({ disabledIds = [] } = {}) {
 	const queue = new FakeBackgroundQueue();
 	const requestSync = createCoverSyncRequest({
-		hasConnector: (idPlugin) => idPlugin === 'nexustoons',
+		hasConnector: (idPlugin) => ['nexustoons', 'wicomix'].includes(idPlugin),
+		assertConnectorEnabled: async (idPlugin) => {
+			if (!disabledIds.includes(idPlugin)) return;
+			throw new ConflictError({ message: `Connector ${idPlugin} is disabled` });
+		},
 		enqueue: queue.enqueue,
 	});
 	return { requestSync, queue };
 }
 
 describe('cover index sync request', () => {
+	test('refuses a disabled connector without enqueueing', async () => {
+		const { requestSync, queue } = arrange({ disabledIds: ['wicomix'] });
+
+		await expect(requestSync({ idPlugin: 'wicomix' })).rejects.toMatchObject({
+			statusCode: 409,
+		});
+		expect(queue.jobs).toStrictEqual([]);
+	});
+
 	test('enqueues the sync of every connector when no idPlugin is given', async () => {
 		const { requestSync, queue } = arrange();
 

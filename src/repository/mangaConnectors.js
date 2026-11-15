@@ -137,7 +137,33 @@ async function deactivateAllForManga({ idManga }) {
 	await setAllConnectorsActive({ idManga, isActive: false });
 }
 
+/**
+ * Active links of live mangas, per lower-cased idPlugin.
+ * @example await countActiveLinksByPlugin() // Map { 'mangeek' => 2 }
+ * @returns {Promise<Map<string, number>>}
+ */
+async function countActiveLinksByPlugin() {
+	const { rows } = await database.query(
+		sql
+			.select(
+				'lower("mangaConnectors"."idPlugin") AS "idPlugin"',
+				'count(*)::int AS "total"',
+			)
+			.from('mangaConnectors')
+			.join('mangas')
+			.on({ '"mangas"."idManga"': '"mangaConnectors"."idManga"' })
+			.where({
+				'"mangaConnectors"."isActive"': true,
+				'"mangas"."deletedAt"': null,
+			})
+			.groupBy('lower("mangaConnectors"."idPlugin")')
+			.toParams(),
+	);
+	return new Map(rows.map((row) => [row.idPlugin, row.total]));
+}
+
 const MangaConnectorsRepository = {
+	countActiveLinksByPlugin,
 	linkConnector,
 	findConnector,
 	listConnectorsByManga,

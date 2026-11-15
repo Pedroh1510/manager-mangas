@@ -78,6 +78,19 @@ describe('processDownloadJob', () => {
 		expect(job.discard).toHaveBeenCalledTimes(1);
 	});
 
+	test('discards the job when its connector is disabled, so it never retries against the site', async () => {
+		const { ConflictError } = await import('../../../../infra/errors.js');
+		MangaService.downloadMangas.mockRejectedValue(
+			new ConflictError({ message: 'Connector mangeek is disabled' }),
+		);
+		const job = fakeJob();
+
+		await expect(processDownloadJob(job)).rejects.toMatchObject({
+			statusCode: 409,
+		});
+		expect(job.discard).toHaveBeenCalledTimes(1);
+	});
+
 	test('does not discard the job for a transient error, so BullMQ retries it', async () => {
 		const error = new Error('network down');
 		MangaService.downloadMangas.mockRejectedValue(error);
