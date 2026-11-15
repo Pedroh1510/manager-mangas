@@ -10,7 +10,12 @@ import FakeHashQueue from '../../../fakes/FakeHashQueue.js';
 
 const PLUGIN = 'test-fixture';
 
-function arrange({ catalog, rows = [], clock = new FakeClock() }) {
+function arrange({
+	catalog,
+	rows = [],
+	clock = new FakeClock(),
+	isConnectorEnabled,
+}) {
 	const queue = new FakeHashQueue();
 	const hashes = new FakeCatalogCoverHashes(rows);
 	const suggestions = new FakeCoverSuggestions();
@@ -20,6 +25,7 @@ function arrange({ catalog, rows = [], clock = new FakeClock() }) {
 		suggestions,
 		getHashQueue: () => queue,
 		now: clock.now,
+		isConnectorEnabled,
 	});
 	return { sync, queue, hashes, suggestions };
 }
@@ -33,6 +39,18 @@ const hashedRow = (idMangaPlugin, coverUrl) => ({
 });
 
 describe('cover hash index sync', () => {
+	test('syncConnector enqueues nothing for a disabled connector', async () => {
+		const { sync, queue } = arrange({
+			catalog: [{ id: 'a', title: 'A', coverUrl: 'https://h/a.jpg' }],
+			isConnectorEnabled: async () => false,
+		});
+
+		const result = await sync.syncConnector(PLUGIN);
+
+		expect(result).toEqual({ enqueued: 0, removed: 0 });
+		expect(queue.jobs).toEqual([]);
+	});
+
 	test('enqueues items without hash or with a changed coverUrl', async () => {
 		const { sync, queue } = arrange({
 			catalog: [

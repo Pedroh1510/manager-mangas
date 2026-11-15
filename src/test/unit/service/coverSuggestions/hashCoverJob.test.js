@@ -14,7 +14,13 @@ const COVER = Buffer.from('webp-bytes');
 const HASHED = { dHash: -5n, pHash: 7n };
 const item = { idPlugin: PLUGIN, idMangaPlugin: 'a', coverUrl: COVER_URL };
 
-function arrange({ files = {}, downloadCover, hashImage, rows = [] } = {}) {
+function arrange({
+	files = {},
+	downloadCover,
+	hashImage,
+	rows = [],
+	isConnectorEnabled,
+} = {}) {
 	const store = new FakeCoverStore(files);
 	const hashes = new FakeCatalogCoverHashes(rows);
 	const logger = new FakeLogger();
@@ -42,11 +48,23 @@ function arrange({ files = {}, downloadCover, hashImage, rows = [] } = {}) {
 		hashes,
 		now: clock.now,
 		logger,
+		isConnectorEnabled,
 	});
 	return { hashCover, store, hashes, logger, clock, downloads, slots };
 }
 
 describe('hashCover job', () => {
+	test('skips a disabled connector without downloading or recording a failure', async () => {
+		const { hashCover, hashes, downloads } = arrange({
+			isConnectorEnabled: async () => false,
+		});
+
+		await hashCover(item);
+
+		expect(downloads).toEqual([]);
+		expect(hashes.row(PLUGIN, 'a')).toBeNull();
+	});
+
 	test('hashes the cached catalog cover without downloading', async () => {
 		const seen = [];
 		const { hashCover, downloads, hashes } = arrange({

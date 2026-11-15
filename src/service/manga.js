@@ -44,6 +44,9 @@ async function downloadMangas({ manga, chapter, pages, idChapter }) {
 			cookie = response[0]?.cookie;
 			userAgent = response[0]?.userAgent;
 			source = response[0]?.idPlugin ?? source;
+			// A download job queued before the connector was disabled must not
+			// fetch its pages; a disabled connector always has a pluginConfig row.
+			await ConnectorSwitch.assertConnectorEnabled(source);
 		}
 	}
 	logger.info({ manga, chapter, status: 'inicio' });

@@ -16,6 +16,7 @@ export function createHashCoverJob({
 	now = Date.now,
 	logger,
 	countEvent = countPipelineEvent,
+	isConnectorEnabled = async () => true,
 }) {
 	async function loadCover({ idPlugin, idMangaPlugin, coverUrl }) {
 		const coverPath = paths.catalogCover(idPlugin, idMangaPlugin);
@@ -32,6 +33,9 @@ export function createHashCoverJob({
 	}
 
 	return async function hashCover({ idPlugin, idMangaPlugin, coverUrl }) {
+		// Hash jobs queued before the connector was disabled skip its CDN and
+		// record no failure, so they rerun normally once it is back.
+		if (!(await isConnectorEnabled(idPlugin))) return;
 		const item = { idPlugin, idMangaPlugin, coverUrl };
 		let hashed;
 		try {

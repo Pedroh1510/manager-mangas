@@ -26,6 +26,7 @@ const indexSync = createIndexSync({
 	hashes: CatalogCoverHashesRepository,
 	suggestions: CoverSuggestionsRepository,
 	getHashQueue: getCoverHashQueue,
+	isConnectorEnabled: (id) => ConnectorSwitch.isConnectorEnabled(id),
 });
 
 const matcher = createMatcher({
@@ -54,6 +55,7 @@ const CoverSuggestions = {
 		hashImage: hashCoverImage,
 		hashes: CatalogCoverHashesRepository,
 		logger,
+		isConnectorEnabled: (id) => ConnectorSwitch.isConnectorEnabled(id),
 	}),
 	matchManga: matcher.matchManga,
 	matchAll: matcher.matchAll,

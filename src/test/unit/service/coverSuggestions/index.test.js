@@ -9,6 +9,7 @@ vi.mock('../../../../connectors/registry.js', () => ({
 }));
 vi.mock('../../../../service/connectorSwitch.js', () => ({
 	default: {
+		isConnectorEnabled: vi.fn().mockResolvedValue(true),
 		listEnabledConnectorIds: vi
 			.fn()
 			.mockResolvedValue(['mangeek', 'nexustoons']),
