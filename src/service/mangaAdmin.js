@@ -17,6 +17,7 @@ import {
 	listChaptersMissing,
 	updateMangaChapters,
 } from './chapterDiscovery.js';
+import ConnectorSwitch from './connectorSwitch.js';
 import CoverService from './covers/index.js';
 import Download from './download.js';
 import MangaService from './manga.js';
@@ -75,6 +76,7 @@ async function linkConnector({
 			action: 'Change plugin id',
 		});
 	}
+	await ConnectorSwitch.assertConnectorEnabled(idPlugin);
 	const { idMangaConnector } = await MangaConnectorsRepository.linkConnector({
 		idManga,
 		idPlugin,
@@ -387,6 +389,7 @@ async function refreshConnectorCatalog({ idPlugin }) {
 			action: 'Verifique o idPlugin em GET /mangas/plugins.',
 		});
 	}
+	await ConnectorSwitch.assertConnectorEnabled(idPlugin);
 	await enqueueCatalogRefresh(idPlugin);
 	return { idPlugin };
 }

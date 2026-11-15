@@ -1,5 +1,6 @@
 import express from 'express';
 import { ValidationError } from '../infra/errors.js';
+import ConnectorSwitch from '../service/connectorSwitch.js';
 import CoverService from '../service/covers/index.js';
 import MangaService from '../service/manga.js';
 import mangasAdmController from './mangasAdmController.js';
@@ -163,6 +164,7 @@ mangasController.get('/:pluginId/cover/:idMangaPlugin', async (req, res) => {
 			action: 'Change plugin id',
 		});
 	}
+	await ConnectorSwitch.assertConnectorEnabled(pluginId);
 	const cover = await CoverService.getCatalogCover({ pluginId, idMangaPlugin });
 	sendCover(res, cover);
 });

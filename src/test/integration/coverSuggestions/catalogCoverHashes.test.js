@@ -15,7 +15,9 @@ const catalogPath = path.resolve('appdata', `mangas.${PLUGIN}.json`);
 const BIT_63 = 1n << 63n;
 
 async function hashRow(idMangaPlugin) {
-	const rows = await CatalogCoverHashesRepository.listByPlugin({ idPlugin: PLUGIN });
+	const rows = await CatalogCoverHashesRepository.listByPlugin({
+		idPlugin: PLUGIN,
+	});
 	return rows.filter((row) => row.idMangaPlugin === idMangaPlugin);
 }
 
@@ -63,15 +65,32 @@ describe('catalogCoverHashes', () => {
 	});
 
 	test('recordFailure counts per coverUrl', async () => {
-		const failure = { idPlugin: PLUGIN, idMangaPlugin: 'f', failedAt: new Date() };
+		const failure = {
+			idPlugin: PLUGIN,
+			idMangaPlugin: 'f',
+			failedAt: new Date(),
+		};
 
-		await CatalogCoverHashesRepository.recordFailure({ ...failure, coverUrl: 'u1' });
-		await CatalogCoverHashesRepository.recordFailure({ ...failure, coverUrl: 'u1' });
+		await CatalogCoverHashesRepository.recordFailure({
+			...failure,
+			coverUrl: 'u1',
+		});
+		await CatalogCoverHashesRepository.recordFailure({
+			...failure,
+			coverUrl: 'u1',
+		});
 		const sameUrl = (await hashRow('f'))[0];
-		await CatalogCoverHashesRepository.recordFailure({ ...failure, coverUrl: 'u2' });
+		await CatalogCoverHashesRepository.recordFailure({
+			...failure,
+			coverUrl: 'u2',
+		});
 		const newUrl = (await hashRow('f'))[0];
 
-		expect(sameUrl).toMatchObject({ failureCount: 2, dHash: null, pHash: null });
+		expect(sameUrl).toMatchObject({
+			failureCount: 2,
+			dHash: null,
+			pHash: null,
+		});
 		expect(newUrl).toMatchObject({ failureCount: 1, coverUrl: 'u2' });
 	});
 
@@ -88,7 +107,13 @@ describe('catalogCoverHashes', () => {
 			catalogPath,
 			JSON.stringify({
 				version: 2,
-				mangas: [{ id: 'keep', title: 'Keep', coverUrl: 'https://img.example/keep.jpg' }],
+				mangas: [
+					{
+						id: 'keep',
+						title: 'Keep',
+						coverUrl: 'https://img.example/keep.jpg',
+					},
+				],
 			}),
 		);
 
@@ -97,7 +122,11 @@ describe('catalogCoverHashes', () => {
 		expect(await hashRow('x')).toEqual([]);
 		expect(await hashRow('keep')).toHaveLength(1);
 		expect(await suggestionRows(idManga)).toEqual([]);
-		expect((await suggestionRows(otherManga)).map((row) => row.status)).toEqual(['dismissed']);
-		expect((await suggestionRows(thirdManga)).map((row) => row.status)).toEqual(['accepted']);
+		expect((await suggestionRows(otherManga)).map((row) => row.status)).toEqual(
+			['dismissed'],
+		);
+		expect((await suggestionRows(thirdManga)).map((row) => row.status)).toEqual(
+			['accepted'],
+		);
 	});
 });

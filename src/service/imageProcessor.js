@@ -1,9 +1,9 @@
 import sharp from 'sharp';
 import CONFIG_ENV from '../infra/env.js';
 import logger from '../infra/logger.js';
+import { countPipelineEvent } from '../infra/telemetry/business.js';
 import { detectImageExtension } from '../utils/imageFormat.js';
 import { createConcurrencyLimiter } from './concurrencyLimiter.js';
-import { countPipelineEvent } from '../infra/telemetry/business.js';
 
 // One libvips thread per encode: concurrency is capped by the limiter below,
 // otherwise every parallel encode spawns a pool sized to the host's cores.

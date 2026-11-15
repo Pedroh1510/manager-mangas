@@ -13,7 +13,11 @@ afterAll(async () => {
 describe('cover hash queue on Redis', () => {
 	test('deduplicates a hashCover job per item', async () => {
 		await queue.obliterate({ force: true });
-		const data = { idPlugin: PLUGIN, idMangaPlugin: 'dup', coverUrl: 'https://img.example/dup.jpg' };
+		const data = {
+			idPlugin: PLUGIN,
+			idMangaPlugin: 'dup',
+			coverUrl: 'https://img.example/dup.jpg',
+		};
 		const opts = { jobId: hashJobId(PLUGIN, 'dup') };
 
 		await queue.add('hashCover', data, opts);

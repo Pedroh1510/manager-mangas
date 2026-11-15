@@ -1,10 +1,10 @@
 import { Queue, Worker } from 'bullmq';
+import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 import { PageNotFoundError } from '../imageDownloader.js';
 import MangaService from '../manga.js';
 import { PlaceholderChapterError } from '../placeholderChapter.js';
 import connection from './connection.js';
 import { RETRY_WITH_BACKOFF } from './retryPolicy.js';
-import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
 const QUEUE_NAME = 'download';
 

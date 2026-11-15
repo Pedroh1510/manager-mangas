@@ -3,6 +3,8 @@ import {
 	getConnectorClass,
 	listConnectorIds,
 } from '../../connectors/registry.js';
+import logger from '../../infra/logger.js';
+import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 import {
 	CATALOG_VERSION,
 	loadCatalog,
@@ -10,9 +12,7 @@ import {
 	saveCatalog,
 } from '../../utils/mangaCatalog.js';
 import CoverService from '../covers/index.js';
-import logger from '../../infra/logger.js';
 import connection from './connection.js';
-import { jobTelemetry, withJobMetrics } from '../../infra/telemetry/jobs.js';
 
 const CONCURRENCY_BY_CONNECTOR = {
 	mangeek: 1,

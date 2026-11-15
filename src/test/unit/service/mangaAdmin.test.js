@@ -7,6 +7,7 @@ import ChaptersRepository from '../../../repository/chapters.js';
 import MangaConnectorsRepository from '../../../repository/mangaConnectors.js';
 import MangasRepository from '../../../repository/mangas.js';
 import AltTitlesService from '../../../service/altTitles.js';
+import ConnectorSwitch from '../../../service/connectorSwitch.js';
 import CoverService from '../../../service/covers/index.js';
 import * as mangaServiceModule from '../../../service/manga.js';
 import MangaAdminService from '../../../service/mangaAdmin.js';
@@ -44,6 +45,8 @@ describe('MangaAdminService', () => {
 	// restoreAllMocks also drops the mock's implementation after each test.
 	beforeEach(() => {
 		vi.mocked(AltTitlesService.mergeFromLink).mockResolvedValue(undefined);
+		vi.spyOn(ConnectorSwitch, 'isConnectorEnabled').mockResolvedValue(true);
+		vi.spyOn(ConnectorSwitch, 'assertConnectorEnabled').mockResolvedValue();
 	});
 
 	afterEach(() => {
@@ -429,6 +432,21 @@ describe('MangaAdminService', () => {
 					idPlugin: 'healthy',
 				},
 			]);
+		});
+
+		test('skips links of a disabled connector', async () => {
+			arrangeConnectors();
+			vi.spyOn(logger, 'error').mockImplementation(() => {});
+			vi.mocked(ConnectorSwitch.isConnectorEnabled).mockImplementation(
+				async (idPlugin) => idPlugin !== 'healthy',
+			);
+
+			await MangaAdminService.listChaptersMissing({ idManga: 9 });
+
+			const asked = vi
+				.mocked(mangaServiceModule.default.listChaptersByManga)
+				.mock.calls.map(([params]) => params.idPlugin);
+			expect(asked).toEqual(['broken']);
 		});
 
 		test('logs the failing connector instead of throwing', async () => {

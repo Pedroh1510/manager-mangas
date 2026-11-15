@@ -1,7 +1,7 @@
 import sql from 'sql-bricks-postgres';
 import database from '../infra/database.js';
-import { searchTitlesOf } from '../utils/altTitles.js';
 import { normalizeTitle } from '../service/coverSuggestions/titleSimilarity.js';
+import { searchTitlesOf } from '../utils/altTitles.js';
 
 async function createManga({ title }) {
 	const { rows } = await database.query(

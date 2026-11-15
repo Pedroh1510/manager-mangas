@@ -1,8 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
-import database from '../../../../../infra/database.js';
 import api from '../../../../../infra/api.js';
+import database from '../../../../../infra/database.js';
 import orchestrator from '../../../../orchestrator.js';
 import {
 	seedLink,

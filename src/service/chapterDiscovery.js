@@ -7,6 +7,7 @@ import { countPipelineEvent } from '../infra/telemetry/business.js';
 import ChaptersRepository from '../repository/chapters.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 import MangasRepository from '../repository/mangas.js';
+import ConnectorSwitch from './connectorSwitch.js';
 import MangaService from './manga.js';
 import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
 
@@ -40,7 +41,12 @@ async function listActiveLinks({ idManga }) {
 	const connectors = await MangaConnectorsRepository.listConnectorsByManga({
 		idManga,
 	});
-	return connectors.filter((connector) => connector.isActive);
+	const active = connectors.filter((connector) => connector.isActive);
+	const enabled = await Promise.all(
+		active.map((link) => ConnectorSwitch.isConnectorEnabled(link.idPlugin)),
+	);
+	// A disabled connector is skipped up front instead of failing per link.
+	return active.filter((_link, index) => enabled[index]);
 }
 
 async function listKnownVolumes({ idManga }) {

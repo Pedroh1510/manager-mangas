@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import Connector from '../Connector.js';
 import logger from '../../infra/logger.js';
+import Connector from '../Connector.js';
 
 export default class Mangeek extends Connector {
 	constructor() {
@@ -8,7 +8,7 @@ export default class Mangeek extends Connector {
 			id: 'mangeek',
 			label: 'Mangeek',
 			tags: ['manga', 'portuguese'],
-			url: 'http://geekstations.com.br'
+			url: 'http://geekstations.com.br',
 		});
 	}
 
@@ -30,7 +30,7 @@ export default class Mangeek extends Connector {
 		const key = this._keyGen(nonce);
 		const request = new Request(
 			new URL(`/api/v2/pt/home/${nonce}/${key}`, this.url),
-			this.requestOptions
+			this.requestOptions,
 		);
 		try {
 			const data = await this.fetchJSON(request);
@@ -60,12 +60,14 @@ export default class Mangeek extends Connector {
 						{
 							...this.requestOptions,
 							method: 'POST',
-							body: JSON.stringify({ tags: [tag], ignore })
-						}
+							body: JSON.stringify({ tags: [tag], ignore }),
+						},
 					);
 					request.headers.set('content-type', 'application/json');
 					const page = await this.fetchJSON(request).catch((error) => {
-						logger.error(`Error fetching mangas for tag ${tag}`, { error: error.message });
+						logger.error(`Error fetching mangas for tag ${tag}`, {
+							error: error.message,
+						});
 						return [];
 					});
 					if (!page?.length) {
@@ -75,7 +77,7 @@ export default class Mangeek extends Connector {
 					for (const manga of page) {
 						seen.set(
 							String(manga.id),
-							this._toCatalogEntry(manga.id, manga.title, manga.thumbnail)
+							this._toCatalogEntry(manga.id, manga.title, manga.thumbnail),
 						);
 					}
 					ignore = ignore.concat(page.map((manga) => manga.id));
@@ -85,7 +87,9 @@ export default class Mangeek extends Connector {
 						await this.wait(500);
 					}
 				} catch (error) {
-					logger.error(`Error fetching mangas for tag ${tag}`, { error: error.message });
+					logger.error(`Error fetching mangas for tag ${tag}`, {
+						error: error.message,
+					});
 					morePages = false;
 				}
 			}
@@ -99,13 +103,13 @@ export default class Mangeek extends Connector {
 		const key = this._keyGen(manga.id);
 		const request = new Request(
 			new URL(`/api/v2/pt/manga/${nonce}/${manga.id}/${key}`, this.url),
-			this.requestOptions
+			this.requestOptions,
 		);
 		const data = await this.fetchJSON(request);
 		return (data.chapters ?? []).map((chapter) => ({
 			id: String(chapter.id),
 			title: chapter.title,
-			language: 'pt'
+			language: 'pt',
 		}));
 	}
 
@@ -115,7 +119,7 @@ export default class Mangeek extends Connector {
 		const key = this._keyGen(chapter.id);
 		const request = new Request(
 			new URL(`/api/v2/pt/chapter/${nonce}/${chapter.id}/${key}`, this.url),
-			this.requestOptions
+			this.requestOptions,
 		);
 		const data = await this.fetchJSON(request);
 		return data?.pages ?? [];
