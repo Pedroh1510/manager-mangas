@@ -364,6 +364,21 @@ describe('WiComix', () => {
 			expect(Object.keys(last.entries)).toHaveLength(250);
 		});
 
+		test('catalog sweep asks shouldStop every 25 works and stops', async () => {
+			const slugs = Array.from({ length: 60 }, (_, i) => [`obra-${i}`]);
+			const { connector, site } = buildConnector(oneSitemap(...slugs), {
+				fallback: comicFallback,
+			});
+			let asked = 0;
+			const shouldStop = async () => ++asked === 2;
+
+			await expect(connector._getMangas({ shouldStop })).rejects.toMatchObject({
+				name: 'CatalogRefreshStoppedError',
+			});
+			expect(asked).toBe(2);
+			expect(site.workPageRequests()).toBe(50);
+		});
+
 		test('index is saved before the catalog is returned', async () => {
 			const { connector, indexStore } = buildConnector(
 				oneSitemap(['a'], ['b']),

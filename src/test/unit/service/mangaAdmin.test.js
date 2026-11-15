@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import database from '../../../infra/database.js';
+import { ConflictError } from '../../../infra/errors.js';
 import logger from '../../../infra/logger.js';
 import { countPipelineEvent } from '../../../infra/telemetry/business.js';
 import ChaptersRepository from '../../../repository/chapters.js';
@@ -13,6 +14,7 @@ import * as mangaServiceModule from '../../../service/manga.js';
 import MangaAdminService from '../../../service/mangaAdmin.js';
 import { enqueueBackgroundTask } from '../../../service/queue/backgroundQueue.js';
 import { enqueueCatalogRefresh } from '../../../service/queue/connectorQueue.js';
+import { enqueueDownload } from '../../../service/queue/downloadQueue.js';
 
 vi.mock('../../../infra/database.js', () => ({
 	default: { query: vi.fn() },
@@ -34,6 +36,10 @@ vi.mock('../../../infra/telemetry/business.js', () => ({
 
 vi.mock('../../../service/queue/backgroundQueue.js', () => ({
 	enqueueBackgroundTask: vi.fn(),
+}));
+
+vi.mock('../../../service/queue/downloadQueue.js', () => ({
+	enqueueDownload: vi.fn(),
 }));
 
 vi.mock('../../../service/queue/connectorQueue.js', async (importOriginal) => ({
@@ -378,6 +384,27 @@ describe('MangaAdminService', () => {
 				message: expect.stringContaining('"nope"'),
 			});
 			expect(enqueueCatalogRefresh).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('listPagesAndSend', () => {
+		test('leaves the chapter pending when its connector is disabled', async () => {
+			vi.spyOn(ChaptersRepository, 'findChapterById').mockResolvedValue({
+				idChapter: 5,
+				idChapterPlugin: 'c-5',
+				idPlugin: 'mangeek',
+				title: 'Solo',
+				volume: '5',
+			});
+			vi.mocked(ConnectorSwitch.assertConnectorEnabled).mockRejectedValue(
+				new ConflictError({ message: 'Connector mangeek is disabled' }),
+			);
+
+			await expect(
+				MangaAdminService.listPagesAndSend({ idChapter: 5 }),
+			).rejects.toMatchObject({ statusCode: 409 });
+			expect(enqueueDownload).not.toHaveBeenCalled();
+			expect(database.query).not.toHaveBeenCalled();
 		});
 	});
 

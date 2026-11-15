@@ -1,5 +1,6 @@
 import defaultLogger from '../../infra/logger.js';
 import Connector from '../Connector.js';
+import { CatalogRefreshStoppedError } from '../catalogRefreshStopped.js';
 import { parseHtmlDocument, parseXmlDocument } from '../htmlDocument.js';
 import { createFileIndexStore } from './catalogIndex.js';
 import { readComicPage } from './rscPayload.js';
@@ -14,6 +15,9 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const INDEX_CHECKPOINT_EVERY = 100;
 // More failures than this share of the sitemap reads as a layout change (plan AC 13).
 const MAX_FAILURE_RATIO = 0.1;
+// How often a sweep asks whether the connector was disabled mid-run (~25s at
+// one request per second), so turning it off frees the queue quickly.
+const CATALOG_STOP_CHECK_EVERY = 25;
 const MANGA_SITEMAP_PATH = /^\/sitemaps\/manga-\d+\.xml$/;
 const MANGA_PATH = /^\/manga\/([^/?#]+)$/;
 // Page images have moved between hosts and paths (/chapters/<slug>/<n>/,
@@ -41,13 +45,17 @@ export default class WiComix extends Connector {
 		this.lastRequestSlot = Promise.resolve();
 	}
 
-	async _getMangas() {
+	/**
+	 * @param {{ shouldStop?: () => Promise<boolean> }} [options]
+	 */
+	async _getMangas({ shouldStop } = {}) {
 		const lastmods = await this._readSitemapLastmods();
 		const entries = keepListedEntries(await this.indexStore.load(), lastmods);
 		const run = { entries, fetched: 0, failures: 0 };
 		for (const [slug, lastmod] of lastmods) {
 			if (entries.get(slug)?.lastmod === lastmod) continue;
 			await this._refreshEntry(run, slug, lastmod);
+			await this._stopIfAsked(run, shouldStop);
 		}
 		await this.indexStore.save(Object.fromEntries(entries));
 		this._assertFailureRatio(run.failures, lastmods.size);
@@ -94,6 +102,11 @@ export default class WiComix extends Connector {
 			}
 		}
 		return lastmods;
+	}
+
+	async _stopIfAsked(run, shouldStop) {
+		if (!shouldStop || run.fetched % CATALOG_STOP_CHECK_EVERY !== 0) return;
+		if (await shouldStop()) throw new CatalogRefreshStoppedError(this.id);
 	}
 
 	async _refreshEntry(run, slug, lastmod) {
