@@ -2,16 +2,14 @@ import BlitzToons from './blitztoons/BlitzToons.js';
 import Mangeek from './mangeek/Mangeek.js';
 import NexusMangas from './nexusmangas/NexusMangas.js';
 import NexusToons from './nexustoons/NexusToons.js';
+import WiComix from './wicomix/WiComix.js';
 
 const connectors = {
 	mangeek: Mangeek,
 	nexustoons: NexusToons,
 	nexusmangas: NexusMangas,
 	blitztoons: BlitzToons,
-	// wicomix disabled 2026-11-14: the site moved chapters behind a paywall and
-	// its pages no longer carry the comic row, so refreshCatalog scraped ~3000
-	// works before failing (x3 attempts) and blocked background-tasks behind it.
-	// Re-add once WiComix.js parses the new layout and fails fast.
+	wicomix: WiComix,
 };
 
 export function getConnectorClass(id) {
