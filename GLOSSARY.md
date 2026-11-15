@@ -12,6 +12,10 @@ _Avoid_: obra, título
 Integração com um site-fonte de mangás (ex.: wicomix, mangeek).
 _Avoid_: plugin, engine
 
+**Conector desligado**:
+Conector posto fora de uso para todos os mangás de uma vez; nada o consulta enquanto estiver assim, e religá-lo devolve cada link ao estado que tinha.
+_Avoid_: conector inativo, link inativo
+
 **Link de conector**:
 Associação de um mangá a uma obra específica dentro de um conector; um mangá pode ter vários.
 _Avoid_: mangaConnector, fonte do mangá
