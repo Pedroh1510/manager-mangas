@@ -44,13 +44,21 @@ async function findMangaById({ idManga }) {
 
 // One query for the whole list: the admin screen shows every manga with its
 // connector links, and a per-manga lookup would be N+1 over hundreds of rows.
+// The connector switch is read through a subquery, not a join: pluginConfig
+// has no unique idPlugin, and a duplicate row would duplicate the link.
+const SWITCH_OF_LINK = (column) => `(SELECT "${column}" FROM "pluginConfig"
+	WHERE lower("pluginConfig"."idPlugin") = lower("mangaConnectors"."idPlugin")
+	AND "pluginConfig"."disabledAt" IS NOT NULL LIMIT 1)`;
 const CONNECTORS_JSON = `COALESCE(
 	json_agg(
 		json_build_object(
 			'idMangaConnector', "mangaConnectors"."idMangaConnector",
 			'idPlugin', "mangaConnectors"."idPlugin",
 			'titlePlugin', "mangaConnectors"."titlePlugin",
-			'isActive', "mangaConnectors"."isActive"
+			'isActive', "mangaConnectors"."isActive",
+			'connectorEnabled', ${SWITCH_OF_LINK('disabledAt')} IS NULL,
+			'connectorDisabledAt', ${SWITCH_OF_LINK('disabledAt')},
+			'connectorDisabledReason', ${SWITCH_OF_LINK('disabledReason')}
 		) ORDER BY "mangaConnectors"."idPlugin"
 	) FILTER (WHERE "mangaConnectors"."idMangaConnector" IS NOT NULL),
 	'[]'

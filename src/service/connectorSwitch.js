@@ -3,6 +3,7 @@
 import * as registry from '../connectors/registry.js';
 import { ConflictError, ValidationError } from '../infra/errors.js';
 import ConnectorSwitchesRepository from '../repository/connectorSwitches.js';
+import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 
 function assertKnownConnector(idPlugin) {
 	if (registry.hasConnector(idPlugin)) return;
@@ -77,7 +78,36 @@ async function enableConnector({ idPlugin }) {
 	await ConnectorSwitchesRepository.clearDisabled({ idPlugin });
 }
 
+function describeSwitch(id, disabledRow, activeLinks) {
+	const ConnectorClass = registry.getConnectorClass(id);
+	return {
+		id,
+		url: new ConnectorClass().url,
+		enabled: !disabledRow,
+		disabledAt: disabledRow?.disabledAt?.toISOString() ?? null,
+		disabledReason: disabledRow?.disabledReason ?? null,
+		activeLinks: activeLinks.get(id) ?? 0,
+	};
+}
+
+/**
+ * State of every registry connector for the admin list, ordered by id.
+ * @example await listConnectorSwitches() // [{ id: 'wicomix', url, enabled: false, disabledAt, disabledReason, activeLinks: 3 }]
+ * @returns {Promise<Array<{ id: string, url: string, enabled: boolean, disabledAt: string|null, disabledReason: string|null, activeLinks: number }>>}
+ */
+async function listConnectorSwitches() {
+	const disabled = await ConnectorSwitchesRepository.listDisabled();
+	const disabledById = new Map(disabled.map((row) => [row.idPlugin, row]));
+	const activeLinks =
+		await MangaConnectorsRepository.countActiveLinksByPlugin();
+	return registry
+		.listConnectorIds()
+		.toSorted()
+		.map((id) => describeSwitch(id, disabledById.get(id), activeLinks));
+}
+
 const ConnectorSwitch = {
+	listConnectorSwitches,
 	isConnectorEnabled,
 	assertConnectorEnabled,
 	listEnabledConnectorIds,

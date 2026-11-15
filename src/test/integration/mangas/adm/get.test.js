@@ -52,12 +52,18 @@ describe('GET /mangas/adm', () => {
 				idPlugin: 'mangeek',
 				titlePlugin: 'Dandadan MG',
 				isActive: false,
+				connectorEnabled: true,
+				connectorDisabledAt: null,
+				connectorDisabledReason: null,
 			},
 			{
 				idMangaConnector: expect.any(Number),
 				idPlugin: 'test-fixture',
 				titlePlugin: 'Dandadan TF',
 				isActive: true,
+				connectorEnabled: true,
+				connectorDisabledAt: null,
+				connectorDisabledReason: null,
 			},
 		]);
 	});
@@ -116,6 +122,9 @@ describe('GET /mangas/adm', () => {
 						idPlugin: 'test-fixture',
 						titlePlugin: 'Black Clover',
 						isActive: true,
+						connectorEnabled: true,
+						connectorDisabledAt: null,
+						connectorDisabledReason: null,
 					},
 				],
 			},

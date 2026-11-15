@@ -164,7 +164,22 @@ async function cleanupQuery({ query }, _, next) {
 	return next();
 }
 
+// Reason is free text shown in the admin list; 200 chars keeps it one line.
+const SWITCH_REASON_MAX = 200;
+
+async function setConnectorSwitch(req, _, next) {
+	const schema = Joi.object().keys({
+		body: Joi.object().keys({
+			enabled: Joi.boolean().strict().required(),
+			reason: Joi.string().allow('').max(SWITCH_REASON_MAX).optional(),
+		}),
+	});
+	await schema.validateAsync(req, { allowUnknown: true });
+	return next();
+}
+
 const MangasAdmValidator = {
+	setConnectorSwitch,
 	createManga,
 	replaceAltTitles,
 	linkConnector,
