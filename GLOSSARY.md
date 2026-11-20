@@ -27,6 +27,10 @@ Lista de obras disponíveis num conector, guardada localmente e renovada periodi
 Consulta aos links ativos de um mangá para registrar capítulos ainda desconhecidos.
 _Avoid_: buscar capítulos, update de capítulos
 
+**Carência**:
+Tempo, contado da publicação no site-fonte, em que um capítulo novo de um conector ainda não é registrado; serve para não pegar capítulo postado antes da tradução.
+_Avoid_: quarentena, delay, atraso
+
 **Volume**:
 Número que identifica um capítulo dentro do mangá; dois links nunca registram o mesmo volume.
 _Avoid_: número do capítulo

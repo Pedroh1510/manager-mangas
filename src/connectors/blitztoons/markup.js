@@ -26,15 +26,19 @@ function readCatalogCard(card) {
 /**
  * Reads the public chapter items of an `/obra/{slug}` page; VIP early-access
  * items are dropped (markup inferred from theme.css, plan open question 2).
- * @example readChapterItems(doc) // [{ dataNum: '164' }, { dataNum: '163' }]
+ * `publishedAt` is the raw `<time datetime>` text, empty when missing.
+ * @example readChapterItems(doc) // [{ dataNum: '164', publishedAt: '2026-11-19T20:56:25.085Z' }]
  * @param {{select: Function}} doc parsed page
- * @returns {{dataNum: string}[]}
+ * @returns {{dataNum: string, publishedAt: string}[]}
  */
 export function readChapterItems(doc) {
 	return doc
 		.select('ul.chaplist li.chap')
 		.filter((item) => !isLockedChapter(item))
-		.map((item) => ({ dataNum: item.attr('data-num') ?? '' }));
+		.map((item) => ({
+			dataNum: item.attr('data-num') ?? '',
+			publishedAt: item.select('time')[0]?.attr('datetime') ?? '',
+		}));
 }
 
 function isLockedChapter(item) {
