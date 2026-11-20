@@ -17,6 +17,11 @@ const CATALOG_PAGE_LIMIT = 200;
 const REQUEST_RETRIES = 2;
 const SERVER_ERROR_DELAY_MS = 5000;
 const REQUEST_TIMEOUT_MS = 60_000;
+// Carência (see GLOSSARY.md): the site sometimes posts a chapter as the Korean
+// raw and swaps in the translation later, with no language marker in the
+// markup (cap. 170 of sobrevivendo-no-jogo-como-um-barbaro, 2026-11-19).
+// Waiting 72h after publication lets the translation land first.
+const CARENCIA_MS = 72 * 3_600_000;
 // The CDN and site answer 403 to non-browser agents such as curl.
 const BROWSER_USER_AGENT =
 	'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0';
@@ -25,6 +30,8 @@ export default class BlitzToons extends Connector {
 	constructor({
 		requestDelayMs = REQUEST_DELAY_MS,
 		logger = defaultLogger,
+		carenciaMs = CARENCIA_MS,
+		now = Date.now,
 	} = {}) {
 		super({
 			id: 'blitztoons',
@@ -34,6 +41,8 @@ export default class BlitzToons extends Connector {
 		});
 		this.requestDelayMs = requestDelayMs;
 		this.logger = logger;
+		this.carenciaMs = carenciaMs;
+		this.now = now;
 		this.lastRequestSlot = Promise.resolve();
 	}
 
@@ -59,6 +68,7 @@ export default class BlitzToons extends Connector {
 		const doc = await this._fetchDocument(`/obra/${manga.id}`);
 		return readChapterItems(doc)
 			.filter(({ dataNum }) => this._isKnownChapterNumber(manga.id, dataNum))
+			.filter((item) => this._isPastCarencia(manga.id, item))
 			.map(({ dataNum }) => Number(dataNum))
 			.sort((a, b) => a - b)
 			.map((number) => ({
@@ -86,15 +96,27 @@ export default class BlitzToons extends Connector {
 
 	_isKnownChapterNumber(slug, dataNum) {
 		if (isChapterNumber(dataNum)) return true;
-		this.logger.warn(
-			JSON.stringify({
-				connector: this.id,
-				event: 'blitztoons_chapter_skipped',
+		this._warnChapterSkipped('blitztoons_chapter_skipped', { slug, dataNum });
+		return false;
+	}
+
+	// Undated items are skipped rather than accepted: a raw slipping in costs
+	// more than a chapter arriving late, and the warning flags markup changes.
+	_isPastCarencia(slug, { dataNum, publishedAt }) {
+		const publishedAtMs = Date.parse(publishedAt);
+		if (Number.isNaN(publishedAtMs)) {
+			this._warnChapterSkipped('blitztoons_chapter_undated', {
 				slug,
 				dataNum,
-			}),
-		);
-		return false;
+				publishedAt,
+			});
+			return false;
+		}
+		return this.now() - publishedAtMs >= this.carenciaMs;
+	}
+
+	_warnChapterSkipped(event, details) {
+		this.logger.warn(JSON.stringify({ connector: this.id, event, ...details }));
 	}
 
 	// Chains every request on the shared instance so concurrent jobs keep

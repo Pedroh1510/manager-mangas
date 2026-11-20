@@ -35,12 +35,22 @@ describe('readCatalogCards', () => {
 });
 
 describe('readChapterItems', () => {
-	test('keeps public items and reads data-num', () => {
+	test('keeps public items and reads data-num and publish time', () => {
 		const doc = parseHtmlDocument(
-			'<ul class="chaplist"><li class="chap" data-num="7"></li><li class="chap chap-locked" data-num="8"></li></ul>',
+			'<ul class="chaplist"><li class="chap" data-num="7"><time datetime="2026-11-19T20:56:25.085Z">há 3 h</time></li><li class="chap chap-locked" data-num="8"></li></ul>',
 		);
 
-		expect(readChapterItems(doc)).toEqual([{ dataNum: '7' }]);
+		expect(readChapterItems(doc)).toEqual([
+			{ dataNum: '7', publishedAt: '2026-11-19T20:56:25.085Z' },
+		]);
+	});
+
+	test('publish time is empty when the item has no time element', () => {
+		const doc = parseHtmlDocument(
+			'<ul class="chaplist"><li class="chap" data-num="7"></li></ul>',
+		);
+
+		expect(readChapterItems(doc)).toEqual([{ dataNum: '7', publishedAt: '' }]);
 	});
 });
 

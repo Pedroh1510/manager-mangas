@@ -50,13 +50,23 @@ class FakeLogger {
 	}
 }
 
+// Fixed clock so carência checks do not depend on when the suite runs.
+const NOW = Date.parse('2026-11-19T21:00:00Z');
+const HOUR_MS = 3_600_000;
+const hoursAgo = (hours) => new Date(NOW - hours * HOUR_MS).toISOString();
+
 function buildConnector(
 	routes,
-	{ requestDelayMs = 0, logger = new FakeLogger() } = {},
+	{ requestDelayMs = 0, logger = new FakeLogger(), carenciaMs } = {},
 ) {
 	const site = new FakeBlitzToonsSite(routes);
 	vi.stubGlobal('fetch', site.fetch);
-	const connector = new BlitzToons({ requestDelayMs, logger });
+	const connector = new BlitzToons({
+		requestDelayMs,
+		logger,
+		carenciaMs,
+		now: () => NOW,
+	});
 	return { connector, site, logger };
 }
 
@@ -73,10 +83,14 @@ alt="Capa de ${slug}" loading="lazy">
 const catalogPage = (...cards) =>
 	`<html><body><div class="grid-cards">${cards.join('')}</div></body></html>`;
 
-const chapterItem = (num, { classes = '', inner = '' } = {}) =>
+const chapterItem = (
+	num,
+	{ classes = '', inner = '', datetime = hoursAgo(24 * 30) } = {},
+) =>
 	`<li class="chap ${classes} "
 data-num="${num}" data-cap="1${num}">
-<a class="chap-alvo" href="/ler/x/${num}">Capítulo ${num}${inner}</a>
+<a class="chap-alvo" href="/ler/x/${num}">Capítulo ${num}${inner}
+${datetime === null ? '' : `<time datetime="${datetime}">há 1 mês</time>`}</a>
 </li>`;
 const obraPage = (...items) =>
 	`<html><body><ul class="chaplist" data-chaplist data-slug="x">${items.join('')}</ul></body></html>`;
@@ -270,6 +284,85 @@ describe('BlitzToons', () => {
 					dataNum: '',
 				}),
 			]);
+		});
+
+		describe('carência', () => {
+			const obraWith = (...items) => ({
+				[`GET ${SITE}/obra/x`]: html(obraPage(...items)),
+			});
+			const numbersOf = (chapters) =>
+				chapters.map((chapter) => chapter.id.split('/')[1]);
+
+			// Cap. 170 of sobrevivendo-no-jogo-como-um-barbaro was posted as a
+			// Korean raw and only translated later; the site gives no language hint.
+			test('defaults to 72h: a chapter inside it is left out', async () => {
+				const { connector } = buildConnector(
+					obraWith(
+						chapterItem(3, { datetime: hoursAgo(71) }),
+						chapterItem(2, { datetime: hoursAgo(72) }),
+						chapterItem(1, { datetime: hoursAgo(100) }),
+					),
+				);
+
+				const chapters = await connector._getChapters({ id: 'x' });
+
+				expect(numbersOf(chapters)).toEqual(['1', '2']);
+			});
+
+			test('is set per instance', async () => {
+				const { connector } = buildConnector(
+					obraWith(chapterItem(1, { datetime: hoursAgo(1) })),
+					{ carenciaMs: 0 },
+				);
+
+				const chapters = await connector._getChapters({ id: 'x' });
+
+				expect(numbersOf(chapters)).toEqual(['1']);
+			});
+
+			test('reads the Date#toString format the site also serves', async () => {
+				const { connector } = buildConnector(
+					obraWith(
+						chapterItem(1, {
+							datetime:
+								'Sun Sep 27 2026 22:16:40 GMT+0200 (Central European Summer Time)',
+						}),
+					),
+				);
+
+				const chapters = await connector._getChapters({ id: 'x' });
+
+				expect(numbersOf(chapters)).toEqual(['1']);
+			});
+
+			test('undated chapters are skipped with a warning', async () => {
+				const { connector, logger } = buildConnector(
+					obraWith(
+						chapterItem(3, { datetime: null }),
+						chapterItem(2, { datetime: 'ontem' }),
+						chapterItem(1),
+					),
+				);
+
+				const chapters = await connector._getChapters({ id: 'x' });
+
+				expect(numbersOf(chapters)).toEqual(['1']);
+				const warnings = logger.warnings.map((line) => JSON.parse(line));
+				expect(warnings).toEqual([
+					expect.objectContaining({
+						event: 'blitztoons_chapter_undated',
+						slug: 'x',
+						dataNum: '3',
+						publishedAt: '',
+					}),
+					expect.objectContaining({
+						event: 'blitztoons_chapter_undated',
+						slug: 'x',
+						dataNum: '2',
+						publishedAt: 'ontem',
+					}),
+				]);
+			});
 		});
 	});
 
