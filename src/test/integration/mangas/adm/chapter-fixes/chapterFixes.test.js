@@ -32,7 +32,7 @@ async function linkFixtureManga(title, idMangaPlugin) {
 }
 
 async function insertChapter({ idManga, idMangaConnector }, idChapterPlugin) {
-	const volume = Number(idChapterPlugin.replace('ch-', ''));
+	const volume = Number(idChapterPlugin.replace(/\D/g, ''));
 	const row = await ChaptersRepository.insertChapter({
 		idManga,
 		idMangaConnector,
@@ -41,6 +41,13 @@ async function insertChapter({ idManga, idMangaConnector }, idChapterPlugin) {
 		volume,
 	});
 	return row.idChapter;
+}
+
+function replace({ idManga, idMangaConnector }, idChapter, idChapterPlugin) {
+	return api.post(`${base(idManga)}/chapters/${idChapter}/replace`, {
+		idMangaConnector,
+		idChapterPlugin,
+	});
 }
 
 async function blockChapter({ idManga, idChapter, body }) {
@@ -158,6 +165,8 @@ describe('chapter fix routes', () => {
 		expect(response.data[0]).toMatchObject({
 			idPlugin: 'test-fixture',
 			isCurrent: true,
+			status: 'available',
+			idChapterPlugin: 'ch-376',
 		});
 	});
 
@@ -176,25 +185,67 @@ describe('chapter fix routes', () => {
 		expect(response.status).toBe(400);
 	});
 
-	test('POST replace keeps chapter when fixture download fails', async () => {
-		const manga = await linkFixtureManga('Replace Fail', '13');
+	test('POST replace returns 400 when the target chapter is absent in the source', async () => {
+		const manga = await linkFixtureManga('Replace Absent', '13');
+		const idChapter = await insertChapter(manga, 'ch-376');
+
+		const response = await settle(replace(manga, idChapter, 'ch-376'));
+
+		expect(response.status).toBe(400);
+	});
+
+	test('POST replace returns 400 for a non-integer idMangaConnector', async () => {
+		const manga = await linkFixtureManga('Replace Bad Link', '17');
+		const idChapter = await insertChapter(manga, 'ch-376');
+
+		const response = await settle(
+			replace({ ...manga, idMangaConnector: 'abc' }, idChapter, 'ch-376'),
+		);
+
+		expect(response.status).toBe(400);
+	});
+
+	test('POST replace returns 400 without idChapterPlugin', async () => {
+		const manga = await linkFixtureManga('Replace No Plugin', '18');
 		const idChapter = await insertChapter(manga, 'ch-376');
 
 		const response = await settle(
 			api.post(`${base(manga.idManga)}/chapters/${idChapter}/replace`, {
 				idMangaConnector: manga.idMangaConnector,
-				idChapterPlugin: 'ch-376',
 			}),
 		);
-		const chapters = await api.get(`${base(manga.idManga)}/chapters`);
 
-		expect(response.status).toBeGreaterThanOrEqual(400);
-		expect(chapters.data.map((chapter) => chapter.idChapter)).toEqual([
-			idChapter,
-		]);
+		expect(response.status).toBe(400);
+	});
+
+	test('POST replace keeps the row untouched when the page download fails', async () => {
+		const manga = await linkFixtureManga('Replace Fail', '15');
+		const kept = await insertChapter(manga, 'old-376');
+
+		const response = await settle(replace(manga, kept, 'ch-376'));
+		const row = await ChaptersRepository.findChapterById({ idChapter: kept });
+
+		expect(response.status).toBe(500);
+		expect(row.idChapterPlugin).toBe('old-376');
+		expect(row.idMangaConnector).toBe(manga.idMangaConnector);
+	});
+
+	test('POST replace swaps the row to the chosen chapter and marks it downloaded', async () => {
+		const manga = await linkFixtureManga('Replace Ok', '16');
+		const idChapter = await insertChapter(manga, 'old-376');
+
+		const response = await replace(manga, idChapter, 'ok-376');
+		const row = await ChaptersRepository.findChapterById({ idChapter });
+
+		expect(response.status).toBe(200);
+		expect(response.data).toEqual({ idChapter });
+		expect(row.idChapterPlugin).toBe('ok-376');
+		expect(row.downloadedAt).not.toBeNull();
 	});
 
 	describe('with connector disabled', () => {
+		// The connector switch lives in the server process (the fixture is only
+		// registered there), so it is toggled over HTTP, not by importing the service.
 		afterAll(() => setFixtureEnabled(true));
 
 		test('POST replace on disabled connector returns 409', async () => {
