@@ -135,4 +135,32 @@ describe('planDiscovery', () => {
 		expect(fake.recordedVolumes()).toEqual(['50', '51', '90']);
 		expect(fake.held()).toEqual([]);
 	});
+
+	test('reports a held volume once when two links list it', async () => {
+		const fake = new FakeDiscoveryLinks();
+		fake.addLink(1, [ch(177)]);
+		fake.addLink(2, [ch(177)]);
+		await run(fake, [171]);
+		expect(fake.held()).toEqual([{ volume: '177', previousKnownVolume: 171 }]);
+	});
+
+	test('pass-2 record failure keeps other chapters and surfaces in outcomes', async () => {
+		const fake = new FakeDiscoveryLinks();
+		fake.addLink(1, [ch(173)]);
+		fake.addLink(2, [ch(172), ch(174)]);
+		const callbacks = fake.callbacks();
+		const recordChapter = async (args) => {
+			if (args.chapter.volume === '174') throw new Error('insert failed');
+			return callbacks.recordChapter(args);
+		};
+		const { recorded, outcomes } = await planDiscovery({
+			links: fake.links(),
+			storedVolumeKeys: keys(171),
+			blockedKeys: new Set(),
+			...callbacks,
+			recordChapter,
+		});
+		expect(recorded.map((c) => c.volume).sort()).toEqual(['172', '173']);
+		expect(outcomes.filter((o) => o.status === 'rejected')).toHaveLength(1);
+	});
 });

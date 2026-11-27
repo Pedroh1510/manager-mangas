@@ -68,12 +68,21 @@ export async function planDiscovery(params) {
 		.filter((outcome) => outcome.status === 'fulfilled')
 		.map((outcome) => outcome.value);
 	const known = new Set(params.storedVolumeKeys);
-	for (const scan of scans) for (const key of scan.listedKeys) known.add(key);
+	for (const scan of scans) {
+		for (const key of scan.listedKeys) {
+			known.add(key);
+		}
+	}
 	const settled = [];
-	for (const scan of scans)
-		settled.push(...(await settleDeferred(params, scan, known)));
+	const reportedKeys = new Set();
+	const pass2 = await Promise.allSettled(
+		scans.map((scan) =>
+			settleDeferred(params, scan, { known, reportedKeys, into: settled }),
+		),
+	);
+	const failures = pass2.filter((outcome) => outcome.status === 'rejected');
 	const recorded = [...scans.flatMap((scan) => scan.recorded), ...settled];
-	return { recorded, outcomes };
+	return { recorded, outcomes: [...outcomes, ...failures] };
 }
 
 async function scanLink(params, link) {
@@ -97,20 +106,21 @@ async function scanLink(params, link) {
 	return scan;
 }
 
-async function settleDeferred(params, scan, known) {
-	const recorded = [];
+async function settleDeferred(params, scan, { known, reportedKeys, into }) {
 	for (const chapter of scan.deferred) {
 		const { isHeld, previousKnownVolume } = findGap({
 			volume: chapter.volume,
 			knownVolumeKeys: known,
 		});
-		if (isHeld) {
-			params.reportHeld({ link: scan.link, chapter, previousKnownVolume });
-		} else {
-			await recordInto(params, recorded, scan.link, chapter);
+		if (!isHeld) {
+			await recordInto(params, into, scan.link, chapter);
+			continue;
 		}
+		const key = toVolumeKey(chapter.volume);
+		if (reportedKeys.has(key)) continue;
+		reportedKeys.add(key);
+		params.reportHeld({ link: scan.link, chapter, previousKnownVolume });
 	}
-	return recorded;
 }
 
 async function recordInto(params, into, link, chapter) {
