@@ -165,7 +165,7 @@ async function cleanupQuery({ query }, _, next) {
 }
 
 // Reason is free text shown in the admin list; 200 chars keeps it one line.
-const SWITCH_REASON_MAX = 200;
+export const SWITCH_REASON_MAX = 200;
 
 async function setConnectorSwitch(req, _, next) {
 	const schema = Joi.object().keys({
