@@ -4,7 +4,8 @@ import { ConflictError } from '../../infra/errors.js';
  * Records calls made by createChapterFixes. Build deps with `.asDeps()`.
  * Source-replace knobs: `links`, `sourceChapters` (by idPlugin; an Error
  * value makes that source fail), `disabled` (idPlugin -> reason),
- * `blockedKeys`, `downloadError`, `updateError`.
+ * `blockedKeys`, `downloadError`, `downloadGate` (a promise the download
+ * awaits, to hold a replace in flight), `updateError`.
  * @example const deps = new FakeChapterFixesDeps({ chapter }); createChapterFixes(deps.asDeps())
  */
 export default class FakeChapterFixesDeps {
@@ -20,6 +21,7 @@ export default class FakeChapterFixesDeps {
 	pages = ['https://a.example/1.jpg'];
 	access = { cookie: 'c=1', userAgent: 'UA' };
 	downloadError = null;
+	downloadGate = null;
 	updateError = null;
 	downloads = [];
 	updated = [];
@@ -89,6 +91,7 @@ export default class FakeChapterFixesDeps {
 			pluginAccess: { findPluginAccess: async () => this.access },
 			download: { downloadChapter: (params) => this.#download(params) },
 			chapterPath: ({ title, volume }) => `/d/${title}/${volume}.cbz`,
+			randomId: () => 'u1',
 			fs: {
 				rename: async (from, to) => this.fs.renamed.push({ from, to }),
 				rm: async (target) => this.fs.removed.push(target),
@@ -117,6 +120,7 @@ export default class FakeChapterFixesDeps {
 
 	async #download(params) {
 		this.downloads.push(params);
+		if (this.downloadGate) await this.downloadGate;
 		if (this.downloadError) throw this.downloadError;
 	}
 }

@@ -2,8 +2,11 @@
 // have a chapter's volume, and replace the chapter with one of them. The new
 // file is written beside the live one and swapped only after the download
 // passed placeholderChapter and the row update succeeded, so any failure
-// leaves the old file and row intact.
+// leaves the old file and row intact. Replaces of the same chapter are
+// serialized by an in-process lock, and each one writes its own temp file.
+import { dirname, join } from 'node:path';
 import {
+	BadGatewayError,
 	BadRequestError,
 	ConflictError,
 	NotFoundError,
@@ -34,11 +37,12 @@ function sameVolume(left, right) {
 /**
  * Source listing and replacement for one chapter row.
  * @example const { listSources, replaceSource } = createChapterSourceReplace(deps)
- * @param {{ chapters: object, blocked: object, connectors: object, source: object, connectorSwitch: object, switches: object, pluginAccess: object, download: object, chapterPath: Function, fs: { rename: Function, rm: Function }, scanSeries: Function }} deps
+ * @param {{ chapters: object, blocked: object, connectors: object, source: object, connectorSwitch: object, switches: object, pluginAccess: object, download: object, chapterPath: Function, randomId: () => string, fs: { rename: Function, rm: Function }, scanSeries: Function }} deps
  * @returns {{ listSources: Function, replaceSource: Function }}
  */
 export function createChapterSourceReplace(deps) {
 	const { chapters, blocked, connectors, source } = deps;
+	const replacingChapterIds = new Set();
 
 	async function listActiveLinks({ idManga }) {
 		const links = await connectors.listConnectorsByManga({ idManga });
@@ -58,10 +62,14 @@ export function createChapterSourceReplace(deps) {
 			idPlugin: link.idPlugin,
 			mangaId: link.idMangaPlugin,
 		});
-		const row = listed.find((item) => sameVolume(item.volume, chapter.volume));
-		if (!row) return { status: 'missing' };
-		const isBlocked = blockedKeys.has(blockKey(link, row));
-		const status = isBlocked ? 'blocked' : 'available';
+		const matches = listed.filter((item) =>
+			sameVolume(item.volume, chapter.volume),
+		);
+		if (!matches.length) return { status: 'missing' };
+		// A source can list a blocked copy and the real chapter under one volume.
+		const open = matches.find((item) => !blockedKeys.has(blockKey(link, item)));
+		const row = open ?? matches[0];
+		const status = open ? 'available' : 'blocked';
 		return { status, idChapterPlugin: String(row.id), title: row.title };
 	}
 
@@ -149,7 +157,18 @@ export function createChapterSourceReplace(deps) {
 				userAgent: access.userAgent,
 				targetPath: tempPath,
 			})
-			.catch((error) => discardTemp(tempPath, error));
+			.catch((error) =>
+				discardTemp(tempPath, toDownloadError(error, { chapter, link })),
+			);
+	}
+
+	function toDownloadError(error, { chapter, link }) {
+		if (error?.statusCode) return error;
+		return new BadGatewayError({
+			cause: error,
+			message: `Download do capítulo ${chapter.idChapter} de ${link.idPlugin} falhou: ${error?.message}`,
+			action: 'Escolha outra fonte',
+		});
 	}
 
 	async function discardTemp(tempPath, error) {
@@ -190,25 +209,53 @@ export function createChapterSourceReplace(deps) {
 		return { chapter, link, target };
 	}
 
-	/**
-	 * Replaces the chapter's file and row with the chosen link's chapter.
-	 * Does not block the old (link, chapter) pair.
-	 * @example await replaceSource({ idManga: 15, idChapter: 1248700, idMangaConnector: 31, idChapterPlugin: '435999' }) // { idChapter: 1248700 }
-	 * @returns {Promise<{ idChapter: number }>}
-	 */
-	async function replaceSource(params) {
+	async function removeLegacyFile({ chapter, livePath }) {
+		// Older downloads were named "<Number(volume)>.cbz" (see
+		// Download.deleteChapterFile); drop it so Kavita does not keep the copy.
+		const legacyPath = join(dirname(livePath), `${Number(chapter.volume)}.cbz`);
+		if (legacyPath === livePath) return;
+		await deps.fs.rm(legacyPath, { force: true });
+	}
+
+	async function runReplace(params) {
 		const { chapter, link, target } = await validateReplace(params);
 		const livePath = deps.chapterPath({
 			title: chapter.title,
 			volume: chapter.volume,
 		});
-		const tempPath = `${livePath}${TEMP_SUFFIX}`;
+		const tempPath = `${livePath}${TEMP_SUFFIX}-${deps.randomId()}`;
 		const { idChapterPlugin, idMangaConnector } = params;
 		await downloadToTemp({ link, chapter, idChapterPlugin, tempPath });
 		await swapRow({ chapter, target, tempPath, idMangaConnector });
 		await deps.fs.rename(tempPath, livePath);
+		await removeLegacyFile({ chapter, livePath });
 		await deps.scanSeries({ title: chapter.title });
 		return { idChapter: chapter.idChapter };
+	}
+
+	function acquireReplaceLock(idChapter) {
+		const key = Number(idChapter);
+		if (!replacingChapterIds.has(key)) return replacingChapterIds.add(key);
+		throw new ConflictError({
+			message: `Troca do capítulo ${idChapter} já em andamento`,
+			action: 'Aguarde a troca atual terminar e tente de novo',
+		});
+	}
+
+	/**
+	 * Replaces the chapter's file and row with the chosen link's chapter.
+	 * Does not block the old (link, chapter) pair. A second replace of the
+	 * same chapter while one runs fails with ConflictError (409).
+	 * @example await replaceSource({ idManga: 15, idChapter: 1248700, idMangaConnector: 31, idChapterPlugin: '435999' }) // { idChapter: 1248700 }
+	 * @returns {Promise<{ idChapter: number }>}
+	 */
+	async function replaceSource(params) {
+		acquireReplaceLock(params.idChapter);
+		try {
+			return await runReplace(params);
+		} finally {
+			replacingChapterIds.delete(Number(params.idChapter));
+		}
 	}
 
 	return { listSources, replaceSource };

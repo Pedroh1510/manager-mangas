@@ -218,6 +218,15 @@ describe('chapter fix routes', () => {
 		expect(response.status).toBe(400);
 	});
 
+	test('POST replace returns 400 for an idChapterPlugin over 200 chars', async () => {
+		const manga = await linkFixtureManga('Replace Long Plugin', '19');
+		const idChapter = await insertChapter(manga, 'ch-376');
+
+		const response = await settle(replace(manga, idChapter, 'x'.repeat(201)));
+
+		expect(response.status).toBe(400);
+	});
+
 	test('POST replace keeps the row untouched when the page download fails', async () => {
 		const manga = await linkFixtureManga('Replace Fail', '15');
 		const kept = await insertChapter(manga, 'old-376');
@@ -225,7 +234,8 @@ describe('chapter fix routes', () => {
 		const response = await settle(replace(manga, kept, 'ch-376'));
 		const row = await ChaptersRepository.findChapterById({ idChapter: kept });
 
-		expect(response.status).toBe(500);
+		expect(response.status).toBe(502);
+		expect(response.data.message).toContain('falhou');
 		expect(row.idChapterPlugin).toBe('old-376');
 		expect(row.idMangaConnector).toBe(manga.idMangaConnector);
 	});

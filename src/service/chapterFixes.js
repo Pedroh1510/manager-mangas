@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { rename, rm } from 'node:fs/promises';
 import { NotFoundError } from '../infra/errors.js';
 import BlockedChaptersRepository from '../repository/blockedChapters.js';
@@ -85,6 +86,7 @@ const ChapterFixes = createChapterFixes({
 	pluginAccess: PluginConfigRepository,
 	download: Download,
 	chapterPath: (params) => Download.getPathMangaAndChapter(params).chapterPath,
+	randomId: randomUUID,
 	fs: { rename, rm },
 });
 export default ChapterFixes;

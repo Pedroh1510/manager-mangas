@@ -83,6 +83,24 @@ export class ServiceUnavailableError extends Error {
 	}
 }
 
+// An upstream source (manga site) failed while we acted for the caller.
+export class BadGatewayError extends Error {
+	constructor({ cause, message, action }) {
+		super(message, cause);
+		this.name = 'BadGatewayError';
+		this.action = action ?? 'Entre em contato com o suporte';
+		this.statusCode = 502;
+	}
+	toJSON() {
+		return {
+			name: this.name,
+			message: this.message,
+			action: this.action,
+			statusCode: this.statusCode,
+		};
+	}
+}
+
 export class ServiceError extends Error {
 	constructor({ cause, message, action }) {
 		super(message, cause);

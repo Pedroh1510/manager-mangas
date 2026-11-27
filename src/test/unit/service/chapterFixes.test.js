@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+	BadGatewayError,
 	BadRequestError,
 	ConflictError,
 	NotFoundError,
@@ -211,12 +212,14 @@ describe('ChapterFixes.replaceSource', () => {
 				pages: deps.pages,
 				cookie: 'c=1',
 				userAgent: 'UA',
-				targetPath: '/d/T/177.0000.cbz.replacing',
+				targetPath: '/d/T/177.0000.cbz.replacing-u1',
 			},
 		]);
 		expect(deps.fs.renamed).toEqual([
-			{ from: '/d/T/177.0000.cbz.replacing', to: '/d/T/177.0000.cbz' },
+			{ from: '/d/T/177.0000.cbz.replacing-u1', to: '/d/T/177.0000.cbz' },
 		]);
+		// Legacy unpadded file (see Download.deleteChapterFile) must not survive.
+		expect(deps.fs.removed).toEqual(['/d/T/177.cbz']);
 		expect(deps.updated).toEqual([
 			{
 				idChapter: 1248700,
@@ -232,13 +235,17 @@ describe('ChapterFixes.replaceSource', () => {
 		const { deps, fixes } = buildReplace();
 		deps.downloadError = new Error('placeholder');
 
-		await expect(fixes.replaceSource(replaceParams)).rejects.toThrow(
-			'placeholder',
-		);
+		const error = await fixes.replaceSource(replaceParams).catch((e) => e);
 
+		expect(error).toBeInstanceOf(BadGatewayError);
+		expect(error.statusCode).toBe(502);
+		expect(error.message).toBe(
+			'Download do capítulo 1248700 de nexustoons falhou: placeholder',
+		);
+		expect(error.action).toBe('Escolha outra fonte');
 		expect(deps.fs.renamed).toEqual([]);
 		expect(deps.updated).toEqual([]);
-		expect(deps.fs.removed).toEqual(['/d/T/177.0000.cbz.replacing']);
+		expect(deps.fs.removed).toEqual(['/d/T/177.0000.cbz.replacing-u1']);
 		expect(deps.scanned).toEqual([]);
 	});
 
@@ -253,7 +260,7 @@ describe('ChapterFixes.replaceSource', () => {
 		expect(error).toBeInstanceOf(ConflictError);
 		expect(error.message).toMatch(/435999/);
 		expect(deps.fs.renamed).toEqual([]);
-		expect(deps.fs.removed).toEqual(['/d/T/177.0000.cbz.replacing']);
+		expect(deps.fs.removed).toEqual(['/d/T/177.0000.cbz.replacing-u1']);
 	});
 
 	test('replaceSource propagates non-unique update errors untouched', async () => {
@@ -314,5 +321,66 @@ describe('ChapterFixes.replaceSource', () => {
 			ConflictError,
 		);
 		expect(deps.downloads).toEqual([]);
+	});
+
+	test('replaceSource rejects a second concurrent replace of the same chapter with 409', async () => {
+		const { deps, fixes } = buildReplace();
+		let release;
+		deps.downloadGate = new Promise((resolve) => {
+			release = resolve;
+		});
+		const first = fixes.replaceSource(replaceParams);
+		await new Promise((resolve) => setImmediate(resolve));
+
+		const error = await fixes.replaceSource(replaceParams).catch((e) => e);
+
+		expect(error).toBeInstanceOf(ConflictError);
+		expect(error.message).toBe('Troca do capítulo 1248700 já em andamento');
+		release();
+		await expect(first).resolves.toEqual({ idChapter: 1248700 });
+		expect(deps.downloads).toHaveLength(1);
+	});
+
+	test('replaceSource releases the lock after success and after failure', async () => {
+		const { deps, fixes } = buildReplace();
+		await fixes.replaceSource(replaceParams);
+		deps.downloadError = new Error('boom');
+		await expect(fixes.replaceSource(replaceParams)).rejects.toBeInstanceOf(
+			BadGatewayError,
+		);
+		deps.downloadError = null;
+		await expect(fixes.replaceSource(replaceParams)).resolves.toEqual({
+			idChapter: 1248700,
+		});
+	});
+});
+
+describe('ChapterFixes.listSources with repeated volume', () => {
+	const twoEntries = [
+		{ id: 'fake-177', title: 'Capítulo 177 (cópia)', volume: '177' },
+		{ id: 'real-177', title: 'Capítulo 177', volume: '177' },
+	];
+
+	test('prefers the first non-blocked entry of the volume', async () => {
+		const { deps, fixes } = buildReplace();
+		deps.sourceChapters.nexustoons = twoEntries;
+		deps.blockedKeys = new Set(['31:fake-177']);
+		const sources = await fixes.listSources(replaceParams);
+		expect(sources[1]).toMatchObject({
+			status: 'available',
+			idChapterPlugin: 'real-177',
+			title: 'Capítulo 177',
+		});
+	});
+
+	test('reports blocked only when every entry of the volume is blocked', async () => {
+		const { deps, fixes } = buildReplace();
+		deps.sourceChapters.nexustoons = twoEntries;
+		deps.blockedKeys = new Set(['31:fake-177', '31:real-177']);
+		const sources = await fixes.listSources(replaceParams);
+		expect(sources[1]).toMatchObject({
+			status: 'blocked',
+			idChapterPlugin: 'fake-177',
+		});
 	});
 });
