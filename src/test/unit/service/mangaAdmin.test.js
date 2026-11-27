@@ -4,6 +4,7 @@ import database from '../../../infra/database.js';
 import { ConflictError } from '../../../infra/errors.js';
 import logger from '../../../infra/logger.js';
 import { countPipelineEvent } from '../../../infra/telemetry/business.js';
+import BlockedChaptersRepository from '../../../repository/blockedChapters.js';
 import ChaptersRepository from '../../../repository/chapters.js';
 import MangaConnectorsRepository from '../../../repository/mangaConnectors.js';
 import MangasRepository from '../../../repository/mangas.js';
@@ -53,6 +54,10 @@ describe('MangaAdminService', () => {
 		vi.mocked(AltTitlesService.mergeFromLink).mockResolvedValue(undefined);
 		vi.spyOn(ConnectorSwitch, 'isConnectorEnabled').mockResolvedValue(true);
 		vi.spyOn(ConnectorSwitch, 'assertConnectorEnabled').mockResolvedValue();
+		vi.spyOn(
+			BlockedChaptersRepository,
+			'listBlockedKeysByManga',
+		).mockResolvedValue(new Set());
 	});
 
 	afterEach(() => {

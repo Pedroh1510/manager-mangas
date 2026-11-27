@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import AdmZip from 'adm-zip';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
@@ -214,6 +214,80 @@ describe('Download.downloadChapter', () => {
 		);
 	});
 
+	test('download.downloadChapter writes to targetPath when given', async () => {
+		withFsPromisesReady();
+		const targetPath = resolve('downloads', 'Test Manga', '9.cbz.replacing');
+
+		await Download.downloadChapter({
+			manga: 'Test Manga',
+			chapter: 9,
+			pages: ['https://a.example/1.jpg'],
+			targetPath,
+		});
+
+		expect(fsPromises.rm).toHaveBeenCalledWith(targetPath, {
+			recursive: true,
+		});
+		const removedLive = fsPromises.rm.mock.calls.some(([target]) =>
+			target.endsWith('/9.cbz'),
+		);
+		expect(removedLive).toBe(false);
+		expect(fsPromises.mkdir).toHaveBeenCalledWith(
+			resolve('downloads', 'Test Manga'),
+			{
+				recursive: true,
+			},
+		);
+	});
+
+	test('download.downloadChapter failure with targetPath removes only the temp file', async () => {
+		withFsPromisesReady();
+		downloadImage.mockRejectedValue(
+			new PageNotFoundError('https://a.example/x.jpg'),
+		);
+		const targetPath = resolve('downloads', 'Test Manga', '10.cbz.replacing');
+
+		await expect(
+			Download.downloadChapter({
+				manga: 'Test Manga',
+				chapter: 10,
+				pages: ['https://a.example/x.jpg'],
+				targetPath,
+			}),
+		).rejects.toThrow(PageNotFoundError);
+
+		expect(fsPromises.rm).toHaveBeenLastCalledWith(targetPath, {
+			recursive: true,
+		});
+	});
+
+	test('rejects a targetPath outside the downloads root', async () => {
+		withFsPromisesReady();
+
+		await expect(
+			Download.downloadChapter({
+				manga: 'Test Manga',
+				chapter: 11,
+				pages: ['https://a.example/1.jpg'],
+				targetPath: '/etc/11.cbz.replacing',
+			}),
+		).rejects.toThrow(/escapes the downloads root/);
+		expect(fsPromises.mkdir).not.toHaveBeenCalled();
+	});
+
+	test('rejects a manga title that walks out of the downloads root', async () => {
+		withFsPromisesReady();
+
+		await expect(
+			Download.downloadChapter({
+				manga: '../../etc',
+				chapter: 12,
+				pages: ['https://a.example/1.jpg'],
+			}),
+		).rejects.toThrow(/escapes the downloads root/);
+		expect(fsPromises.rm).not.toHaveBeenCalled();
+	});
+
 	test('accepts a two-page chapter even when both pages are identical', async () => {
 		withFsPromisesReady();
 		downloadImage.mockResolvedValue(Buffer.from('same'));
@@ -231,6 +305,25 @@ describe('Download.downloadChapter', () => {
 describe('Download.deleteChapterFile', () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
+	});
+
+	test('refuses to delete outside the downloads root', async () => {
+		fsPromises.rm.mockResolvedValue(undefined);
+
+		await expect(
+			Download.deleteChapterFile({ title: '..', volume: '1.0000' }),
+		).rejects.toThrow(/escapes the downloads root/);
+		expect(fsPromises.rm).not.toHaveBeenCalled();
+	});
+
+	test('keeps titles with dots or slashes inside the root', () => {
+		const { mangaPath, chapterPath } = Download.getPathMangaAndChapter({
+			title: 'Fate/Zero... Wait',
+			volume: '1.0000',
+		});
+
+		expect(mangaPath).toBe(resolve('downloads', 'Fate/Zero... Wait'));
+		expect(chapterPath).toBe(join(mangaPath, '1.0000.cbz'));
 	});
 
 	test('removes both the padded and normalized filename candidates', async () => {

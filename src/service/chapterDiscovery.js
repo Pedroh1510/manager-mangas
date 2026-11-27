@@ -4,9 +4,12 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import logger from '../infra/logger.js';
 import { countPipelineEvent } from '../infra/telemetry/business.js';
+import BlockedChaptersRepository from '../repository/blockedChapters.js';
 import ChaptersRepository from '../repository/chapters.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 import MangasRepository from '../repository/mangas.js';
+import { toVolumeKey } from '../utils/chapterFormat.js';
+import { blockKey, buildHeldLog, planDiscovery } from './chapterGap.js';
 import ConnectorSwitch from './connectorSwitch.js';
 import MangaService from './manga.js';
 import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
@@ -53,7 +56,8 @@ async function listKnownVolumes({ idManga }) {
 	const knownChapters = await ChaptersRepository.listChaptersByManga({
 		idManga,
 	});
-	return new Set(knownChapters.map((chapter) => `${chapter.volume}`));
+	// Keys are normalized: the database returns "171.0000", sources say "171".
+	return new Set(knownChapters.map((chapter) => toVolumeKey(chapter.volume)));
 }
 
 export async function listChaptersMissing({ idManga }) {
@@ -61,12 +65,17 @@ export async function listChaptersMissing({ idManga }) {
 	if (!connectors.length) return [];
 
 	const knownVolumes = await listKnownVolumes({ idManga });
+	const blockedKeys = await BlockedChaptersRepository.listBlockedKeysByManga({
+		idManga,
+	});
 	const chaptersMissing = [];
 	for (const connector of connectors) {
 		const chapters = await listConnectorChaptersOrEmpty({ idManga, connector });
 		for (const chapter of chapters) {
-			if (knownVolumes.has(`${chapter.volume}`)) continue;
-			knownVolumes.add(`${chapter.volume}`);
+			if (blockedKeys.has(blockKey(connector, chapter))) continue;
+			const key = toVolumeKey(chapter.volume);
+			if (knownVolumes.has(key)) continue;
+			knownVolumes.add(key);
 			chaptersMissing.push({
 				...chapter,
 				idMangaConnector: connector.idMangaConnector,
@@ -109,27 +118,6 @@ async function recordDiscoveredChapter({ idManga, connector, chapter }) {
 	};
 }
 
-/**
- * Discovers and records one link's new chapters on its own, so a slow
- * connector (e.g. WiComix queued behind its refreshCatalog) never delays the
- * chapters another connector already returned.
- * @example await discoverLinkChapters({ idManga: 9, connector, knownVolumes })
- */
-async function discoverLinkChapters({ idManga, connector, knownVolumes }) {
-	const chapters = await listConnectorChaptersOrEmpty({ idManga, connector });
-	const recorded = [];
-	for (const chapter of chapters) {
-		if (knownVolumes.has(`${chapter.volume}`)) continue;
-		const result = await recordDiscoveredChapter({
-			idManga,
-			connector,
-			chapter,
-		});
-		if (result) recorded.push(result);
-	}
-	return recorded;
-}
-
 function throwIfAnyLinkFailed({ idManga, outcomes }) {
 	const reasons = outcomes
 		.filter((outcome) => outcome.status === 'rejected')
@@ -140,20 +128,31 @@ function throwIfAnyLinkFailed({ idManga, outcomes }) {
 	);
 }
 
+function logHeldChapter(held) {
+	logger.warn(buildHeldLog(held));
+}
+
+/**
+ * Plans discovery over every active link: blocked chapters are skipped and
+ * volumes behind a gap are held (see planDiscovery). planDiscovery settles
+ * each link itself, so one failing link never abandons the others.
+ * @example const { recorded, outcomes } = await discoverChaptersAcrossLinks({ idManga: 9 })
+ */
 async function discoverChaptersAcrossLinks({ idManga }) {
-	const connectors = await listActiveLinks({ idManga });
-	if (!connectors.length) return { recorded: [], outcomes: [] };
-	const knownVolumes = await listKnownVolumes({ idManga });
-	// allSettled, not all: a failing insert must not abandon links still running.
-	const outcomes = await Promise.allSettled(
-		connectors.map((connector) =>
-			discoverLinkChapters({ idManga, connector, knownVolumes }),
-		),
-	);
-	const recorded = outcomes
-		.filter((outcome) => outcome.status === 'fulfilled')
-		.flatMap((outcome) => outcome.value);
-	return { recorded, outcomes };
+	const links = await listActiveLinks({ idManga });
+	if (!links.length) return { recorded: [], outcomes: [] };
+	return planDiscovery({
+		links,
+		storedVolumeKeys: await listKnownVolumes({ idManga }),
+		blockedKeys: await BlockedChaptersRepository.listBlockedKeysByManga({
+			idManga,
+		}),
+		listLinkChapters: (connector) =>
+			listConnectorChaptersOrEmpty({ idManga, connector }),
+		recordChapter: ({ link, chapter }) =>
+			recordDiscoveredChapter({ idManga, connector: link, chapter }),
+		reportHeld: (held) => logHeldChapter({ idManga, ...held }),
+	});
 }
 
 export async function updateMangaChapters({ idManga }) {

@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { BadRequestError, NotFoundError } from '../../../infra/errors.js';
+import {
+	BadGatewayError,
+	BadRequestError,
+	NotFoundError,
+} from '../../../infra/errors.js';
 
 describe('errors', () => {
 	test('NotFoundError serializes with statusCode 404', () => {
@@ -15,6 +19,17 @@ describe('errors', () => {
 			message: 'x',
 			action: expect.any(String),
 			statusCode: 404,
+		});
+	});
+
+	test('BadGatewayError serializes with statusCode 502', () => {
+		const error = new BadGatewayError({ message: 'x', action: 'y' });
+
+		expect(JSON.parse(JSON.stringify(error))).toEqual({
+			name: 'BadGatewayError',
+			message: 'x',
+			action: 'y',
+			statusCode: 502,
 		});
 	});
 });

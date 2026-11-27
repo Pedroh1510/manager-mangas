@@ -3,6 +3,7 @@ import AltTitlesService from '../service/altTitles.js';
 import CoverService from '../service/covers/index.js';
 import MangaAdminService from '../service/mangaAdmin.js';
 import MangasAdmValidator from '../validators/mangasAdmValidator.js';
+import chapterFixesAdmController from './chapterFixesAdmController.js';
 import connectorSwitchesAdmController from './connectorSwitchesAdmController.js';
 import coverSuggestionsAdmController from './coverSuggestionsAdmController.js';
 import kavitaAdmController from './kavitaAdmController.js';
@@ -14,6 +15,7 @@ export default mangasAdmController;
 mangasAdmController.use('/kavita', kavitaAdmController);
 mangasAdmController.use('/connector-switches', connectorSwitchesAdmController);
 mangasAdmController.use(coverSuggestionsAdmController);
+mangasAdmController.use(chapterFixesAdmController);
 
 /**
  * @swagger

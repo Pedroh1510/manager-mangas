@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { formatChapters } from '../../../utils/chapterFormat.js';
+import { formatChapters, toVolumeKey } from '../../../utils/chapterFormat.js';
 
 describe('formatChapters', () => {
 	test('keeps only pt/pt-br chapters', () => {
@@ -28,5 +28,13 @@ describe('formatChapters', () => {
 	test('drops chapters where no number could be parsed from the title', () => {
 		const result = formatChapters([{ title: 'Extra', language: 'pt' }]);
 		expect(result).toEqual([]);
+	});
+});
+
+describe('toVolumeKey', () => {
+	test('normalizes NUMERIC strings', () => {
+		expect(toVolumeKey('171.0000')).toBe('171');
+		expect(toVolumeKey('171.5000')).toBe('171.5');
+		expect(toVolumeKey(171)).toBe('171');
 	});
 });

@@ -38,3 +38,14 @@ export function formatChapters(chapters) {
 				),
 		);
 }
+
+/**
+ * Canonical string key for a volume, so "171.0000", 171 and "171" compare equal.
+ * Intent: discovery stores volumes as text; a single canonical form avoids
+ * false gaps caused by trailing zeros or number/string mismatches.
+ *
+ * @example toVolumeKey('171.0000') // '171'
+ */
+export function toVolumeKey(volume) {
+	return String(Number(volume));
+}
