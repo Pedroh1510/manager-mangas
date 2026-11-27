@@ -1,6 +1,9 @@
 import Joi from 'joi';
 import { SWITCH_REASON_MAX } from './mangasAdmValidator.js';
 
+// Source chapter ids are short slugs or numbers; the cap only rejects abuse.
+const ID_CHAPTER_PLUGIN_MAX = 200;
+
 const chapterKeys = {
 	idManga: Joi.number().integer().required(),
 	idChapter: Joi.number().integer().required(),
@@ -29,7 +32,7 @@ const replaceSource = validateRequest({
 	params: Joi.object().keys(chapterKeys),
 	body: Joi.object().keys({
 		idMangaConnector: Joi.number().integer().required(),
-		idChapterPlugin: Joi.string().required(),
+		idChapterPlugin: Joi.string().max(ID_CHAPTER_PLUGIN_MAX).required(),
 	}),
 });
 
