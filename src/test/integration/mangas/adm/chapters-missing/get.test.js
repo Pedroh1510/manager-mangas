@@ -1,5 +1,8 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import api from '../../../../../infra/api.js';
+import BlockedChaptersRepository from '../../../../../repository/blockedChapters.js';
+import ChaptersRepository from '../../../../../repository/chapters.js';
+import MangaConnectorsRepository from '../../../../../repository/mangaConnectors.js';
 import orchestrator from '../../../../orchestrator.js';
 import AdmUtils from '../utils.js';
 
@@ -53,4 +56,53 @@ describe('GET /mangas/adm/:idManga/chapters/missing', () => {
 		expect(response.status).toBe(200);
 		expect(response.data).toEqual([]);
 	});
+
+	test('does not list volumes already stored', async () => {
+		const { idManga, link } = await linkFixtureManga('Stored Manga', '4');
+		await ChaptersRepository.insertChapter({
+			idManga,
+			idMangaConnector: link.idMangaConnector,
+			idChapterPlugin: 'ch-375',
+			name: 'Capítulo 375',
+			volume: 375,
+		});
+
+		const response = await api.get(`/mangas/adm/${idManga}/chapters/missing`);
+
+		expect(response.data.map((chapter) => chapter.volume)).toEqual([376]);
+	});
+
+	test('does not list blocked chapters', async () => {
+		const { idManga, link } = await linkFixtureManga('Blocked Manga', '5');
+		await BlockedChaptersRepository.insertBlocked({
+			idMangaConnector: link.idMangaConnector,
+			idChapterPlugin: 'ch-376',
+			volume: 376,
+			reason: null,
+		});
+		await BlockedChaptersRepository.insertBlocked({
+			idMangaConnector: link.idMangaConnector,
+			idChapterPlugin: 'ch-375',
+			volume: 375,
+			reason: null,
+		});
+
+		const response = await api.get(`/mangas/adm/${idManga}/chapters/missing`);
+
+		expect(response.data).toEqual([]);
+	});
 });
+
+async function linkFixtureManga(title, idMangaPlugin) {
+	const { data: manga } = await admUtils.createManga({ title });
+	await admUtils.linkConnector({
+		idManga: manga.idManga,
+		idPlugin: 'test-fixture',
+		idMangaPlugin,
+		titlePlugin: title,
+	});
+	const [link] = await MangaConnectorsRepository.listConnectorsByManga({
+		idManga: manga.idManga,
+	});
+	return { idManga: manga.idManga, link };
+}

@@ -38,3 +38,11 @@ _Avoid_: número do capítulo
 **Primeira fonte a responder**:
 Regra de precedência: quando vários links trazem o mesmo volume, fica o do link cuja resposta chegou primeiro.
 _Avoid_: prioridade de conector, ordem alfabética
+
+**Capítulo segurado**:
+Volume novo que a descoberta não registra porque há buraco entre ele e o maior volume conhecido abaixo; sai sozinho quando o buraco fecha ou outra fonte lista o volume.
+_Avoid_: quarentena, suspeito pendente
+
+**Capítulo bloqueado**:
+Capítulo específico de um link que a descoberta nunca registra, até ser desbloqueado no ADM.
+_Avoid_: blacklist, ignorado
