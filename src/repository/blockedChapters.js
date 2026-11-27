@@ -4,6 +4,9 @@ import sql from 'sql-bricks-postgres';
 import database from '../infra/database.js';
 
 /**
+ * Idempotent per (idMangaConnector, idChapterPlugin): re-blocking an already
+ * blocked chapter (e.g. retry after the delete step failed) refreshes the
+ * reason and returns the existing id instead of violating the UNIQUE.
  * @example await insertBlocked({ idMangaConnector: 3, idChapterPlugin: 'ch-177', volume: 177, reason: null })
  * @param {{ idMangaConnector: number, idChapterPlugin: string, volume: string|number, reason: string|null }} params
  * @returns {Promise<{ idBlockedChapter: number }>}
@@ -14,17 +17,14 @@ async function insertBlocked({
 	volume,
 	reason,
 }) {
-	const { rows } = await database.query(
-		sql
-			.insertInto('blockedChapters', {
-				idMangaConnector,
-				idChapterPlugin,
-				volume,
-				reason,
-			})
-			.returning('"idBlockedChapter"')
-			.toParams(),
-	);
+	const { rows } = await database.query({
+		text: `INSERT INTO "blockedChapters" ("idMangaConnector", "idChapterPlugin", "volume", "reason")
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT ("idMangaConnector", "idChapterPlugin")
+			DO UPDATE SET "reason" = EXCLUDED."reason"
+			RETURNING "idBlockedChapter"`,
+		values: [idMangaConnector, idChapterPlugin, volume, reason],
+	});
 	return rows[0];
 }
 

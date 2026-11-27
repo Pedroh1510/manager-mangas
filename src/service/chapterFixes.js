@@ -62,7 +62,7 @@ export function createChapterFixes(deps) {
 		});
 	}
 
-	return { ...deps, blockChapter, listBlocked, unblock };
+	return { blockChapter, listBlocked, unblock };
 }
 
 const ChapterFixes = createChapterFixes({

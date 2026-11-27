@@ -76,4 +76,34 @@ describe('ChapterFixes', () => {
 		).resolves.toBeUndefined();
 		await expect(fixes.listBlocked({ idManga: 15 })).resolves.toEqual([]);
 	});
+
+	test('blockChapter propagates deleteChapter failure and skips the scan', async () => {
+		const { deps, fixes } = build({ chapter });
+		deps.deleteError = new Error('disk boom');
+		await expect(
+			fixes.blockChapter({ idManga: 15, idChapter: 1248700, reason: null }),
+		).rejects.toThrow('disk boom');
+		expect(deps.scanned).toEqual([]);
+	});
+
+	test('blockChapter retried after deleteChapter failed completes with the same block id', async () => {
+		const { deps, fixes } = build({ chapter });
+		const params = { idManga: 15, idChapter: 1248700, reason: 'x' };
+		deps.deleteError = new Error('disk boom');
+		await expect(fixes.blockChapter(params)).rejects.toThrow('disk boom');
+		deps.deleteError = null;
+		await expect(fixes.blockChapter(params)).resolves.toEqual({
+			idBlockedChapter: 7,
+		});
+		expect(deps.deleted).toEqual([{ idManga: 15, idChapter: 1248700 }]);
+	});
+
+	test('exposes only the public actions', () => {
+		const { fixes } = build({ chapter });
+		expect(Object.keys(fixes).sort()).toEqual([
+			'blockChapter',
+			'listBlocked',
+			'unblock',
+		]);
+	});
 });
