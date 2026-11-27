@@ -1,9 +1,10 @@
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readdir, rm } from 'node:fs/promises';
-import path, { dirname, join, resolve } from 'node:path';
+import path, { dirname, join, resolve, sep } from 'node:path';
 import { PassThrough } from 'node:stream';
 import AdmZip from 'adm-zip';
 import archiver from 'archiver';
+import { BadRequestError } from '../infra/errors.js';
 import logger from '../infra/logger.js';
 import { createConcurrencyLimiter } from './concurrencyLimiter.js';
 import { withDomainSlot } from './domainConcurrency.js';
@@ -19,11 +20,29 @@ import {
 const MAX_PAGES_IN_FLIGHT_PER_CHAPTER = 4;
 const IMAGE_EXTENSIONS = ['png', 'jpeg', 'jpg', 'avif'];
 
+/**
+ * Resolves a path and refuses it unless it stays inside downloads/. The manga
+ * title comes from the admin API body (CodeQL js/path-injection, PR #50), so a
+ * title like "../../etc" must never reach mkdir/rm/createWriteStream.
+ * @example assertInsideDownloads('downloads/Black Clover/1.cbz') // '/app/downloads/Black Clover/1.cbz'
+ * @param {string} candidate
+ * @returns {string} the resolved path
+ */
+function assertInsideDownloads(candidate) {
+	const root = resolve('downloads');
+	const resolved = resolve(candidate);
+	if (resolved.startsWith(`${root}${sep}`)) return resolved;
+	throw new BadRequestError({
+		message: `Path "${candidate}" escapes the downloads root "${root}", expected a path inside it`,
+		action: 'Verifique o título do mangá e o volume.',
+	});
+}
+
 function getPathMangaAndChapter({ title, volume = 0 }) {
-	const mangaPath = resolve('downloads', title);
+	const mangaPath = assertInsideDownloads(resolve('downloads', title));
 	return {
 		mangaPath,
-		chapterPath: join(mangaPath, `${volume}.cbz`),
+		chapterPath: assertInsideDownloads(join(mangaPath, `${volume}.cbz`)),
 	};
 }
 
@@ -152,9 +171,10 @@ async function downloadChapter({
 	userAgent,
 	targetPath,
 }) {
-	const chapterPath =
+	const chapterPath = assertInsideDownloads(
 		targetPath ??
-		getPathMangaAndChapter({ title: manga, volume: chapter }).chapterPath;
+			getPathMangaAndChapter({ title: manga, volume: chapter }).chapterPath,
+	);
 	await mkdir(dirname(chapterPath), { recursive: true });
 	await rm(chapterPath, { recursive: true }).catch(() => {});
 	logger.info({ manga, chapter, status: 'inicio' });
