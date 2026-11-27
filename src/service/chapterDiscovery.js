@@ -9,7 +9,7 @@ import ChaptersRepository from '../repository/chapters.js';
 import MangaConnectorsRepository from '../repository/mangaConnectors.js';
 import MangasRepository from '../repository/mangas.js';
 import { toVolumeKey } from '../utils/chapterFormat.js';
-import { blockKey, planDiscovery } from './chapterGap.js';
+import { blockKey, buildHeldLog, planDiscovery } from './chapterGap.js';
 import ConnectorSwitch from './connectorSwitch.js';
 import MangaService from './manga.js';
 import { enqueueBackgroundTask } from './queue/backgroundQueue.js';
@@ -128,16 +128,8 @@ function throwIfAnyLinkFailed({ idManga, outcomes }) {
 	);
 }
 
-function logHeldChapter({ idManga, link, chapter, previousKnownVolume }) {
-	logger.warn({
-		status: 'chapter_held_gap',
-		idManga,
-		idPlugin: link.idPlugin,
-		idMangaConnector: link.idMangaConnector,
-		idChapterPlugin: chapter.id,
-		volume: chapter.volume,
-		previousKnownVolume,
-	});
+function logHeldChapter(held) {
+	logger.warn(buildHeldLog(held));
 }
 
 /**

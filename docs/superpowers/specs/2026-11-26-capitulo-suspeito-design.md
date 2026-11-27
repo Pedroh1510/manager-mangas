@@ -40,9 +40,9 @@ conhecido abaixo de N é menor que N−1.
 - Mangá sem nenhum volume no banco: não há referência, nada é segurado.
 - Volumes decimais (171.5) nunca são segurados e não preenchem buraco.
 - Sai da espera só automaticamente, em varredura futura: quando o buraco fecha (alguma fonte lista
-  os volumes intermediários) ou quando outro link também lista N (aí ele não é mais buraco do
-  ponto de vista do conjunto conhecido — o volume entra pela regra normal de primeira fonte a
-  responder). Sem botão "liberar", sem prazo.
+  os volumes intermediários) ou quando outro link também lista N (liberado por corroboração:
+  ≥2 links distintos, não bloqueados, listam N na mesma varredura, mesmo com o buraco aberto — o
+  volume entra pela regra normal de primeira fonte a responder). Sem botão "liberar", sem prazo.
 - Nada é persistido: a varredura só pula e registra `logger.warn({ status: 'chapter_held_gap',
   idManga, idPlugin, idMangaConnector, idChapterPlugin, volume, previousKnownVolume })`.
 - Sem aviso no Telegram.

@@ -44,7 +44,9 @@ export function blockKey({ idMangaConnector }, { id }) {
  * as soon as it answers, every volume that is not behind a gap against the
  * database. Gap volumes are deferred; pass 2 re-checks them against the
  * database plus everything the answering links listed, so another link
- * filling the gap releases them. Volumes still gapped are reported as held.
+ * filling the gap releases them. A deferred volume that at least two links
+ * list is released by corroboration even if the gap stays open (spec §2).
+ * Volumes still held are reported once per volume.
  *
  * @example
  * const { recorded, outcomes } = await planDiscovery({
@@ -67,22 +69,39 @@ export async function planDiscovery(params) {
 	const scans = outcomes
 		.filter((outcome) => outcome.status === 'fulfilled')
 		.map((outcome) => outcome.value);
-	const known = new Set(params.storedVolumeKeys);
-	for (const scan of scans) {
-		for (const key of scan.listedKeys) {
-			known.add(key);
-		}
-	}
+	const context = {
+		...collectListings(params, scans),
+		reportedKeys: new Set(),
+	};
 	const settled = [];
-	const reportedKeys = new Set();
 	const pass2 = await Promise.allSettled(
 		scans.map((scan) =>
-			settleDeferred(params, scan, { known, reportedKeys, into: settled }),
+			settleDeferred(params, scan, { ...context, into: settled }),
 		),
 	);
 	const failures = pass2.filter((outcome) => outcome.status === 'rejected');
 	const recorded = [...scans.flatMap((scan) => scan.recorded), ...settled];
 	return { recorded, outcomes: [...outcomes, ...failures] };
+}
+
+/**
+ * Known volume keys (database plus every non-blocked listing) and, per key,
+ * the distinct links that listed it.
+ * @example collectListings({ storedVolumeKeys: new Set(['171']) }, scans)
+ * // { known: Set{'171','177'}, listersByKey: Map{'177' => Set{1, 2}} }
+ * @returns {{ known: Set<string>, listersByKey: Map<string, Set<number>> }}
+ */
+function collectListings(params, scans) {
+	const known = new Set(params.storedVolumeKeys);
+	const listersByKey = new Map();
+	for (const scan of scans) {
+		for (const key of scan.listedKeys) {
+			known.add(key);
+			const listers = listersByKey.get(key) ?? new Set();
+			listersByKey.set(key, listers.add(scan.link.idMangaConnector));
+		}
+	}
+	return { known, listersByKey };
 }
 
 async function scanLink(params, link) {
@@ -106,17 +125,24 @@ async function scanLink(params, link) {
 	return scan;
 }
 
-async function settleDeferred(params, scan, { known, reportedKeys, into }) {
+const MIN_CORROBORATING_LINKS = 2;
+
+function isCorroborated(listersByKey, key) {
+	return (listersByKey.get(key)?.size ?? 0) >= MIN_CORROBORATING_LINKS;
+}
+
+async function settleDeferred(params, scan, context) {
+	const { known, listersByKey, reportedKeys, into } = context;
 	for (const chapter of scan.deferred) {
+		const key = toVolumeKey(chapter.volume);
 		const { isHeld, previousKnownVolume } = findGap({
 			volume: chapter.volume,
 			knownVolumeKeys: known,
 		});
-		if (!isHeld) {
+		if (!isHeld || isCorroborated(listersByKey, key)) {
 			await recordInto(params, into, scan.link, chapter);
 			continue;
 		}
-		const key = toVolumeKey(chapter.volume);
 		if (reportedKeys.has(key)) continue;
 		reportedKeys.add(key);
 		params.reportHeld({ link: scan.link, chapter, previousKnownVolume });
@@ -126,4 +152,22 @@ async function settleDeferred(params, scan, { known, reportedKeys, into }) {
 async function recordInto(params, into, link, chapter) {
 	const result = await params.recordChapter({ link, chapter });
 	if (result) into.push(result);
+}
+
+/**
+ * Structured warn payload for a held chapter (spec §2).
+ * @example buildHeldLog({ idManga: 15, link, chapter, previousKnownVolume: 171 })
+ * // { status: 'chapter_held_gap', idManga: 15, idPlugin: 'mangeek', ... }
+ * @returns {{ status: string, idManga: number, idPlugin: string, idMangaConnector: number, idChapterPlugin: string, volume: string, previousKnownVolume: number }}
+ */
+export function buildHeldLog({ idManga, link, chapter, previousKnownVolume }) {
+	return {
+		status: 'chapter_held_gap',
+		idManga,
+		idPlugin: link.idPlugin,
+		idMangaConnector: link.idMangaConnector,
+		idChapterPlugin: chapter.id,
+		volume: chapter.volume,
+		previousKnownVolume,
+	};
 }
