@@ -7,27 +7,8 @@ import {
 	flattenKavitaChapters,
 	selectChaptersToDelete,
 } from './chapterEligibility.js';
+import { ensureKavitaConnection } from './connection.js';
 import { findMatchingSeries } from './matchTitle.js';
-
-async function ensureKavitaConnection() {
-	const healthy = await KavitaClient.checkHealth();
-	if (!healthy) {
-		logger.warn({
-			status: 'kavita_cleanup_aborted',
-			reason: 'health_check_failed',
-		});
-		return null;
-	}
-	const token = await KavitaClient.authenticate();
-	if (!token) {
-		logger.warn({
-			status: 'kavita_cleanup_aborted',
-			reason: 'authenticate_failed',
-		});
-		return null;
-	}
-	return token;
-}
 
 function deleteStatus({ isOrphan, failed }) {
 	if (isOrphan) {
@@ -143,7 +124,9 @@ async function listTargetMangas({ idManga, title }) {
 }
 
 async function cleanupReadChapters({ idManga, title } = {}) {
-	const token = await ensureKavitaConnection();
+	const token = await ensureKavitaConnection({
+		statusPrefix: 'kavita_cleanup',
+	});
 	if (!token) {
 		return { totalDeleted: 0, mangasProcessed: 0 };
 	}
