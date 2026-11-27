@@ -95,6 +95,29 @@ async function markDownloaded({ idChapter }) {
 	);
 }
 
+/**
+ * Points a chapter row at another source after its file was replaced. A
+ * UNIQUE violation (that plugin chapter already stored in another row)
+ * propagates so the caller can answer 409.
+ * @example await updateChapterSource({ idChapter: 1248700, idMangaConnector: 31, idChapterPlugin: '435999', name: 'Capítulo 177' })
+ * @param {{ idChapter: number, idMangaConnector: number, idChapterPlugin: string, name: string }} params
+ * @returns {Promise<void>}
+ */
+async function updateChapterSource({
+	idChapter,
+	idMangaConnector,
+	idChapterPlugin,
+	name,
+}) {
+	const values = { idMangaConnector, idChapterPlugin, name };
+	await database.query(
+		sql
+			.update('chapters', { ...values, downloadedAt: new Date() })
+			.where({ idChapter })
+			.toParams(),
+	);
+}
+
 async function listMissingDownloads({ idManga } = {}) {
 	const where = { '"chapters"."downloadedAt"': null };
 	if (idManga) {
@@ -130,6 +153,7 @@ const ChaptersRepository = {
 	deleteChapter,
 	deleteChaptersByManga,
 	markDownloaded,
+	updateChapterSource,
 	listMissingDownloads,
 };
 export default ChaptersRepository;

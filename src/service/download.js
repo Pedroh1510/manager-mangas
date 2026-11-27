@@ -1,6 +1,6 @@
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readdir, rm } from 'node:fs/promises';
-import path, { join, resolve } from 'node:path';
+import path, { dirname, join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 import AdmZip from 'adm-zip';
 import archiver from 'archiver';
@@ -136,12 +136,26 @@ async function abortChapterDownload({
 	await rm(chapterPath, { recursive: true }).catch(() => {});
 }
 
-async function downloadChapter({ manga, chapter, pages, cookie, userAgent }) {
-	const { mangaPath, chapterPath } = getPathMangaAndChapter({
-		title: manga,
-		volume: chapter,
-	});
-	await mkdir(mangaPath, { recursive: true });
+/**
+ * Downloads every page into one .cbz. `targetPath` lets a source replacement
+ * write next to the live file and swap it only after success; every rm here
+ * then hits the target, never the live chapter.
+ * @example await downloadChapter({ manga: 'T', chapter: '177.0000', pages, targetPath: '/d/T/177.0000.cbz.replacing' })
+ * @param {{ manga: string, chapter: string|number, pages: string[], cookie?: string|null, userAgent?: string|null, targetPath?: string }} params
+ * @returns {Promise<void>}
+ */
+async function downloadChapter({
+	manga,
+	chapter,
+	pages,
+	cookie,
+	userAgent,
+	targetPath,
+}) {
+	const chapterPath =
+		targetPath ??
+		getPathMangaAndChapter({ title: manga, volume: chapter }).chapterPath;
+	await mkdir(dirname(chapterPath), { recursive: true });
 	await rm(chapterPath, { recursive: true }).catch(() => {});
 	logger.info({ manga, chapter, status: 'inicio' });
 

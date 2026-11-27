@@ -1,23 +1,27 @@
+import { rename, rm } from 'node:fs/promises';
 import { NotFoundError } from '../infra/errors.js';
 import BlockedChaptersRepository from '../repository/blockedChapters.js';
 import ChaptersRepository from '../repository/chapters.js';
+import ConnectorSwitchesRepository from '../repository/connectorSwitches.js';
+import MangaConnectorsRepository from '../repository/mangaConnectors.js';
+import PluginConfigRepository from '../repository/pluginConfig.js';
+import {
+	createChapterSourceReplace,
+	findOwnedChapter,
+} from './chapterSourceReplace.js';
+import ConnectorSwitch from './connectorSwitch.js';
+import Download from './download.js';
 import scanMangaSeries from './kavita/scanMangaSeries.js';
+import MangaService from './manga.js';
 import MangaAdminService from './mangaAdmin.js';
-
-async function findOwnedChapter({ chapters, idManga, idChapter }) {
-	const chapter = await chapters.findChapterById({ idChapter });
-	if (chapter && chapter.idManga === idManga) return chapter;
-	throw new NotFoundError({
-		message: `Capítulo ${idChapter} não encontrado no mangá ${idManga}`,
-		action: 'Informe um idChapter que pertença ao idManga da rota',
-	});
-}
 
 /**
  * Admin corrections for chapters the source got wrong. Deps are injected so
- * the service avoids import cycles and stays testable; Task 5 adds more deps.
- * @example const fixes = createChapterFixes({ chapters, blocked, deleteChapter, scanSeries })
+ * the service avoids import cycles and stays testable. Source listing and
+ * replacement live in chapterSourceReplace.js and are composed here.
+ * @example const fixes = createChapterFixes({ chapters, blocked, deleteChapter, scanSeries, ...sourceDeps })
  * @param {{ chapters: object, blocked: object, deleteChapter: Function, scanSeries: Function }} deps
+ *   plus the deps of createChapterSourceReplace
  */
 export function createChapterFixes(deps) {
 	const { chapters, blocked, deleteChapter, scanSeries } = deps;
@@ -62,7 +66,8 @@ export function createChapterFixes(deps) {
 		});
 	}
 
-	return { blockChapter, listBlocked, unblock };
+	const { listSources, replaceSource } = createChapterSourceReplace(deps);
+	return { blockChapter, listBlocked, unblock, listSources, replaceSource };
 }
 
 const ChapterFixes = createChapterFixes({
@@ -70,5 +75,16 @@ const ChapterFixes = createChapterFixes({
 	blocked: BlockedChaptersRepository,
 	deleteChapter: (params) => MangaAdminService.deleteChapter(params),
 	scanSeries: scanMangaSeries,
+	connectors: MangaConnectorsRepository,
+	source: {
+		listChaptersByManga: (params) => MangaService.listChaptersByManga(params),
+		listPages: (params) => MangaService.listPages(params),
+	},
+	connectorSwitch: ConnectorSwitch,
+	switches: ConnectorSwitchesRepository,
+	pluginAccess: PluginConfigRepository,
+	download: Download,
+	chapterPath: (params) => Download.getPathMangaAndChapter(params).chapterPath,
+	fs: { rename, rm },
 });
 export default ChapterFixes;

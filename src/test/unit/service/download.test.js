@@ -214,6 +214,50 @@ describe('Download.downloadChapter', () => {
 		);
 	});
 
+	test('download.downloadChapter writes to targetPath when given', async () => {
+		withFsPromisesReady();
+		const targetPath = '/d/Test Manga/9.cbz.replacing';
+
+		await Download.downloadChapter({
+			manga: 'Test Manga',
+			chapter: 9,
+			pages: ['https://a.example/1.jpg'],
+			targetPath,
+		});
+
+		expect(fsPromises.rm).toHaveBeenCalledWith(targetPath, {
+			recursive: true,
+		});
+		const removedLive = fsPromises.rm.mock.calls.some(([target]) =>
+			target.endsWith('/9.cbz'),
+		);
+		expect(removedLive).toBe(false);
+		expect(fsPromises.mkdir).toHaveBeenCalledWith('/d/Test Manga', {
+			recursive: true,
+		});
+	});
+
+	test('download.downloadChapter failure with targetPath removes only the temp file', async () => {
+		withFsPromisesReady();
+		downloadImage.mockRejectedValue(
+			new PageNotFoundError('https://a.example/x.jpg'),
+		);
+		const targetPath = '/d/Test Manga/10.cbz.replacing';
+
+		await expect(
+			Download.downloadChapter({
+				manga: 'Test Manga',
+				chapter: 10,
+				pages: ['https://a.example/x.jpg'],
+				targetPath,
+			}),
+		).rejects.toThrow(PageNotFoundError);
+
+		expect(fsPromises.rm).toHaveBeenLastCalledWith(targetPath, {
+			recursive: true,
+		});
+	});
+
 	test('accepts a two-page chapter even when both pages are identical', async () => {
 		withFsPromisesReady();
 		downloadImage.mockResolvedValue(Buffer.from('same'));
